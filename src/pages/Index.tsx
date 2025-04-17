@@ -10,7 +10,7 @@ import ScrollToSection from '@/components/ScrollToSection';
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-cream">
       <ScrollToSection />
       <Navbar />
       <main>

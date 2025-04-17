@@ -66,6 +66,16 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
+                // New color scheme
+                cream: '#FFFCF9',
+                blush: '#F4D8D8',
+                lavender: '#E5DAF8',
+                charcoal: '#1E1E1E',
+                taupe: '#8B7E74',
+                rose: '#E27D87',
+                sage: '#DCE7D8',
+                peach: '#FEE3D6',
+                // Keep existing glow colors for backward compatibility
                 glow: {
                     purple: '#9b87f5',
                     'dark-purple': '#1A1F2C',
@@ -139,13 +149,13 @@ export default {
 				},
 				'glow': {
 					"0%": {
-						boxShadow: "0 0 5px rgba(155, 135, 245, 0.3)"
+						boxShadow: "0 0 5px rgba(244, 216, 216, 0.3)"
 					},
 					"50%": {
-						boxShadow: "0 0 20px rgba(155, 135, 245, 0.6)"
+						boxShadow: "0 0 20px rgba(244, 216, 216, 0.6)"
 					},
 					"100%": {
-						boxShadow: "0 0 5px rgba(155, 135, 245, 0.3)"
+						boxShadow: "0 0 5px rgba(244, 216, 216, 0.3)"
 					}
 				},
 				'float': {
@@ -174,7 +184,7 @@ export default {
 			backgroundImage: {
 				'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
 				'glass-gradient': 'linear-gradient(rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.3))',
-				'purple-gradient': 'linear-gradient(to right, #9b87f5, #D6BCFA)',
+				'blush-gradient': 'linear-gradient(to right, #F4D8D8, #FEE3D6)',
 			},
 		}
 	},
