@@ -40,10 +40,10 @@ const Pricing = () => {
   ];
 
   return (
-    <section id="pricing" className="py-24 px-4 bg-muted">
-      <div className="container mx-auto max-w-6xl">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-display font-medium mb-4">
+    <section id="pricing" className="py-24 px-4 bg-white">
+      <div className="container mx-auto max-w-5xl">
+        <div className="text-center mb-20">
+          <h2 className="text-3xl md:text-4xl font-display font-medium mb-5">
             Simple, transparent <span className="text-glow-purple">pricing</span>
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
@@ -55,39 +55,39 @@ const Pricing = () => {
           {plans.map((plan) => (
             <Card 
               key={plan.name} 
-              className={`border ${plan.popular ? 'border-glow-purple shadow-lg relative overflow-hidden' : 'border-border/40'}`}
+              className={`border-border/10 shadow-sm ${plan.popular ? 'ring-1 ring-glow-purple' : ''}`}
             >
               {plan.popular && (
-                <div className="absolute top-0 right-0">
-                  <div className="bg-glow-purple text-white text-xs font-semibold px-3 py-1 rounded-bl-lg">
+                <div className="absolute top-0 right-0 -mt-4 -mr-4">
+                  <div className="bg-glow-purple text-white text-xs font-medium px-3 py-1 rounded-full">
                     Most Popular
                   </div>
                 </div>
               )}
-              <CardHeader className="pb-0">
-                <h3 className="text-lg font-medium text-muted-foreground">{plan.name}</h3>
-                <div className="mt-2 flex items-baseline">
-                  <span className="text-4xl font-bold">{plan.price}</span>
+              <CardHeader className="pb-6 pt-8">
+                <h3 className="text-lg font-medium text-foreground">{plan.name}</h3>
+                <div className="mt-4 flex items-baseline">
+                  <span className="text-4xl font-semibold">{plan.price}</span>
                   <span className="text-muted-foreground ml-1">/month</span>
                 </div>
               </CardHeader>
-              <CardContent className="pt-4">
-                <p className="text-muted-foreground mb-6">{plan.description}</p>
-                <ul className="space-y-3">
+              <CardContent className="pb-8">
+                <p className="text-muted-foreground mb-8">{plan.description}</p>
+                <ul className="space-y-4">
                   {plan.features.map((feature) => (
                     <li key={feature} className="flex items-center">
-                      <Check className="h-5 w-5 text-glow-purple mr-2 flex-shrink-0" />
-                      <span>{feature}</span>
+                      <Check className="h-5 w-5 text-glow-purple mr-3 flex-shrink-0" />
+                      <span className="text-foreground/90">{feature}</span>
                     </li>
                   ))}
                 </ul>
               </CardContent>
-              <CardFooter>
+              <CardFooter className="pb-8">
                 <Button 
                   variant={plan.buttonVariant} 
-                  className={`w-full ${plan.popular 
-                    ? 'bg-glow-purple hover:bg-glow-secondary-purple text-white' 
-                    : 'border-glow-purple/30 hover:border-glow-purple text-glow-purple'}`}
+                  className={`w-full rounded-full px-6 py-6 ${plan.popular 
+                    ? 'bg-glow-purple hover:bg-glow-purple/90 text-white' 
+                    : 'border-glow-purple/20 hover:border-glow-purple text-foreground hover:bg-glow-purple/5'}`}
                 >
                   {plan.buttonText}
                 </Button>

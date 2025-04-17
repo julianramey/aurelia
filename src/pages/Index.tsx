@@ -1,3 +1,4 @@
+
 import Navbar from '@/components/Navbar';
 import Hero from '@/components/Hero';
 import Features from '@/components/Features';
@@ -9,7 +10,7 @@ import ScrollToSection from '@/components/ScrollToSection';
 
 const Index = () => {
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-white">
       <ScrollToSection />
       <Navbar />
       <main>
