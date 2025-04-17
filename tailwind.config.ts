@@ -26,8 +26,8 @@ export default {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
 				ring: 'hsl(var(--ring))',
-				background: 'hsl(var(--background))',
-				foreground: 'hsl(var(--foreground))',
+				background: '#F5F5F5',
+				foreground: '#1A1F2C',
 				primary: {
 					DEFAULT: 'hsl(var(--primary))',
 					foreground: 'hsl(var(--primary-foreground))'
@@ -66,32 +66,26 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-                cream: '#FFFCF9',
-                blush: '#F4D8D8',
-                lavender: '#E5DAF8',
-                charcoal: '#1E1E1E',
-                taupe: '#8B7E74',
-                rose: '#E27D87',
-                sage: '#DCE7D8',
-                peach: '#FEE3D6',
-                glow: {
-                    purple: '#9b87f5',
-                    'dark-purple': '#1A1F2C',
-                    'secondary-purple': '#7E69AB',
-                    'tertiary-purple': '#6E59A5',
-                    'vivid-purple': '#8B5CF6',
-                    'light-purple': '#D6BCFA',
-                    'soft-purple': '#E5DEFF',
-                    'neutral-gray': '#8E9196',
-                    'soft-pink': '#FFDEE2',
-                    'magenta-pink': '#D946EF',
-                    'soft-peach': '#FDE1D3',
-                    'bright-orange': '#F97316',
-                    'soft-green': '#F2FCE2',
-                    'soft-blue': '#D3E4FD',
-                    'ocean-blue': '#0EA5E9',
-                    'soft-yellow': '#FEF7CD',
-                },
+                cream: '#F5F5F5',
+				lavender: '#E5DAF8',
+				charcoal: '#1A1F2C',
+				taupe: '#8E9196',
+				rose: '#7E69AB',
+				glow: {
+					// Rhode-inspired purple palette
+					'primary-purple': '#9b87f5',
+					'dark-purple': '#1A1F2C',
+					'secondary-purple': '#7E69AB',
+					'tertiary-purple': '#6E59A5',
+					'light-purple': '#D6BCFA',
+					'soft-purple': '#E5DEFF',
+					
+					// Neutral tones
+					'neutral-gray': '#8E9196',
+					'soft-white': '#F5F5F5',
+					'light-gray': '#E0E0E0',
+					'dark-gray': '#333333'
+				},
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
