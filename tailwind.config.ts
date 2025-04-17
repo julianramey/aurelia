@@ -66,7 +66,6 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-                // New color scheme
                 cream: '#FFFCF9',
                 blush: '#F4D8D8',
                 lavender: '#E5DAF8',
@@ -75,7 +74,6 @@ export default {
                 rose: '#E27D87',
                 sage: '#DCE7D8',
                 peach: '#FEE3D6',
-                // Keep existing glow colors for backward compatibility
                 glow: {
                     purple: '#9b87f5',
                     'dark-purple': '#1A1F2C',
