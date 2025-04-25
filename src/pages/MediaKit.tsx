@@ -15,7 +15,7 @@ import {
   PhotoIcon,
   ShareIcon,
 } from '@heroicons/react/24/outline';
-import type { Profile } from '@/lib/types';
+import type { Profile as ImportedProfile } from '@/lib/types';
 
 interface MediaKitProps {
   isPreview?: boolean;
@@ -34,12 +34,30 @@ interface MediaKitProps {
   };
 }
 
+interface ProfileData {
+  id: string;
+  full_name: string;
+  email?: string;
+  contact_email?: string;
+  media_kit_data: {
+    videos?: Array<{ url: string; thumbnail_url: string }>;
+    [key: string]: unknown;
+  };
+  media_kit_url?: string;
+  tagline?: string;
+  personal_intro?: string;
+  brand_name?: string;
+  colors?: Record<string, string>;
+  videos?: Array<{ url: string; thumbnail_url: string }>;
+  portfolio_images?: string[];
+}
+
 // Create a memoized version of MediaKit to prevent unnecessary rerenders
 export default memo(function MediaKit({ isPreview = false, previewData = null, isPublic = false, publicProfile = null, theme }: MediaKitProps) {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { stats, collaborations, services, portfolio, loading: dataLoading, error: dataError, refetch } = useMediaKitData();
+  const { stats, collaborations, services, portfolio, videos, loading: dataLoading, error: dataError, refetch } = useMediaKitData();
   const location = useLocation();
   
   const [profile, setProfile] = useState(null);
@@ -82,8 +100,28 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
   // 1. Memoize the parsed localStorage value to prevent unnecessary rerenders
   const localUpdatedMediaKit = useMemo(() => {
     try {
-      return updatedMediaKitFromState || JSON.parse(localStorage.getItem('updatedMediaKit') || 'null');
+      if (updatedMediaKitFromState) {
+        return updatedMediaKitFromState;
+      }
+      
+      const storedData = localStorage.getItem('updatedMediaKit');
+      if (!storedData) return null;
+      
+      const parsedData = JSON.parse(storedData);
+      console.log("MediaKit: Parsed localUpdatedMediaKit from localStorage:", {
+        full_name: parsedData.full_name,
+        brand_name: parsedData.brand_name,
+        tagline: parsedData.tagline
+      });
+      
+      // Ensure the full_name is explicitly set from brand_name if missing
+      if (!parsedData.full_name && parsedData.brand_name) {
+        parsedData.full_name = parsedData.brand_name;
+      }
+      
+      return parsedData;
     } catch (e) {
+      console.error("MediaKit: Error parsing localStorage updatedMediaKit:", e);
       return null;
     }
   }, [updatedMediaKitFromState]);
@@ -92,47 +130,61 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
 
   // If updated media kit data exists, force the colors to use a lighter purple for a consistent look
   useEffect(() => {
-    if (updatedMediaKitFromState && updatedMediaKitFromState.colors) {
-      console.log("MediaKit: Processing updatedMediaKit from state:", updatedMediaKitFromState.colors);
-      
-      // Store in localStorage to persist across page reloads
-      localStorage.setItem('mediaKitCustomStyles', JSON.stringify({
-        background: updatedMediaKitFromState.colors.background || '#F5F5F5',
-        foreground: updatedMediaKitFromState.colors.text || '#1A1F2C',
-        primary: updatedMediaKitFromState.colors.accent || '#7E69AB',
-        primaryLight: updatedMediaKitFromState.colors.accent_light || '#E5DAF8',
-        secondary: updatedMediaKitFromState.colors.secondary || '#6E59A5',
-        accent: updatedMediaKitFromState.colors.text || '#1A1F2C',
-        neutral: updatedMediaKitFromState.colors.secondary || '#8E9196',
-        border: `${updatedMediaKitFromState.colors.accent || '#7E69AB'}33`
-      }));
-      
-      // Map colors correctly from editor format to component format
-      setStyles({
-        background: updatedMediaKitFromState.colors.background || '#F5F5F5',
-        foreground: updatedMediaKitFromState.colors.text || '#1A1F2C',
-        primary: updatedMediaKitFromState.colors.accent || '#7E69AB',
-        primaryLight: updatedMediaKitFromState.colors.accent_light || '#E5DAF8',
-        secondary: updatedMediaKitFromState.colors.secondary || '#6E59A5',
-        accent: updatedMediaKitFromState.colors.text || '#1A1F2C',
-        neutral: updatedMediaKitFromState.colors.secondary || '#8E9196',
-        border: `${updatedMediaKitFromState.colors.accent || '#7E69AB'}33`
+    if (updatedMediaKitFromState) {
+      console.log("MediaKit: Processing updatedMediaKit from state:", {
+        colors: updatedMediaKitFromState.colors,
+        tagline: updatedMediaKitFromState.tagline,
+        personal_intro: updatedMediaKitFromState.personal_intro,
+        brand_name: updatedMediaKitFromState.brand_name,
+        full_name: updatedMediaKitFromState.full_name
       });
+      
+      // Create a complete profile data object from the updatedMediaKit
+      // This will be used via `kitData` in the realData assignment
+      const completeMediaKitData = {
+        full_name: updatedMediaKitFromState.full_name || updatedMediaKitFromState.brand_name,
+        personal_intro: updatedMediaKitFromState.personal_intro,
+        tagline: updatedMediaKitFromState.tagline,
+        ...updatedMediaKitFromState
+      };
+      
+      // Store this enhanced data structure for persistence
+      localStorage.setItem('updatedMediaKit', JSON.stringify(completeMediaKitData));
+      
+      if (updatedMediaKitFromState.colors) {
+        // Store in localStorage to persist across page reloads
+        localStorage.setItem('mediaKitCustomStyles', JSON.stringify({
+          background: updatedMediaKitFromState.colors.background || '#F5F5F5',
+          foreground: updatedMediaKitFromState.colors.text || '#1A1F2C',
+          primary: updatedMediaKitFromState.colors.accent || '#7E69AB',
+          primaryLight: updatedMediaKitFromState.colors.accent_light || '#E5DAF8',
+          secondary: updatedMediaKitFromState.colors.secondary || '#6E59A5',
+          accent: updatedMediaKitFromState.colors.text || '#1A1F2C',
+          neutral: updatedMediaKitFromState.colors.secondary || '#8E9196',
+          border: `${updatedMediaKitFromState.colors.accent || '#7E69AB'}33`
+        }));
+        
+        // Map colors correctly from editor format to component format
+        setStyles(prev => ({
+          ...prev,
+          background: updatedMediaKitFromState.colors.background || '#F5F5F5',
+          foreground: updatedMediaKitFromState.colors.text || '#1A1F2C',
+          primary: updatedMediaKitFromState.colors.accent || '#7E69AB',
+          primaryLight: updatedMediaKitFromState.colors.accent_light || '#E5DAF8',
+          secondary: updatedMediaKitFromState.colors.secondary || '#6E59A5',
+          accent: updatedMediaKitFromState.colors.text || '#1A1F2C',
+          neutral: updatedMediaKitFromState.colors.secondary || '#8E9196',
+          border: `${updatedMediaKitFromState.colors.accent || '#7E69AB'}33`
+        }));
+      }
     }
   }, [updatedMediaKitFromState]);
   
-  // Store updated media kit data in localStorage if available
-  useEffect(() => {
-    if (updatedMediaKitFromState) {
-      localStorage.setItem('updatedMediaKit', JSON.stringify(updatedMediaKitFromState));
-    }
-  }, [updatedMediaKitFromState]);
-
   // Debug logging for props
   useEffect(() => {
     if (isPublic && publicProfile) {
       console.log("MEDIAKIT: Received public profile:", publicProfile);
-      const typedPublicProfile = publicProfile as Profile;
+      const typedPublicProfile = publicProfile as ProfileData;
       const mediaKitData = typeof typedPublicProfile.media_kit_data === 'string' 
         ? JSON.parse(typedPublicProfile.media_kit_data) 
         : typedPublicProfile.media_kit_data;
@@ -204,15 +256,17 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
       console.log("MediaKit: Profile data fetched successfully:", profileData.id);
 
       // Fetch related data in parallel
-      const [statsResult, collabsResult, servicesResult] = await Promise.all([
+      const [statsResult, collabsResult, servicesResult, videosResult] = await Promise.all([
         supabase.from('media_kit_stats').select('*').eq('profile_id', profileId),
         supabase.from('brand_collaborations').select('*').eq('profile_id', profileId),
         supabase.from('services').select('*').eq('profile_id', profileId),
+        supabase.from('media_kit_videos').select('url, thumbnail_url').eq('profile_id', profileId)
       ]);
       
       const statsData = statsResult.data || [];
       const collabsData = collabsResult.data || [];
       const servicesData = servicesResult.data || [];
+      const videosData = videosResult.data || [];
       
       // Extract Instagram stats if available
       const instagramStats = statsData.find(s => s.platform === 'instagram') || {
@@ -230,6 +284,13 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
           : profileData.media_kit_data || {};
           
         skills = mediaKitData?.skills || [];
+        
+        // Attach videos to media_kit_data
+        if (typeof profileData.media_kit_data === 'string') {
+          profileData.media_kit_data = mediaKitData;
+        }
+        mediaKitData.videos = videosData;
+        profileData.media_kit_data = mediaKitData;
         
         // Check for custom styles in localStorage first
         const savedCustomStyles = localStorage.getItem('mediaKitCustomStyles');
@@ -282,7 +343,8 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
         portfolio_images: [],
         profile_photo: '',
         video_links: '',
-        media_kit_url: profileData.media_kit_url || ''
+        media_kit_url: profileData.media_kit_url || '',
+        contact_email: profileData.contact_email || ''
       };
 
       console.log("MediaKit: Setting complete profile");
@@ -305,7 +367,7 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
       } 
       // For public mode, process the publicProfile directly
       else if (isPublic && publicProfile) {
-        const profile = publicProfile as Profile;
+        const profile = publicProfile as ProfileData;
         const processedProfile = { ...profile };
         
         if (typeof profile.media_kit_data === 'string') {
@@ -385,7 +447,7 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
     try {
       console.log('processPreviewData called with data:', data);
       
-      const profileData = data as Profile;
+      const profileData = data as ProfileData;
       
       // Debug the structure of the incoming data
       console.log('DEBUG: profile structure:', {
@@ -430,11 +492,22 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
         console.warn('No colors found in mediaKitData:', mediaKitData);
       }
 
+      // pull in anything PublicMediaKit attached for us:
+      const videos = profileData.videos || mediaKitData.videos || [];
+      const portfolioImages = profileData.portfolio_images || mediaKitData.portfolio_images || [];
+
       const processedData = {
         ...profileData,
+
+        // make sure our videos & portfolio show up
+        videos,
+        portfolio_images: portfolioImages,
+        
         media_kit_data: mediaKitData,
+        tagline: mediaKitData?.tagline || '',
         skills: mediaKitData?.skills || [],
-        media_kit_url: profileData.media_kit_url || ''
+        media_kit_url: profileData.media_kit_url || '',
+        contact_email: mediaKitData?.contact_email || profileData.contact_email || ''
       };
 
       console.log('Processed preview data:', processedData);
@@ -455,15 +528,80 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
     }
   }, [profile]);
 
+  // Better debug for preview data specifically
+  useEffect(() => {
+    if (isPreview && previewData) {
+      console.log("MediaKit Preview: Received new preview data:", {
+        full_name: (previewData as ProfileData)?.full_name,
+        tagline: (previewData as ProfileData)?.tagline,
+        personal_intro: (previewData as ProfileData)?.personal_intro
+      });
+    }
+  }, [isPreview, previewData]);
+
   // Ensure realData is declared only once
   const realData = isPreview 
     ? { ...((typeof previewData === 'object' && previewData) || {}), ...(profile || {}) }
     : isPublic
-      ? { ...((typeof publicProfile === 'object' && publicProfile) || {}), ...(profile || {}) }
-      : { ...(profile || {}), ...(kitData || {}) };
+      ? (() => {
+          // use the fully-processed `profile` state here,
+          // not the raw prop
+          const source = profile || (publicProfile as ProfileData) || {} as ProfileData;
+          const top = Array.isArray(source.videos) ? source.videos : [];
+          const inner = source.media_kit_data?.videos || [];
+          return {
+            ...source,
+            videos: top.length ? top : inner
+          };
+        })()
+      : { ...(profile || {}), ...(kitData || {}), videos: videos || [] };
+      
+  // Debug log for public profile data flow
+  if (isPublic) {
+    console.log("REAL DATA CONSTRUCTION (PUBLIC MODE):", {
+      publicProfileType: typeof publicProfile,
+      publicProfileHasVideos: !!(publicProfile as ProfileData)?.videos?.length,
+      publicProfileVideosType: typeof (publicProfile as ProfileData)?.videos,
+      publicProfileHasMediaKitVideos: !!(publicProfile as ProfileData)?.media_kit_data?.videos?.length,
+      processedProfileHasVideos: !!profile?.videos?.length,
+      finalRealDataHasVideos: !!realData.videos?.length,
+      realDataVideosType: typeof realData.videos,
+      computedVideosValue: ((typeof publicProfile === 'object' && publicProfile) as ProfileData)?.videos?.length > 0
+        ? "Using publicProfile.videos"
+        : ((typeof publicProfile === 'object' && publicProfile) as ProfileData)?.media_kit_data?.videos?.length > 0
+          ? "Using publicProfile.media_kit_data.videos"
+          : "Using empty array fallback"
+    });
+  }
+  
+  // Debug videos data structure
+  console.log("MediaKit DEBUG videos:", {
+    isPublic,
+    topLevelVideos: realData.videos,
+    mediaKitVideos: realData.media_kit_data?.videos,
+    videosLength: realData.videos?.length,
+    mediaKitVideosLength: realData.media_kit_data?.videos?.length,
+    publicProfileType: isPublic ? typeof publicProfile : null,
+    publicProfileHasVideos: isPublic ? !!(publicProfile as ProfileData)?.videos?.length : null,
+    publicProfileHasMediaKitVideos: isPublic ? !!(publicProfile as ProfileData)?.media_kit_data?.videos?.length : null
+  });
+
+  // Log the realData tagline value 
+  console.log("MediaKit received data:", {
+    isPreview,
+    isPublic,
+    hasTagline: 'tagline' in realData,
+    tagline: realData.tagline,
+    taglineType: typeof realData.tagline
+  });
 
   // Add fallbacks for essential properties to prevent errors
   if (!realData.full_name) realData.full_name = 'Media Kit';
+  
+  // Only add fallback for non-preview mode
+  // Preview mode should show exactly what's passed in
+  if (!isPreview && !realData.tagline) realData.tagline = 'Content Creator';
+  
   if (!realData.services) realData.services = [];
   if (!realData.brand_collaborations) realData.brand_collaborations = [];
   if (!realData.portfolio_images) realData.portfolio_images = ['https://placehold.co/600x400','https://placehold.co/600x400','https://placehold.co/600x400'];
@@ -472,11 +610,14 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
     hasData: !!realData,
     id: realData?.id,
     name: realData?.full_name,
+    email: realData?.email,
+    contact_email: realData?.contact_email,
     hasServices: Array.isArray(realData?.services),
     serviceCount: Array.isArray(realData?.services) ? realData.services.length : 'N/A'
   });
 
   const handleEdit = () => {
+    console.log("Edit button clicked - contact_email state:", realData.contact_email);
     navigate('/media-kit/edit');
   };
 
@@ -819,10 +960,11 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
                   {realData.full_name}
                 </h1>
                 <p className="text-[1.1rem] italic mb-4" style={{ color: computedStyles.primary }}>
-                  Content Creator
+                  {realData.tagline}
                 </p>
+
                 <p className="text-base mb-6" style={{ color: computedStyles.neutral }}>
-                  {realData.intro}
+                  {realData.personal_intro || realData.intro || ''}
                 </p>
                 
                 <div className="social-links flex flex-wrap gap-4 justify-center md:justify-start">
@@ -854,9 +996,9 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
                       TikTok
                     </a>
                   )}
-                  {realData.email && (
+                  {(realData.contact_email || realData.email) && (
                     <a
-                      href={`mailto:${realData.email}`}
+                      href={`mailto:${realData.contact_email || realData.email}`}
                       className="text-[0.9rem] font-medium px-4 py-2 rounded-lg transition-all hover:bg-primary hover:text-white"
                       style={{ 
                         background: computedStyles.primaryLight,
@@ -912,40 +1054,77 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
                 <PhotoIcon className="w-6 h-6" style={{ color: computedStyles.primary }} />
                 Recent Content
               </h2>
-              <div className="portfolio grid grid-cols-1 md:grid-cols-3 gap-4">
-                {(realData.portfolio_images || [
-                  'https://placehold.co/600x400',
-                  'https://placehold.co/600x400',
-                  'https://placehold.co/600x400'
-                ]).map((image, index) => (
-                  <img 
-                    key={index}
-                    src={image}
-                    alt={`Portfolio ${index + 1}`}
-                    className="w-full h-[200px] object-cover rounded-[0.75rem] border-2 transition-transform hover:scale-[1.02]"
-                    style={{ borderColor: computedStyles.border }}
-                  />
-                ))}
-              </div>
-            </div>
+              
+              {(() => {
+                // pick whichever source has videos
+                const vids = realData.videos?.length
+                          ? realData.videos
+                          : realData.media_kit_data?.videos || [];
 
-            {realData.video_links && realData.video_links.trim() !== '' && (
-              <div className="section bg-white rounded-[0.75rem] p-6 shadow-sm border" style={{ borderColor: computedStyles.border }}>
-                <h2 className="font-['Playfair_Display'] text-[1.5rem] mb-6 flex items-center gap-2" style={{ color: computedStyles.foreground }}>
-                  Social Videos
-                </h2>
-                <div className="videos-grid grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {realData.video_links.split(',').map((url, index) => {
-                    const trimmed = url.trim();
-                    return trimmed ? (
-                      <a key={index} href={trimmed} target="_blank" rel="noopener noreferrer">
-                        <img src="https://placehold.co/600x400?text=Video+Thumbnail" alt={`Video ${index + 1}`} className="w-full h-[200px] object-cover rounded-[0.75rem] border-2 transition-transform hover:scale-[1.02]" style={{ borderColor: computedStyles.border }} />
+                if (vids.length === 0) {
+                  // fallback to portfolio_images or placeholders…
+                  return (
+                    <div className="grid grid-cols-3 gap-4">
+                      {(realData.portfolio_images?.length 
+                        ? realData.portfolio_images
+                        : [
+                          'https://placehold.co/600x400',
+                          'https://placehold.co/600x400',
+                          'https://placehold.co/600x400'
+                        ]).map((image, index) => (
+                        <img 
+                          key={index}
+                          src={image}
+                          alt={`Portfolio ${index + 1}`}
+                          className="w-full h-[200px] object-cover rounded-[0.75rem] border-2 transition-transform hover:scale-[1.02]"
+                          style={{ borderColor: computedStyles.border }}
+                        />
+                      ))}
+                    </div>
+                  );
+                }
+
+                // Videos: Display all on one row with consistent sizing and proper padding
+                return (
+                  <div className="flex justify-center px-1" 
+                       style={{ 
+                         gap: vids.length >= 3 && vids.length <= 4 ? '1.5rem' : '1rem',
+                       }}>
+                    {vids.map((v, i) => (
+                      <a
+                        key={i}
+                        href={v.url}
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="block rounded-lg overflow-hidden flex-1"
+                        style={{ 
+                          border: `2px solid ${computedStyles.primary}`,
+                          maxWidth: vids.length <= 3 ? '26%' : '19.8%', // Made 4-5 videos 7% larger
+                        }}
+                      >
+                        <div className="relative">
+                          <img
+                            src={v.thumbnail_url}
+                            alt={`Video ${i+1}`}
+                            className="w-full object-cover aspect-[3/4]"
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-25">
+                            <svg 
+                              xmlns="http://www.w3.org/2000/svg" 
+                              fill="white" 
+                              viewBox="0 0 24 24" 
+                              className={`${vids.length >= 4 ? 'w-9 h-9' : 'w-10 h-10'}`}
+                            >
+                              <path d="M8 5v14l11-7L8 5z"/>
+                            </svg>
+                          </div>
+                        </div>
                       </a>
-                    ) : null;
-                  })}
-                </div>
-              </div>
-            )}
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
 
             {/* Brand Collaborations - Always show this section */}
             <div className="section bg-white rounded-[0.75rem] p-6 shadow-sm border" style={{ borderColor: computedStyles.border }}>
@@ -1014,11 +1193,11 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
                   <h4 className="text-[0.9rem] mb-2" style={{ color: computedStyles.neutral }}>Email</h4>
                   <p>
                     <a 
-                      href={`mailto:${realData.email || 'contact@example.com'}`} 
+                      href={`mailto:${realData.contact_email || realData.email || 'contact@example.com'}`} 
                       className="contact-info-text font-medium hover:underline block" 
                       style={{ color: computedStyles.primary }}
                     >
-                      {realData.email || 'contact@example.com'}
+                      {realData.contact_email || realData.email || 'contact@example.com'}
                     </a>
                   </p>
                 </div>

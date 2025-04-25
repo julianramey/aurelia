@@ -86,18 +86,27 @@ export default function PublicMediaKit() {
         // Fetch related data in parallel after profile is found
         console.log("PublicMediaKit: Fetching related data for profile:", profileData.id);
         
-        const [statsResult, collabsResult, servicesResult, portfolioResult] = await Promise.all([
+        const [statsResult, collabsResult, servicesResult, portfolioResult, videosResult] = await Promise.all([
           supabaseNoCache.from('media_kit_stats').select('*').eq('profile_id', profileData.id),
           supabaseNoCache.from('brand_collaborations').select('*').eq('profile_id', profileData.id),
           supabaseNoCache.from('services').select('*').eq('profile_id', profileData.id),
-          supabaseNoCache.from('portfolio_items').select('*').eq('profile_id', profileData.id)
+          supabaseNoCache.from('portfolio_items').select('*').eq('profile_id', profileData.id),
+          supabaseNoCache.from('media_kit_videos').select('url, thumbnail_url').eq('profile_id', profileData.id)
         ]);
+        
+        // 🔥 DEBUG: log the raw Supabase response
+        console.group('PublicMediaKit: media_kit_videos result')
+        console.log('videosResult:', videosResult)
+        console.log('videosResult.data:', videosResult.data)
+        console.log('videosResult.error:', videosResult.error)
+        console.groupEnd()
         
         // Extract and process related data
         const statsData = statsResult.data || [];
         const collabsData = collabsResult.data || [];
         const servicesData = servicesResult.data || [];
         const portfolioData = portfolioResult.data || [];
+        const videosData = videosResult.data || [];
         
         // Extract Instagram stats if available
         const instagramStats = statsData.find(s => s.platform === 'instagram') || {
@@ -107,17 +116,52 @@ export default function PublicMediaKit() {
           weekly_reach: 0
         };
         
-        // Create a complete profile with all related data
+        // Ensure media_kit_data is an object
+        if (!profileData.media_kit_data) {
+          profileData.media_kit_data = {
+            type: 'media_kit_data',
+            brand_name: profileData.full_name || '',
+            tagline: '',
+            colors: { cream: '', charcoal: '', taupe: '', blush: '', accent: '' },
+            font: 'Inter'
+          };
+        } else if (typeof profileData.media_kit_data === 'string') {
+          try {
+            profileData.media_kit_data = JSON.parse(profileData.media_kit_data);
+          } catch (e) {
+            profileData.media_kit_data = {
+              type: 'media_kit_data',
+              brand_name: profileData.full_name || '',
+              tagline: '',
+              colors: { cream: '', charcoal: '', taupe: '', blush: '', accent: '' },
+              font: 'Inter'
+            };
+          }
+        }
+        
+        // IMPORTANT: Attach videos to media_kit_data
+        profileData.media_kit_data.videos = videosData;
+        
+        // IMPORTANT: Create a new completeProfile object that:
+        // 1) Has videos at the top level for realData.videos
+        // 2) Preserves media_kit_data.videos for the fallback path
         const completeProfile = {
           ...profileData,
+          // explicitly set videos at the top level 
+          videos: videosData,
+          // portfolio data transforms
+          portfolio_images: portfolioData.map(p => p.media_url) || [],
+          // instagram stats
           follower_count: instagramStats.follower_count || 0,
           engagement_rate: instagramStats.engagement_rate || 0,
           avg_likes: instagramStats.avg_likes || 0,
           reach: instagramStats.weekly_reach || 0,
+          // other data
           services: servicesData?.map(s => s.service_name || 'Unnamed Service') || [],
           brand_collaborations: collabsData?.map(c => c.brand_name || 'Unnamed Brand') || [],
-          portfolio_images: portfolioData?.map(p => p.media_url) || [],
-          skills: profileData.media_kit_data?.skills || []
+          skills: profileData.media_kit_data?.skills || [],
+          // Extract contact_email from media_kit_data if available
+          contact_email: profileData.media_kit_data?.contact_email || null,
         };
 
         // Set the profile state with complete data
