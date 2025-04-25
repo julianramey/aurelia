@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Check } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -40,7 +39,7 @@ const Pricing = () => {
   ];
 
   return (
-    <section id="pricing" className="py-24 px-4 bg-cream">
+    <section id="pricing" className="py-24 px-4 bg-white">
       <div className="container mx-auto max-w-5xl">
         <div className="text-center mb-20">
           <h2 className="text-3xl md:text-4xl font-display font-medium mb-5 text-charcoal">
@@ -55,7 +54,7 @@ const Pricing = () => {
           {plans.map((plan) => (
             <Card 
               key={plan.name} 
-              className={`border-blush/10 shadow-sm ${plan.popular ? 'ring-1 ring-rose' : ''}`}
+              className={`border-rose/10 shadow-sm ${plan.popular ? 'ring-1 ring-rose' : ''}`}
             >
               {plan.popular && (
                 <div className="absolute top-0 right-0 -mt-4 -mr-4">
@@ -87,7 +86,7 @@ const Pricing = () => {
                   variant={plan.buttonVariant} 
                   className={`w-full rounded-full px-6 py-6 ${plan.popular 
                     ? 'bg-rose hover:bg-rose/90 text-white' 
-                    : 'border-blush/20 hover:border-rose text-charcoal hover:bg-blush/10'}`}
+                    : 'border-rose/20 hover:border-rose text-charcoal hover:bg-white/50'}`}
                 >
                   {plan.buttonText}
                 </Button>

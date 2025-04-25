@@ -1,16 +1,19 @@
-
 import React from 'react';
 import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
+import { useAuth } from "@/lib/AuthContext";
 
 const Hero = () => {
+  const { user } = useAuth();
+
   return (
-    <section className="py-24 md:py-32 px-4 relative overflow-hidden bg-cream">
+    <section className="py-24 md:py-32 px-4 relative overflow-hidden bg-white">
       <div className="container mx-auto max-w-5xl relative">
         <div className="flex flex-col items-center text-center mb-16">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-medium leading-tight max-w-3xl mx-auto">
             Pitch brands.
             Land collabs.
-            <span className="text-rose"> Glow up.</span>
+            <span className="text-rose hover:italic transition-all duration-200 cursor-default"> Glow up.</span>
           </h1>
           <p className="mt-6 text-lg text-taupe max-w-xl mx-auto">
             Create stunning media kits and pitch top brands in just minutes. 
@@ -18,12 +21,22 @@ const Hero = () => {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 mt-10">
-            <Button className="bg-rose hover:bg-rose/90 text-white px-8 py-6 text-lg rounded-full">
-              Create Your Media Kit
-            </Button>
-            <Button variant="outline" className="border-blush/60 hover:border-rose text-charcoal px-8 py-6 text-lg rounded-full">
-              See How It Works
-            </Button>
+            <Link to={user ? "/dashboard" : "/login"}>
+              <Button 
+                variant="rose"
+                className="px-8 py-6 text-lg rounded-full"
+              >
+                {user ? "Go to Dashboard" : "Create Your Media Kit"}
+              </Button>
+            </Link>
+            <Link to="#howitworks">
+              <Button 
+                variant="outline" 
+                className="border-rose/60 hover:border-rose text-charcoal px-8 py-6 text-lg rounded-full"
+              >
+                See How It Works
+              </Button>
+            </Link>
           </div>
 
           <div className="flex items-center space-x-4 text-sm text-taupe mt-10">

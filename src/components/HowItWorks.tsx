@@ -1,7 +1,11 @@
-
 import React from 'react';
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
+import { useAuth } from "@/lib/AuthContext";
 
 const HowItWorks = () => {
+  const { user } = useAuth();
+  
   const steps = [
     {
       number: "01",
@@ -26,7 +30,7 @@ const HowItWorks = () => {
   ];
 
   return (
-    <section id="howitworks" className="py-24 px-4 bg-cream">
+    <section id="howitworks" className="py-24 px-4 bg-white">
       <div className="container mx-auto max-w-5xl">
         <div className="text-center mb-20">
           <h2 className="text-3xl md:text-4xl font-display font-medium mb-5">
@@ -41,7 +45,7 @@ const HowItWorks = () => {
           {steps.map((step, index) => (
             <div key={index} className="flex gap-6 group">
               <div className="flex-shrink-0">
-                <div className="w-10 h-10 rounded-full bg-cream flex items-center justify-center border border-blush/40 text-rose font-medium">
+                <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center border border-rose/40 text-rose font-medium">
                   {step.number}
                 </div>
               </div>
@@ -53,15 +57,17 @@ const HowItWorks = () => {
           ))}
         </div>
 
-        <div className="mt-24 p-12 bg-lavender/20 rounded-3xl relative overflow-hidden">
+        <div className="mt-24 p-12 bg-white rounded-3xl relative overflow-hidden">
           <div className="max-w-2xl mx-auto text-center">
             <h3 className="text-2xl md:text-3xl font-display font-medium mb-5 text-charcoal">Ready to start pitching?</h3>
             <p className="text-taupe text-lg mb-8">
               Join thousands of creators who are landing brand deals every day with Glowfolio.
             </p>
-            <button className="bg-rose hover:bg-rose/90 text-white px-8 py-3 rounded-full text-lg font-medium transition-colors">
-              Create Your Media Kit
-            </button>
+            <Link to={user ? "/dashboard" : "/login"}>
+              <Button className="bg-rose hover:bg-rose/90 text-white px-8 py-3 rounded-full text-lg font-medium transition-colors">
+                {user ? "Go to Dashboard" : "Create Your Media Kit"}
+              </Button>
+            </Link>
           </div>
         </div>
       </div>

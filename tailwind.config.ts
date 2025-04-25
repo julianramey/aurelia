@@ -1,14 +1,27 @@
 import type { Config } from "tailwindcss";
+import animatePlugin from 'tailwindcss-animate';
+import colors from 'tailwindcss/colors';
 
 export default {
 	darkMode: ["class"],
 	content: [
-		"./pages/**/*.{ts,tsx}",
-		"./components/**/*.{ts,tsx}",
+		"./src/**/*.{ts,tsx,css}",
+		"./src/index.css",
+		"./pages/**/*.{ts,tsx,css}",
+		"./components/**/*.{ts,tsx,css}",
 		"./app/**/*.{ts,tsx}",
-		"./src/**/*.{ts,tsx}",
 	],
 	prefix: "",
+	safelist: [
+		'border-border',
+		'bg-rose', 'text-rose', 'border-rose', 'hover:bg-rose', 'hover:bg-rose/90', 'hover:text-rose',
+		'bg-cream', 'text-cream', 'border-cream',
+		'bg-charcoal', 'text-charcoal', 'border-charcoal',
+		'bg-taupe', 'text-taupe', 'border-taupe',
+		'bg-blush', 'text-blush', 'border-blush',
+		'bg-lavender', 'text-lavender', 'border-lavender',
+		{ pattern: /^(bg|text|border|hover:|focus:|active:)[\w\-/]+$/ }
+	],
 	theme: {
 		container: {
 			center: true,
@@ -23,68 +36,55 @@ export default {
 		},
 		extend: {
 			colors: {
-				border: 'hsl(var(--border))',
-				input: 'hsl(var(--input))',
-				ring: 'hsl(var(--ring))',
-				background: '#F5F5F5',
-				foreground: '#1A1F2C',
+				cream:     'hsl(var(--cream))',
+				charcoal:  'hsl(var(--charcoal))',
+				taupe:     'hsl(var(--taupe))',
+				blush:     'hsl(var(--blush))',
+				lavender:  'hsl(var(--lavender))',
+				rose:      'hsl(var(--rose))',
+				accent:    'var(--accent)',
+				border:    'var(--border)',
+				input:     'var(--input)',
+				ring:      'var(--ring)',
+				background:'var(--background)',
+				foreground:'var(--foreground)',
+				gray:   colors.gray,
+				blue:   colors.blue,
+				green:  colors.green,
+				pink:   colors.pink,
 				primary: {
-					DEFAULT: 'hsl(var(--primary))',
-					foreground: 'hsl(var(--primary-foreground))'
+					DEFAULT: 'var(--primary)',
+					foreground: 'var(--primary-foreground)'
 				},
 				secondary: {
-					DEFAULT: 'hsl(var(--secondary))',
-					foreground: 'hsl(var(--secondary-foreground))'
+					DEFAULT: 'var(--secondary)',
+					foreground: 'var(--secondary-foreground)'
 				},
 				destructive: {
-					DEFAULT: 'hsl(var(--destructive))',
-					foreground: 'hsl(var(--destructive-foreground))'
+					DEFAULT: 'var(--destructive)',
+					foreground: 'var(--destructive-foreground)'
 				},
 				muted: {
-					DEFAULT: 'hsl(var(--muted))',
-					foreground: 'hsl(var(--muted-foreground))'
-				},
-				accent: {
-					DEFAULT: 'hsl(var(--accent))',
-					foreground: 'hsl(var(--accent-foreground))'
+					DEFAULT: 'var(--muted)',
+					foreground: 'var(--muted-foreground)'
 				},
 				popover: {
-					DEFAULT: 'hsl(var(--popover))',
-					foreground: 'hsl(var(--popover-foreground))'
+					DEFAULT: 'var(--popover)',
+					foreground: 'var(--popover-foreground)'
 				},
 				card: {
-					DEFAULT: 'hsl(var(--card))',
-					foreground: 'hsl(var(--card-foreground))'
+					DEFAULT: 'var(--card)',
+					foreground: 'var(--card-foreground)'
 				},
 				sidebar: {
-					DEFAULT: 'hsl(var(--sidebar-background))',
-					foreground: 'hsl(var(--sidebar-foreground))',
-					primary: 'hsl(var(--sidebar-primary))',
-					'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
-					accent: 'hsl(var(--sidebar-accent))',
-					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
-					border: 'hsl(var(--sidebar-border))',
-					ring: 'hsl(var(--sidebar-ring))'
-				},
-                cream: '#F5F5F5',
-				lavender: '#E5DAF8',
-				charcoal: '#1A1F2C',
-				taupe: '#8E9196',
-				rose: '#7E69AB',
-				glow: {
-					// Rhode-inspired purple palette
-					'primary-purple': '#9b87f5',
-					'dark-purple': '#1A1F2C',
-					'secondary-purple': '#7E69AB',
-					'tertiary-purple': '#6E59A5',
-					'light-purple': '#D6BCFA',
-					'soft-purple': '#E5DEFF',
-					
-					// Neutral tones
-					'neutral-gray': '#8E9196',
-					'soft-white': '#F5F5F5',
-					'light-gray': '#E0E0E0',
-					'dark-gray': '#333333'
+					DEFAULT: 'var(--sidebar-background)',
+					foreground: 'var(--sidebar-foreground)',
+					primary: 'var(--sidebar-primary)',
+					'primary-foreground': 'var(--sidebar-primary-foreground)',
+					accent: 'var(--sidebar-accent)',
+					'accent-foreground': 'var(--sidebar-accent-foreground)',
+					border: 'var(--sidebar-border)',
+					ring: 'var(--sidebar-ring)'
 				},
 			},
 			borderRadius: {
@@ -176,9 +176,9 @@ export default {
 			backgroundImage: {
 				'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
 				'glass-gradient': 'linear-gradient(rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.3))',
-				'blush-gradient': 'linear-gradient(to right, #F4D8D8, #FEE3D6)',
+				'blush-gradient': 'linear-gradient(to right, #7E69AB, #9F8BC3)',
 			},
 		}
 	},
-	plugins: [require("tailwindcss-animate")],
+	plugins: [animatePlugin],
 } satisfies Config;

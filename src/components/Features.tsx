@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -14,7 +13,7 @@ const Features = () => {
       title: "Brand Discovery",
       description: "Access our database of 5,000+ brands looking to collaborate with creators in your niche.",
       icon: "🔍",
-      color: "bg-blush/40"
+      color: "bg-lavender/40"
     },
     {
       title: "Pitch Tool",
@@ -32,7 +31,7 @@ const Features = () => {
       title: "Custom Vanity URL",
       description: "Get your own branded link to share your professional media kit with potential partners.",
       icon: "🔗",
-      color: "bg-blush/40"
+      color: "bg-lavender/40"
     },
     {
       title: "Daily Pitch Tracker",
@@ -43,7 +42,7 @@ const Features = () => {
   ];
 
   return (
-    <section id="features" className="py-24 px-4 bg-sage/20">
+    <section id="features" className="py-24 px-4 bg-white">
       <div className="container mx-auto max-w-6xl">
         <div className="text-center mb-20">
           <h2 className="text-3xl md:text-4xl font-display font-medium mb-5">

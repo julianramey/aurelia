@@ -1,0 +1,65 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+ Project Development Rules
+User-First, Friction-Free
+
+Every screen and flow (onboarding, media-kit editor, brand search, pitch tool) must minimize clicks and fields.
+
+Default sensible values wherever possible; only ask for truly essential data.
+
+One Source of Truth
+
+All styling (colors, fonts, spacing) lives in Tailwind/CSS-vars and theme configs—no hard-coded values.
+
+Components consume only design tokens and utility classes; no inline hexes or magic numbers.
+
+Schema Completeness
+
+Every user-editable piece of data (profile info, media-kit sections, theme colors) must be declared in the Cursor/Supabase schema.
+
+Use clear, consistent field names; wrap optional sections in conditionals.
+
+Incremental & Atomic
+
+Each PR tackles a single mini-project or clearly scoped chunk (e.g. “Seed brand DB + discovery UI” or “Media-kit color-theming overhaul”).
+
+Avoid cross-cutting changes that touch unrelated features in one commit.
+
+Production-Ready Out of the Box
+
+Code must build and run without errors, both locally and in CI.
+
+Include error handling, loading states, and retry logic for all network requests.
+
+Consistency & Reuse
+
+Reuse UI components for cards, buttons, forms, etc., with props for variants (size, tone).
+
+Follow the existing component API patterns (e.g. <Card>, <Button variant="outline">).
+
+Performance & Responsiveness
+
+Keep bundle size low—lazy-load large modules (brand DB, pitch templates) where appropriate.
+
+Ensure layouts work seamlessly on mobile (≤ 640px), tablet, and desktop.
+
+Visibility & Feedback
+
+Show spinners or skeletons during async fetches.
+
+Confirm actions (e.g. “Pitch sent”, “Profile saved”) with non-blocking toasts.
+
+Data Integrity & Security
+
+Validate inputs both client-side and server-side (Supabase rules).
+
+Never expose Pro-only fields (verified contacts) to Starter users.
+
+Ship Fast, Iterate Faster
+
+Merge MVP functionality quickly; gather real user feedback.
+
+Prioritize analytics and error-tracking hooks (e.g. email opens) in v2, not v1.

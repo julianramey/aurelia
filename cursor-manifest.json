@@ -1,0 +1,40 @@
+{
+  "project": "glowfolio",
+  "editor": {
+    "mediaKit": {
+      "mediaKitTemplate": {
+        "fields": {
+          "themeColors": {
+            "type": "object",
+            "label": "Color Scheme",
+            "properties": {
+              "cream":    { "type": "string", "label": "Cream" },
+              "charcoal": { "type": "string", "label": "Charcoal" },
+              "taupe":    { "type": "string", "label": "Taupe" },
+              "blush":    { "type": "string", "label": "Blush" },
+              "accent":   { "type": "string", "label": "Accent" }
+            }
+          },
+          "header": {
+            "name": "Brand Name",
+            "photo": "Profile Photo URL",
+            "handle": "Social Handle",
+            "intro": "Personal Intro",
+            "socialURLs": {
+              "instagram": "Instagram URL",
+              "tiktok": "TikTok URL",
+              "email": "Email Address"
+            }
+          },
+          "sections": {
+            "about": "About Me",
+            "stats": "Audience Stats",
+            "recentWork": "Recent Work",
+            "services": "Services & Skills",
+            "contact": "Contact Information"
+          }
+        }
+      }
+    }
+  }
+} 

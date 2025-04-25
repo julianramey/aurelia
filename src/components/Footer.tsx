@@ -1,15 +1,14 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 
 const Footer = () => {
   return (
-    <footer className="border-t border-blush/20 py-12 px-4 bg-cream">
+    <footer className="border-t border-rose/20 py-12 px-4 bg-white">
       <div className="container mx-auto max-w-6xl">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="md:col-span-2">
             <Link to="/" className="flex items-center">
-              <span className="text-2xl font-display font-semibold bg-clip-text text-transparent bg-blush-gradient">
+              <span className="text-2xl font-display font-semibold text-rose">
                 Glowfolio
               </span>
             </Link>
@@ -59,7 +58,7 @@ const Footer = () => {
           </div>
         </div>
         
-        <div className="mt-12 pt-6 border-t border-blush/20 flex flex-col md:flex-row justify-between items-center">
+        <div className="mt-12 pt-6 border-t border-rose/20 flex flex-col md:flex-row justify-between items-center">
           <p className="text-sm text-taupe">&copy; {new Date().getFullYear()} Glowfolio. All rights reserved.</p>
           <div className="mt-4 md:mt-0 flex space-x-6 text-sm">
             <Link to="#" className="text-taupe hover:text-rose">Privacy Policy</Link>
