@@ -21,6 +21,19 @@ import {
 import DashboardNav from '@/components/DashboardNav';
 import { supabase } from '@/lib/supabase';
 
+/**
+ * Turn any filename into a Storage-safe key:
+ */
+function makeSafeKey(userId: string, originalName: string) {
+  const parts = originalName.split('.')
+  const ext   = parts.length > 1 ? parts.pop() : ''
+  const name  = parts.join('.')
+  const safeBase = name
+    .toLowerCase()
+    .replace(/[^a-z0-9.\-_]/g, '_')
+  return `${userId}/${safeBase}_${Date.now()}${ext ? `.${ext}` : ''}`
+}
+
 interface ColorScheme {
   background: string;
   text: string;
@@ -52,6 +65,7 @@ interface MediaKitData extends BaseMediaKitData {
   engagement_rate?: number;
   avg_likes?: number;
   reach?: number;
+  contact_email?: string;
 }
 
 const COLOR_PRESETS = [
@@ -141,6 +155,77 @@ const getContrast = (hex: string): string => {
   return yiq >= 128 ? '#000000' : '#ffffff';
 };
 
+// Add a separate Preview component to isolate and force re-renders
+interface MediaKitPreviewProps {
+  previewData: Profile | null;
+  theme: {
+    background: string;
+    foreground: string;
+    primary: string;
+    primaryLight: string;
+    secondary: string;
+    accent: string;
+    neutral: string;
+    border: string;
+  };
+  tagline: string;
+}
+
+// Extended profile type for preview with profile_photo
+interface PreviewProfile extends Profile {
+  profile_photo?: string;
+  colors?: ColorScheme;
+  font?: string;
+  contact_email?: string;
+}
+
+const MediaKitPreview = ({ previewData, theme, tagline }: MediaKitPreviewProps) => {
+  if (!previewData) return null;
+  
+  // Cast to extended profile type
+  const previewDataWithPhoto = previewData as PreviewProfile;
+    
+  // Handle media_kit_data safely
+  const existingMediaKitData = typeof previewDataWithPhoto.media_kit_data === 'object' 
+    ? previewDataWithPhoto.media_kit_data 
+    : {};
+    
+  const completePreviewData = {
+    ...previewDataWithPhoto,
+    // Add avatar_url at the top level where MediaKit looks for it
+    avatar_url: previewDataWithPhoto.profile_photo,
+    media_kit_data: {
+      ...existingMediaKitData,
+      
+      // overwrite with our live values:
+      brand_name: previewDataWithPhoto.full_name,
+      tagline: tagline,
+      colors: previewDataWithPhoto.colors,
+      font: previewDataWithPhoto.font,
+      personal_intro: previewDataWithPhoto.personal_intro,
+      instagram_handle: previewDataWithPhoto.instagram_handle,
+      tiktok_handle: previewDataWithPhoto.tiktok_handle,
+      contact_email: previewDataWithPhoto.contact_email,
+      
+      // Also include the profile_photo in the media_kit_data
+      profile_photo: previewDataWithPhoto.profile_photo,
+    },
+    id: 'preview-id',
+    user_id: 'preview-user-id',
+    username: 'preview-username',
+  };
+  
+  return (
+    <div className="bg-white rounded-lg p-4 shadow-sm">
+      <MediaKit 
+        isPreview={true} 
+        previewData={completePreviewData} 
+        theme={theme} 
+      />
+    </div>
+  );
+};
+
 export default function MediaKitEditor() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -182,19 +267,29 @@ export default function MediaKitEditor() {
     reach: 0,
     email: profile?.email || '',
     profile_photo: '',
-    video_links: ''
+    video_links: '',
+    contact_email: profile?.email || ''
   });
 
   // Create a stable memoized version of the preview data to prevent unnecessary rerenders
   const mediaKitPreviewData = useMemo(() => {
     if (!formData) return null;
     
+    console.log("MediaKitEditor: Updating preview data with tagline:", formData.tagline);
+    console.log("MediaKitEditor: Including profile photo:", formData.profile_photo);
+    
     // Only include properties that should trigger a preview refresh
-    return {
-      brand_name: formData.brand_name,
+    const previewData = {
+      // Required Profile fields
+      id: 'preview-id',
+      user_id: 'preview-user-id',
+      username: 'preview-username',
+      
+      // Content fields
+      full_name: formData.brand_name,
       personal_intro: formData.personal_intro,
-      tagline: formData.tagline,
-      profile_photo: formData.profile_photo,
+      tagline: formData.tagline || 'Your Tagline', // Make sure tagline is never empty
+      profile_photo: formData.profile_photo, // Explicitly include profile_photo
       portfolio_images: formData.portfolio_images,
       font: formData.font,
       skills: formData.skills,
@@ -204,16 +299,36 @@ export default function MediaKitEditor() {
       instagram_handle: formData.instagram_handle,
       tiktok_handle: formData.tiktok_handle,
       email: formData.email,
+      contact_email: formData.email,
       follower_count: formData.follower_count,
       engagement_rate: formData.engagement_rate,
       avg_likes: formData.avg_likes,
       reach: formData.reach,
     };
-  }, [formData?.brand_name, formData?.personal_intro, formData?.tagline, formData?.profile_photo, 
-      formData?.portfolio_images, formData?.font, formData?.skills, formData?.services, 
-      formData?.brand_collaborations, formData?.colors, formData?.instagram_handle, 
-      formData?.tiktok_handle, formData?.email, formData?.follower_count,
-      formData?.engagement_rate, formData?.avg_likes, formData?.reach]);
+    
+    // Log the final preview data
+    console.log("PREVIEW DATA - Profile photo included:", previewData.profile_photo);
+    
+    return previewData;
+  }, [
+    formData?.brand_name, 
+    formData?.personal_intro, 
+    formData?.tagline,
+    formData?.profile_photo, // Already included in dependency array
+    formData?.portfolio_images, 
+    formData?.font, 
+    formData?.skills, 
+    formData?.services, 
+    formData?.brand_collaborations, 
+    formData?.colors, 
+    formData?.instagram_handle, 
+    formData?.tiktok_handle, 
+    formData?.email, 
+    formData?.follower_count,
+    formData?.engagement_rate, 
+    formData?.avg_likes, 
+    formData?.reach
+  ]);
 
   // Add a loading state for initial data fetch
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
@@ -247,18 +362,32 @@ export default function MediaKitEditor() {
   useEffect(() => {
     let initialData: Partial<MediaKitData & { email: string, profile_photo: string, video_links: string }> = {};
     if (profile) {
+      // Get media_kit_data properly parsed
+      const mediaKitData = typeof profile.media_kit_data === 'string' 
+        ? JSON.parse(profile.media_kit_data) 
+        : profile.media_kit_data || {};
+        
+      console.log("LOADING TAGLINE - Data sources:", {
+        media_kit_data_type: typeof profile.media_kit_data,
+        parsed_media_kit_data: mediaKitData,
+        tagline_from_media_kit: mediaKitData?.tagline,
+      });
+        
       initialData = {
         ...initialData,
         brand_name: profile.full_name || '',
         personal_intro: profile.personal_intro || '',
         instagram_handle: profile.instagram_handle ? `@${profile.instagram_handle}` : '',
         tiktok_handle: profile.tiktok_handle ? `@${profile.tiktok_handle}` : '',
-        skills: typeof profile.media_kit_data === 'object' && profile.media_kit_data?.skills ? profile.media_kit_data.skills : [],
-        skills_text: typeof profile.media_kit_data === 'object' && profile.media_kit_data?.skills ? profile.media_kit_data.skills.join(', ') : '',
-        tagline: typeof profile.media_kit_data === 'object' && profile.media_kit_data?.tagline ? profile.media_kit_data.tagline : '',
-        colors: typeof profile.media_kit_data === 'object' && profile.media_kit_data?.colors ? profile.media_kit_data.colors : COLOR_PRESETS[0].colors,
-        font: typeof profile.media_kit_data === 'object' && profile.media_kit_data?.font ? profile.media_kit_data.font : 'Inter',
-        email: profile.email || ''
+        skills: mediaKitData?.skills || [],
+        skills_text: mediaKitData?.skills ? mediaKitData.skills.join(', ') : '',
+        tagline: mediaKitData?.tagline || '',
+        colors: mediaKitData?.colors || COLOR_PRESETS[0].colors,
+        font: mediaKitData?.font || 'Inter',
+        // Directly get contact_email from media_kit_data
+        email: mediaKitData?.contact_email || profile.email || '',
+        // Load the profile photo URL from media_kit_data or avatar_url
+        profile_photo: mediaKitData?.profile_photo || profile.avatar_url || ''
       };
     }
     if (stats.length > 0) {
@@ -290,16 +419,38 @@ export default function MediaKitEditor() {
       };
     }
     
-    setFormData(prev => ({ ...prev, ...initialData, colors: prev.colors }));
+    setFormData(prev => ({ 
+      ...prev, 
+      ...initialData,
+      // Ensure tagline is explicitly pulled from mediaKitData 
+      tagline: initialData.tagline || prev.tagline,
+      colors: prev.colors 
+    }));
 
   }, [profile, stats, collaborations, services, refetch]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    console.log(`Updating field ${name} to value: ${value}`);
+    
+    setFormData(prev => {
+      const updated = {
+        ...prev,
+        [name]: value
+      };
+      
+      // If brand_name is being updated, ensure it's reflected in the preview
+      if (name === 'brand_name') {
+        console.log(`Updating brand_name to: ${value}`);
+      }
+      
+      // For tagline changes, ensure they're reflected in the preview
+      if (name === 'tagline') {
+        console.log(`Updating tagline to: ${value}`);
+      }
+      
+      return updated;
+    });
   };
 
   const handleColorPresetChange = (preset: typeof COLOR_PRESETS[0]) => {
@@ -399,38 +550,76 @@ export default function MediaKitEditor() {
         ? formData.brand_collaborations_text.split(',').map(item => item.trim()).filter(Boolean) 
         : [];
 
-      // Enhanced debugging for color scheme saving
-      console.log("DEBUGGING COLORS - Current form colors:", formData.colors);
-      // Show exactly what we're about to save to the database
-      console.log("DEBUGGING COLORS - Original media_kit_data:", profile?.media_kit_data);
-
-      const mediaKitData = {
-        type: 'media_kit_data' as const,
+      // Log actual values to confirm what we're saving
+      console.log("SAVING MEDIA KIT - Current values:", {
         brand_name: formData.brand_name,
         tagline: formData.tagline,
-        colors: formData.colors,
-        font: formData.font,
-        skills: skillsArray,
+        personal_intro: formData.personal_intro,
+        colors: formData.colors
+      });
+
+      // 1. Get current profile data to preserve any fields we're not updating
+      const { data: profileData, error: fetchError } = await supabase
+        .from('profiles')
+        .select('media_kit_data')
+        .eq('id', profile?.id)
+        .single();
+      
+      if (fetchError) throw fetchError;
+      if (!profileData) throw new Error("Profile not found");
+      
+      console.log("Current media_kit_data:", profileData.media_kit_data);
+      
+      // 2. Parse media_kit_data if it's a string
+      const mediaKitData = typeof profileData.media_kit_data === 'string'
+        ? JSON.parse(profileData.media_kit_data)
+        : profileData.media_kit_data || {};
+      
+      // 3. Create a properly structured color scheme
+      const colorScheme = {
+        background: formData.colors?.background || "#F5F5F5",
+        text: formData.colors?.text || "#1A1F2C",
+        secondary: formData.colors?.secondary || "#8E9196",
+        accent_light: formData.colors?.accent_light || "#E5DAF8", 
+        accent: formData.colors?.accent || "#7E69AB"
+      };
+      
+      // 4. Create updated media kit data with only the essential fields
+      const updatedMediaKitData = {
+        ...mediaKitData,
+        type: 'media_kit_data',
+        brand_name: formData.brand_name,
+        tagline: formData.tagline || "",
+        personal_intro: formData.personal_intro || "",
+        colors: colorScheme,
+        font: formData.font || 'Inter',
+        contact_email: formData.email || "",
         last_updated: new Date().toISOString()
       };
-
-      // Debug the object we're saving to identify any issues
-      console.log("DEBUGGING COLORS - Saving media_kit_data:", mediaKitData);
-
-      // Add more detailed logging for the profile update
-      console.log("DEBUGGING COLORS - About to call updateProfile with media_kit_data");
-
-      const updateResult = await updateProfile({
+      
+      console.log("Updating media_kit_data to:", updatedMediaKitData);
+      
+      // 5. Update the profile table directly
+      const updates: Partial<Profile> = {
         full_name: formData.brand_name,
         personal_intro: formData.personal_intro,
         instagram_handle: formData.instagram_handle?.replace('@', '') || null,
         tiktok_handle: formData.tiktok_handle?.replace('@', '') || null,
-        email: formData.email,
-        media_kit_data: mediaKitData
-      });
+        media_kit_data: JSON.stringify(updatedMediaKitData),
+        updated_at: new Date().toISOString(),
+        
+        // ← new line to persist the avatar URL
+        avatar_url: formData.profile_photo,
+      };
       
-      // Log the result of the update
-      console.log("DEBUGGING COLORS - updateProfile result:", updateResult);
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', profile?.id);
+      
+      if (updateError) throw updateError;
+      
+      console.log("Successfully updated media_kit_data in the database");
 
       // Get latest profile data to ensure we have the most current media_kit_url
       const { data: latestProfile } = await supabase
@@ -479,7 +668,26 @@ export default function MediaKitEditor() {
       // Clear any localStorage caches that might be used
       localStorage.removeItem('updatedMediaKit');
       
-      navigate('/media-kit', { state: { updatedMediaKit: formData }, replace: true });
+      // Create a more complete updatedMediaKit object to pass to the MediaKit component
+      const updatedMediaKitData2 = {
+        ...formData,
+        full_name: formData.brand_name,
+        tagline: formData.tagline,
+        personal_intro: formData.personal_intro,
+        contact_email: formData.email
+      };
+      
+      console.log("Navigating to media-kit with updated data:", {
+        brand_name: formData.brand_name,
+        tagline: formData.tagline
+      });
+      
+      navigate('/media-kit', { 
+        state: { 
+          updatedMediaKit: updatedMediaKitData2
+        }, 
+        replace: true 
+      });
     } catch (error) {
       console.error('Save error:', error);
       toast({
@@ -490,6 +698,17 @@ export default function MediaKitEditor() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Add a specific handler for tagline to ensure real-time updates
+  const handleTaglineChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { value } = e.target;
+    
+    // Update formData immediately with the raw input value
+    setFormData(prev => ({
+      ...prev,
+      tagline: value
+    }));
   };
 
   // Return loading state with proper sizing to prevent layout shift
@@ -841,15 +1060,68 @@ export default function MediaKitEditor() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div>
-                      <Label htmlFor="profile_photo">Profile Photo URL</Label>
-                      <Input
-                        id="profile_photo"
-                        name="profile_photo"
-                        type="text"
-                        value={formData.profile_photo}
-                        onChange={handleInputChange}
-                        placeholder="https://yourimageurl.com/photo.jpg"
-                      />
+                      <Label htmlFor="avatar" className="mb-2 block">Profile Picture</Label>
+                      
+                      <div className="flex items-center gap-4">
+                        {formData.profile_photo && (
+                          <img
+                            src={formData.profile_photo}
+                            alt="Profile preview"
+                            className="w-16 h-16 rounded-full object-cover border border-blush/20"
+                          />
+                        )}
+                        
+                        <div className="flex flex-col">
+                          <div className="relative">
+                            <Button 
+                              type="button" 
+                              variant="outline" 
+                              className="relative overflow-hidden"
+                              onClick={() => document.getElementById('avatar')?.click()}
+                            >
+                              {formData.profile_photo ? 'Change picture' : 'Upload picture'}
+                            </Button>
+                            <input
+                              id="avatar"
+                              type="file"
+                              accept="image/*"
+                              className="sr-only"
+                              onChange={async e => {
+                                const file = e.target.files?.[0];
+                                if (!file || !profile?.id) return;
+
+                                // Show loading state
+                                toast({ title: 'Uploading...', description: 'Please wait while we process your image.' });
+                                
+                                // 1) Upload to your avatars bucket
+                                const key = makeSafeKey(profile.id, file.name);
+                                const { data, error } = await supabase
+                                  .storage
+                                  .from('avatars')
+                                  .upload(key, file, { upsert: true });
+                                if (error) {
+                                  return toast({ title: 'Upload failed', description: error.message, variant: 'destructive' });
+                                }
+
+                                // 2) Get the public URL
+                                const publicUrl = supabase
+                                  .storage
+                                  .from('avatars')
+                                  .getPublicUrl(data.path)
+                                  .data.publicUrl;
+
+                                // 3) Store in local formData
+                                setFormData(prev => ({ ...prev, profile_photo: publicUrl }));
+
+                                toast({ title: 'Uploaded!', description: 'Profile picture ready.' });
+                              }}
+                            />
+                          </div>
+                          <p className="text-xs text-taupe mt-2">
+                            Recommended: Square image, 500×500px or larger
+                          </p>
+                        </div>
+                      </div>
                     </div>
                     <div>
                       <Label htmlFor="video_links">Social Video Links</Label>
@@ -936,9 +1208,12 @@ export default function MediaKitEditor() {
 
           {/* Preview - make wider */}
           <div className="w-full md:w-3/5 md:sticky md:top-20 h-fit">
-            <div className="bg-white rounded-lg p-4 shadow-sm">
-              <MediaKit isPreview={true} previewData={mediaKitPreviewData} theme={getPreviewTheme()} />
-            </div>
+            <MediaKitPreview
+              key={`preview-${formData.profile_photo}-${formData.tagline}`}
+              previewData={mediaKitPreviewData}
+              theme={getPreviewTheme()}
+              tagline={formData.tagline || "Your Tagline"}
+            />
           </div>
         </div>
       </div>
