@@ -1,73 +1,94 @@
-# Welcome to your Lovable project
+# GlowFolio - Media Kit Platform for Content Creators
 
-## Project info
+GlowFolio is a modern web application that helps content creators showcase their work and metrics to potential brand partners through beautiful, customizable media kits.
 
-**URL**: https://lovable.dev/projects/2c83c22e-cfff-4f46-a8cd-50ac66a66cb6
+## Project Overview
 
-## How can I edit this code?
+GlowFolio empowers creators to:
+- Create professional media kits in minutes
+- Customize colors, content, and layout
+- Share their media kit via a personalized URL
+- Display social media metrics and brand collaborations
+- Present their work in a visually appealing format
 
-There are several ways of editing your application.
+## Key Features
 
-**Use Lovable**
+- **Customizable Media Kits:** Choose from multiple color themes and layout options
+- **Brand Collaboration Showcase:** Highlight past partnerships and brand work
+- **Metrics Display:** Present follower count, engagement rates, and other key metrics
+- **Services Section:** Showcase what services you offer to potential clients
+- **Public Sharing:** Each media kit gets a dedicated public URL for easy sharing
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/2c83c22e-cfff-4f46-a8cd-50ac66a66cb6) and start prompting.
+## Technologies Used
 
-Changes made via Lovable will be committed automatically to this repo.
+This project is built with a modern tech stack:
 
-**Use your preferred IDE**
+- **Frontend:**
+  - React 18 with TypeScript
+  - Tailwind CSS for styling
+  - shadcn/ui component library
+  - Vite for fast development and building
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- **Backend:**
+  - Supabase for database, authentication, and storage
+  - PostgreSQL database
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## Getting Started
 
-Follow these steps:
+### Prerequisites
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+- Node.js 18+ and npm
+- A Supabase account and project
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### Installation
 
-# Step 3: Install the necessary dependencies.
-npm i
+```bash
+# Clone the repository
+git clone https://github.com/julianramey/glow-pitch-perfect.git
+cd glowfolio
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Install dependencies
+npm install
+
+# Create a .env.local file with your Supabase credentials
+echo "VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key" > .env.local
+
+# Start the development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## Project Structure
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+- `/src/components`: UI components
+- `/src/pages`: Page components and routing
+- `/src/lib`: Utilities, hooks, and context providers
+- `/src/pages/api`: API handlers
+- `/supabase`: Supabase configuration and migrations
 
-**Use GitHub Codespaces**
+## Key Components
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- **MediaKit.tsx**: Main component for displaying media kits
+- **MediaKitEditor.tsx**: Editor interface for customizing media kits
+- **PublicMediaKit.tsx**: Public-facing view of a creator's media kit
 
-## What technologies are used for this project?
+## Database Schema
 
-This project is built with:
+The application uses several main tables:
+- `profiles`: User profiles and settings
+- `media_kit_stats`: Performance metrics for different platforms
+- `brand_collaborations`: Past brand partnerships 
+- `services`: Services offered to potential clients
+- `portfolio_items`: Portfolio showcase items
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Deployment
 
-## How can I deploy this project?
+The project can be deployed to any static hosting service that supports React applications built with Vite.
 
-Simply open [Lovable](https://lovable.dev/projects/2c83c22e-cfff-4f46-a8cd-50ac66a66cb6) and click on Share -> Publish.
+## License
 
-## Can I connect a custom domain to my Lovable project?
+This project is private and not licensed for public use.
 
-Yes, you can!
+---
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+Created with ❤️ for content creators
