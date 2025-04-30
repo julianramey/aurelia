@@ -61,6 +61,16 @@ export default function DashboardNav() {
               >
                 Media Kit
               </Link>
+              <Link
+                to="/brand-directory"
+                className={`inline-flex items-center px-1 pt-1 text-sm font-medium border-b-2 ${
+                  location.pathname === '/brand-directory'
+                    ? 'text-rose border-rose'
+                    : 'text-taupe border-transparent hover:text-rose hover:border-rose/40'
+                }`}
+              >
+                Brand Directory
+              </Link>
             </div>
           </div>
 

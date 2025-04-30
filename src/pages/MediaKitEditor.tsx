@@ -18,8 +18,20 @@ import {
   UserIcon,
   ChartBarIcon,
 } from '@heroicons/react/24/outline';
+import { TrashIcon } from '@heroicons/react/24/solid';
 import DashboardNav from '@/components/DashboardNav';
 import { supabase } from '@/lib/supabase';
+
+// fetch TikTok oEmbed thumbnail URL
+async function fetchTikTokThumbnail(url: string): Promise<string> {
+  try {
+    const res = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`)
+    const { thumbnail_url } = await res.json()
+    return thumbnail_url
+  } catch {
+    return ''
+  }
+}
 
 /**
  * Turn any filename into a Storage-safe key:
@@ -226,6 +238,11 @@ const MediaKitPreview = ({ previewData, theme, tagline }: MediaKitPreviewProps) 
   );
 };
 
+type VideoItem = {
+  url: string;
+  thumbnail_url: string;
+};
+
 export default function MediaKitEditor() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -270,7 +287,50 @@ export default function MediaKitEditor() {
     video_links: '',
     contact_email: profile?.email || ''
   });
+  
+  // hold up to 5 TikTok links + thumbnails
+  const [videoLinks, setVideoLinks] = useState<VideoItem[]>([]);
+  
+  // add a new empty slot (max 5)
+  const handleAddVideo = () => {
+    if (videoLinks.length < 5) {
+      setVideoLinks([...videoLinks, { url: '', thumbnail_url: '' }])
+    }
+  }
 
+  // remove by index
+  const handleRemoveVideo = async (idx: number) => {
+    const toDelete = videoLinks[idx]
+    if (profile?.id && toDelete.url) {
+      await supabase
+        .from('media_kit_videos')
+        .delete()
+        .match({ profile_id: profile.id, url: toDelete.url })
+    }
+    setVideoLinks(videoLinks.filter((_, i) => i !== idx))
+  }
+
+  // update URL, fetch thumbnail, persist immediately
+  const handleVideoUrlChange = async (idx: number, url: string) => {
+    const thumbnail = url ? await fetchTikTokThumbnail(url) : ''
+    const updated = videoLinks.map((v, i) =>
+      i === idx ? { url, thumbnail_url: thumbnail } : v
+    )
+    setVideoLinks(updated)
+    if (profile?.id && url) {
+      await supabase
+        .from('media_kit_videos')
+        .upsert(
+          updated.map(v => ({
+            profile_id: profile.id,
+            url: v.url,
+            thumbnail_url: v.thumbnail_url
+          })),
+          { onConflict: 'profile_id,url' }
+        )
+    }
+  }
+  
   // Create a stable memoized version of the preview data to prevent unnecessary rerenders
   const mediaKitPreviewData = useMemo(() => {
     if (!formData) return null;
@@ -304,6 +364,7 @@ export default function MediaKitEditor() {
       engagement_rate: formData.engagement_rate,
       avg_likes: formData.avg_likes,
       reach: formData.reach,
+      videos: videoLinks,      // Add videos for preview
     };
     
     // Log the final preview data
@@ -327,7 +388,8 @@ export default function MediaKitEditor() {
     formData?.follower_count,
     formData?.engagement_rate, 
     formData?.avg_likes, 
-    formData?.reach
+    formData?.reach,
+    videoLinks  // Add dependency on videoLinks
   ]);
 
   // Add a loading state for initial data fetch
@@ -428,6 +490,21 @@ export default function MediaKitEditor() {
     }));
 
   }, [profile, stats, collaborations, services, refetch]);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    supabase
+      .from('media_kit_videos')
+      .select('url, thumbnail_url')
+      .eq('profile_id', profile.id)
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('Error loading TikTok videos:', error);
+        } else {
+          setVideoLinks(data || []);
+        }
+      });
+  }, [profile?.id]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -647,6 +724,20 @@ export default function MediaKitEditor() {
         
         const servicesToSave = servicesArray.map(service => ({ service_name: service }));
         await updateServices(servicesToSave);
+      }
+
+      // persist every TikTok link at save time
+      if (profile?.id && videoLinks.length) {
+        await supabase
+          .from('media_kit_videos')
+          .upsert(
+            videoLinks.map(v => ({
+              profile_id: profile.id,
+              url: v.url,
+              thumbnail_url: v.thumbnail_url,
+            })),
+            { onConflict: 'profile_id,url' }
+          )
       }
 
       // Store the public page URL for the success message
@@ -1123,6 +1214,46 @@ export default function MediaKitEditor() {
                         </div>
                       </div>
                     </div>
+                    
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>TikTok Videos</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {videoLinks.map((video, idx) => (
+                          <div
+                            key={idx}
+                            className="relative border-2 rounded-lg overflow-hidden"
+                            style={{ borderColor: formData.colors.accent }}
+                          >
+                            {/* url input + remove */}
+                            <div className="flex items-center p-2">
+                              <Input
+                                placeholder="https://www.tiktok.com/…"
+                                value={video.url}
+                                onChange={e => handleVideoUrlChange(idx, e.target.value)}
+                              />
+                              <button
+                                onClick={() => handleRemoveVideo(idx)}
+                                className="ml-2 p-1 text-gray-500 hover:text-red-500"
+                              >
+                                <TrashIcon className="w-5 h-5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+
+                        {videoLinks.length < 5 && (
+                          <>
+                            <Button variant="outline" onClick={handleAddVideo} className="w-full">
+                              + Add another TikTok
+                            </Button>
+                            <p className="mt-1 text-sm text-gray-500">3+ videos recommended</p>
+                          </>
+                        )}
+                      </CardContent>
+                    </Card>
+                    
                     <div>
                       <Label htmlFor="video_links">Social Video Links</Label>
                       <Textarea

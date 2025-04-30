@@ -53,6 +53,11 @@ export interface ColorScheme {
   accent: string;
 }
 
+export type VideoItem = {
+  url: string;
+  thumbnail_url: string;
+};
+
 export type Profile = {
   id: string;
   user_id: string;
@@ -72,6 +77,12 @@ export type Profile = {
     colors: ColorScheme;
     font: string;
     skills?: string[];
+    videos?: VideoItem[];
+    contact_email?: string;
+    personal_intro?: string;
+    instagram_handle?: string;
+    tiktok_handle?: string;
+    portfolio_images?: string[];
   };
   created_at?: string;
   updated_at?: string;

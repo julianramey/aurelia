@@ -1,7 +1,23 @@
 import { useCallback, useEffect, useState, useMemo } from 'react';
 import { supabase } from '../supabase';
-import { MediaKitStats, BrandCollaboration, Service, PortfolioItem } from '../types';
+import { MediaKitStats, BrandCollaboration, Service, PortfolioItem, VideoItem, ColorScheme } from '../types';
 import { useProfile } from './useProfile';
+
+// Define an interface for the media_kit_data object structure
+interface MediaKitData {
+  type: 'media_kit_data';
+  brand_name: string;
+  tagline: string;
+  colors: ColorScheme;
+  font: string;
+  skills?: string[];
+  videos?: VideoItem[];
+  contact_email?: string;
+  personal_intro?: string;
+  instagram_handle?: string;
+  tiktok_handle?: string;
+  portfolio_images?: string[];
+}
 
 export function useMediaKitData() {
   const { profile, loading: profileLoading } = useProfile();
@@ -9,6 +25,7 @@ export function useMediaKitData() {
   const [collaborations, setCollaborations] = useState<BrandCollaboration[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
+  const [videos, setVideos] = useState<VideoItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,6 +48,7 @@ export function useMediaKitData() {
       setCollaborations([]);
       setServices([]);
       setPortfolio([]);
+      setVideos([]);
       setLoading(false);
       return;
     }
@@ -41,7 +59,7 @@ export function useMediaKitData() {
       
       console.log("Fetching media kit data for profile:", profile.id);
       
-      const [statsRes, collabsRes, servicesRes, portfolioRes] = await Promise.all([
+      const [statsRes, collabsRes, servicesRes, portfolioRes, videosRes] = await Promise.all([
         supabase
           .from('media_kit_stats')
           .select('*')
@@ -57,6 +75,10 @@ export function useMediaKitData() {
         supabase
           .from('portfolio_items')
           .select('*')
+          .eq('profile_id', profile.id),
+        supabase
+          .from('media_kit_videos')
+          .select('url, thumbnail_url')
           .eq('profile_id', profile.id)
       ]);
 
@@ -64,13 +86,43 @@ export function useMediaKitData() {
         stats: statsRes.data?.length || 0,
         collabs: collabsRes.data?.length || 0,
         services: servicesRes.data?.length || 0,
-        portfolio: portfolioRes.data?.length || 0
+        portfolio: portfolioRes.data?.length || 0,
+        videos: videosRes.data?.length || 0
       });
 
       if (statsRes.error) throw statsRes.error;
       if (collabsRes.error) throw collabsRes.error;
       if (servicesRes.error) throw servicesRes.error;
       if (portfolioRes.error) throw portfolioRes.error;
+      if (videosRes.error) throw videosRes.error;
+
+      // Ensure media_kit_data exists as an object
+      if (!profile.media_kit_data) {
+        profile.media_kit_data = { 
+          type: 'media_kit_data',
+          brand_name: profile.full_name || '',
+          tagline: '',
+          colors: { cream: '', charcoal: '', taupe: '', blush: '', accent: '' },
+          font: 'Inter'
+        };
+      } else if (typeof profile.media_kit_data === 'string') {
+        try {
+          profile.media_kit_data = JSON.parse(profile.media_kit_data);
+        } catch (e) {
+          console.error("Error parsing media_kit_data:", e);
+          profile.media_kit_data = { 
+            type: 'media_kit_data',
+            brand_name: profile.full_name || '',
+            tagline: '',
+            colors: { cream: '', charcoal: '', taupe: '', blush: '', accent: '' },
+            font: 'Inter'
+          };
+        }
+      }
+      
+      // Attach videos to profile.media_kit_data
+      (profile.media_kit_data as MediaKitData).videos = videosRes.data || [];
+      setVideos(videosRes.data || []);
 
       setStats(statsRes.data || []);
       setCollaborations(collabsRes.data || []);
@@ -207,6 +259,7 @@ export function useMediaKitData() {
       setCollaborations([]);
       setServices([]);
       setPortfolio([]);
+      setVideos([]);
       setLoading(false);
       // treat "no profile" as non-error
       return { success: true, error: null };
@@ -223,6 +276,7 @@ export function useMediaKitData() {
       let collabsData: BrandCollaboration[] = [];
       let servicesData: Service[] = [];
       let portfolioData: PortfolioItem[] = [];
+      let videosData: VideoItem[] = [];
       
       try {
         const { data, error } = await supabase
@@ -291,12 +345,58 @@ export function useMediaKitData() {
       } catch (e) {
         console.error("Portfolio query failed:", e);
       }
+      
+      try {
+        const { data, error } = await supabase
+          .from('media_kit_videos')
+          .select('url, thumbnail_url')
+          .eq('profile_id', profile.id);
+          
+        if (error) {
+          console.error("Videos query error:", error);
+          throw error;
+        }
+        
+        console.log("Videos query successful:", { count: data?.length || 0, data });
+        videosData = data || [];
+        
+        // Ensure media_kit_data exists as an object
+        if (!profile.media_kit_data) {
+          profile.media_kit_data = { 
+            type: 'media_kit_data',
+            brand_name: profile.full_name || '',
+            tagline: '',
+            colors: { cream: '', charcoal: '', taupe: '', blush: '', accent: '' },
+            font: 'Inter'
+          };
+        } else if (typeof profile.media_kit_data === 'string') {
+          try {
+            profile.media_kit_data = JSON.parse(profile.media_kit_data);
+          } catch (e) {
+            console.error("Error parsing media_kit_data:", e);
+            profile.media_kit_data = { 
+              type: 'media_kit_data',
+              brand_name: profile.full_name || '',
+              tagline: '',
+              colors: { cream: '', charcoal: '', taupe: '', blush: '', accent: '' },
+              font: 'Inter'
+            };
+          }
+        }
+        
+        // Attach videos to profile.media_kit_data
+        (profile.media_kit_data as MediaKitData).videos = videosData;
+        setVideos(videosData);
+      } catch (e) {
+        console.error("Videos query failed:", e);
+      }
 
       console.log("useMediaKitData: All queries completed, results:", {
         stats: statsData.length || 0,
         collabs: collabsData.length || 0,
         services: servicesData.length || 0,
-        portfolio: portfolioData.length || 0
+        portfolio: portfolioData.length || 0,
+        videos: videosData.length || 0
       });
 
       setStats(statsData || []);
@@ -343,6 +443,7 @@ export function useMediaKitData() {
     collaborations,
     services,
     portfolio,
+    videos,
     loading,
     error,
     updateStats,
@@ -355,6 +456,7 @@ export function useMediaKitData() {
     collaborations,
     services,
     portfolio,
+    videos,
     loading,
     error
     // Don't include the update functions or refetch in the deps array

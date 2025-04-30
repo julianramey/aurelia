@@ -17,6 +17,8 @@ import Profile from './pages/settings/Profile';
 import Account from './pages/settings/Account';
 import MediaKitGenerator from './pages/MediaKitGenerator';
 import MediaKitEditor from './pages/MediaKitEditor';
+import BrandDirectory from './pages/BrandDirectory';
+import SearchResults from './pages/SearchResults';
 
 const queryClient = new QueryClient();
 
@@ -73,6 +75,22 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <MediaKit />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/brand-directory"
+              element={
+                <ProtectedRoute>
+                  <BrandDirectory />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/search-results"
+              element={
+                <ProtectedRoute>
+                  <SearchResults />
                 </ProtectedRoute>
               }
             />
