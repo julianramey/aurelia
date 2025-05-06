@@ -1,15 +1,78 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
-import MediaKit from './MediaKit';
+import MediaKitTemplateDefault from '@/components/media-kit-templates/MediaKitTemplateDefault';
+import MediaKit from '@/pages/MediaKit'; // Import the MediaKit component
 import { createClient } from '@supabase/supabase-js';
 import type { Profile } from '@/lib/types';
+
+// Define the expected theme structure (can be moved to types.ts later)
+interface TemplateTheme {
+  background: string;
+  foreground: string;
+  primary: string;
+  primaryLight: string;
+  secondary: string;
+  accent: string;
+  neutral: string;
+  border: string;
+}
+
+// Default theme
+const defaultTheme: TemplateTheme = {
+  background: '#F5F5F5',
+  foreground: '#1A1F2C',
+  primary: '#7E69AB',
+  primaryLight: '#E5DAF8',
+  secondary: '#6E59A5',
+  accent: '#1A1F2C', // Often same as foreground in default
+  neutral: '#8E9196',
+  border: 'rgba(126, 105, 171, 0.2)' // #7E69AB with 20% opacity
+};
+
+// Define the expected structure of colors coming from the database (matching editor format)
+interface EditorColorScheme {
+  background?: string;
+  text?: string;
+  secondary?: string;
+  accent_light?: string;
+  accent?: string;
+}
+
+// Helper to compute theme from profile colors
+const computeTheme = (profileData: Profile | null): TemplateTheme => {
+  // Expect EditorColorScheme structure from media_kit_data
+  const colors: EditorColorScheme | null = (typeof profileData?.media_kit_data === 'object' && profileData.media_kit_data !== null) 
+    ? profileData.media_kit_data.colors 
+    : null;
+    
+  if (!colors) {
+    return defaultTheme;
+  }
+  
+  // Map the colors from the editor format to TemplateTheme
+  const primary = colors.accent || defaultTheme.primary;
+  // Use accent_light if available, otherwise fallback
+  const primaryLight = colors.accent_light || defaultTheme.primaryLight;
+  
+  return {
+    background: colors.background || defaultTheme.background, // Use background
+    foreground: colors.text || defaultTheme.foreground,       // Use text
+    primary: primary,
+    primaryLight: primaryLight, // Use accent_light
+    secondary: colors.secondary || defaultTheme.secondary,    // Use secondary
+    accent: colors.accent || defaultTheme.accent,             // Use accent (often same as primary)
+    neutral: colors.secondary || defaultTheme.neutral,        // Use secondary for neutral
+    border: `${primary}33` 
+  };
+};
 
 export default function PublicMediaKit() {
   const { username } = useParams();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [computedTheme, setComputedTheme] = useState<TemplateTheme>(defaultTheme);
 
   // Create a no-cache Supabase client for this component to ensure we get fresh data on initial load
   const supabaseNoCache = createClient(
@@ -145,6 +208,7 @@ export default function PublicMediaKit() {
         // IMPORTANT: Create a new completeProfile object that:
         // 1) Has videos at the top level for realData.videos
         // 2) Preserves media_kit_data.videos for the fallback path
+        // 3) Includes selected_template_id at the top level for template selection
         const completeProfile = {
           ...profileData,
           // explicitly set videos at the top level 
@@ -156,16 +220,29 @@ export default function PublicMediaKit() {
           engagement_rate: instagramStats.engagement_rate || 0,
           avg_likes: instagramStats.avg_likes || 0,
           reach: instagramStats.weekly_reach || 0,
-          // other data
-          services: servicesData?.map(s => s.service_name || 'Unnamed Service') || [],
-          brand_collaborations: collabsData?.map(c => c.brand_name || 'Unnamed Brand') || [],
+          // other data - Pass the original object arrays
+          services: servicesData || [],
+          brand_collaborations: collabsData || [],
           skills: profileData.media_kit_data?.skills || [],
           // Extract contact_email from media_kit_data if available
           contact_email: profileData.media_kit_data?.contact_email || null,
+          // IMPORTANT: Copy selected_template_id from media_kit_data for template selection
+          // Ensure media_kit_data is an object before accessing its properties
+          selected_template_id: (typeof profileData.media_kit_data === 'object' && profileData.media_kit_data?.selected_template_id) || 'default',
         };
+
+        // Add debug log to verify template ID is being passed correctly
+        console.log("PublicMediaKit DEBUG - Template ID:", {
+          fromMediaKitData: profileData.media_kit_data?.selected_template_id,
+          inCompleteProfile: completeProfile.selected_template_id,
+          isAesthetic: completeProfile.selected_template_id === 'aesthetic',
+          rawMediaKitData: profileData.media_kit_data
+        });
 
         // Set the profile state with complete data
         setProfile(completeProfile);
+        // Compute and set the theme based on fetched data
+        setComputedTheme(computeTheme(completeProfile));
       } catch (error) {
         console.error('Error fetching profile:', error);
         setError('Media kit not found');
@@ -195,7 +272,14 @@ export default function PublicMediaKit() {
     );
   }
 
+  // Render the template component within a padded structure
   return (
-    <MediaKit isPublic={true} publicProfile={profile} />
+    <div className="min-h-screen" style={{ background: computedTheme.background }}>
+      <main className="py-12">
+        <div className="max-w-4xl mx-auto">
+          <MediaKit isPublic={true} publicProfile={profile} theme={computedTheme} />
+        </div>
+      </main>
+    </div>
   );
 } 

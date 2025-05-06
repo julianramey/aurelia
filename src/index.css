@@ -209,3 +209,43 @@
     color: hsl(var(--rose));
   }
 }
+
+/* Override Switch Component Styles */
+[role="switch"] {
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  width: 2.75rem !important; /* w-11 */
+  height: 1.5rem !important; /* h-6 */
+  border-radius: 9999px !important; /* rounded-full */
+  padding: 0.25rem !important; /* p-1 */
+  background-color: #D1D5DB !important; /* gray-300 */
+  transition-property: background-color !important;
+  transition-duration: 150ms !important;
+}
+
+[role="switch"][data-state="checked"] {
+  background-color: #000000 !important; /* black */
+}
+
+/* Target the thumb specifically */
+[role="switch"] span,
+[role="switch"]::after,
+[role="switch"] > * {
+  display: block !important;
+  width: 1rem !important; /* h-4 */
+  height: 1rem !important; /* w-4 */
+  border-radius: 9999px !important; /* rounded-full */
+  background-color: white !important; /* white */
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important; /* shadow */
+  transform: translateX(0) !important;
+  transition-property: transform !important;
+  transition-duration: 200ms !important;
+}
+
+[role="switch"][data-state="checked"] span,
+[role="switch"][data-state="checked"]::after,
+[role="switch"][data-state="checked"] > * {
+  transform: translateX(1.25rem) !important; /* translate-x-5 */
+  background-color: white !important; /* !important to force white */
+}

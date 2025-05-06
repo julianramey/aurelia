@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabase';
 import { useMediaKitData } from '@/lib/hooks/useMediaKitData';
 import { Button } from '@/components/ui/button';
 import DashboardNav from '@/components/DashboardNav';
+import MediaKitTemplateDefault from '@/components/media-kit-templates/MediaKitTemplateDefault';
+import MediaKitTemplateAesthetic from '@/components/media-kit-templates/MediaKitTemplateAesthetic';
 import {
   UserCircleIcon,
   ChartBarIcon,
@@ -15,7 +17,33 @@ import {
   PhotoIcon,
   ShareIcon,
 } from '@heroicons/react/24/outline';
-import type { Profile as ImportedProfile } from '@/lib/types';
+import type { Profile as ImportedProfile, BrandCollaboration, Service, MediaKitStats } from '@/lib/types';
+
+// Placeholder types based on error message - adjust if actual types exist
+// import type { ColorScheme, VideoItem } from '@/lib/types';
+// Define ColorScheme with required keys from the error message + primary
+type ColorScheme = {
+  primary: string; 
+  secondary: string;
+  accent: string;
+  background: string;
+  text: string;
+  accent_light: string;
+  // [key: string]: string; // Remove index signature again
+};
+type VideoItem = { url: string; thumbnail_url: string; };
+
+// Define the expected theme structure
+interface TemplateTheme {
+  background: string;
+  foreground: string;
+  primary: string;
+  primaryLight: string;
+  secondary: string;
+  accent: string;
+  neutral: string;
+  border: string;
+}
 
 interface MediaKitProps {
   isPreview?: boolean;
@@ -36,12 +64,25 @@ interface MediaKitProps {
 
 interface ProfileData {
   id: string;
+  user_id: string;
+  username: string;
   full_name: string;
-  email?: string;
+  email: string;
   contact_email?: string;
-  media_kit_data: {
-    videos?: Array<{ url: string; thumbnail_url: string }>;
-    [key: string]: unknown;
+  media_kit_data: string | {
+    type: "media_kit_data";
+    brand_name: string;
+    tagline: string;
+    colors: ColorScheme; 
+    font: string;
+    selected_template_id?: string;
+    skills?: string[];
+    contact_email?: string;
+    videos?: VideoItem[]; 
+    portfolio_images?: string[];
+    personal_intro?: string;
+    instagram_handle?: string;
+    tiktok_handle?: string;
   };
   media_kit_url?: string;
   tagline?: string;
@@ -50,7 +91,32 @@ interface ProfileData {
   colors?: Record<string, string>;
   videos?: Array<{ url: string; thumbnail_url: string }>;
   portfolio_images?: string[];
+  avatar_url?: string;
+  instagram_handle?: string;
+  tiktok_handle?: string;
+  intro?: string;
+  follower_count?: number | string;
+  engagement_rate?: number | string;
+  avg_likes?: number | string;
+  reach?: number | string;
+  brand_collaborations?: BrandCollaboration[];
+  services?: Service[];
+  skills?: string[];
+  selected_template_id?: string;
+  created_at?: string;
+  updated_at?: string;
+  niche?: string;
 }
+
+// Define default colorscheme const
+const defaultColorScheme: ColorScheme = {
+  primary: '#7E69AB',
+  secondary: '#6E59A5',
+  accent: '#1A1F2C',
+  background: '#F5F5F5',
+  text: '#1A1F2C',
+  accent_light: '#E5DAF8',
+};
 
 // Create a memoized version of MediaKit to prevent unnecessary rerenders
 export default memo(function MediaKit({ isPreview = false, previewData = null, isPublic = false, publicProfile = null, theme }: MediaKitProps) {
@@ -60,9 +126,10 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
   const { stats, collaborations, services, portfolio, videos, loading: dataLoading, error: dataError, refetch } = useMediaKitData();
   const location = useLocation();
   
-  const [profile, setProfile] = useState(null);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTemplateId, setActiveTemplateId] = useState<string>('default');
   const [styles, setStyles] = useState({
     background: '#F5F5F5',
     foreground: '#1A1F2C',
@@ -118,7 +185,26 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
       if (!parsedData.full_name && parsedData.brand_name) {
         parsedData.full_name = parsedData.brand_name;
       }
+
+      // Update activeTemplateId if selected_template_id is present in localStorage
+      if (parsedData.selected_template_id) {
+        console.log("MediaKit: Setting template from localStorage:", parsedData.selected_template_id);
+        setActiveTemplateId(parsedData.selected_template_id);
+      }
       
+      // Ensure colors within parsedData conform to ColorScheme type
+      const defaultColors = defaultColorScheme; // Use the const
+
+      if (parsedData.colors && typeof parsedData.colors === 'object') {
+        parsedData.colors = {
+          ...defaultColors, // Start with defaults
+          ...parsedData.colors, // Override with parsed values
+        }; // Restore correct merging logic
+      } else {
+        // Assign defaults if colors are missing or invalid
+        parsedData.colors = defaultColors;
+      }
+
       return parsedData;
     } catch (e) {
       console.error("MediaKit: Error parsing localStorage updatedMediaKit:", e);
@@ -133,6 +219,8 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
     if (updatedMediaKitFromState) {
       console.log("MediaKit: Processing updatedMediaKit from state:", {
         colors: updatedMediaKitFromState.colors,
+        mediaKitDataColors: typeof updatedMediaKitFromState.media_kit_data === 'object' ? 
+          updatedMediaKitFromState.media_kit_data.colors : 'not available',
         tagline: updatedMediaKitFromState.tagline,
         personal_intro: updatedMediaKitFromState.personal_intro,
         brand_name: updatedMediaKitFromState.brand_name,
@@ -151,31 +239,45 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
       // Store this enhanced data structure for persistence
       localStorage.setItem('updatedMediaKit', JSON.stringify(completeMediaKitData));
       
-      if (updatedMediaKitFromState.colors) {
+      // IMPORTANT: Handle colors from both direct object and media_kit_data
+      let incomingColors;
+      if (typeof updatedMediaKitFromState.media_kit_data === 'object' && 
+          updatedMediaKitFromState.media_kit_data?.colors) {
+        // Prioritize colors from media_kit_data
+        incomingColors = updatedMediaKitFromState.media_kit_data.colors;
+        console.log("MediaKit: Using colors from media_kit_data object:", incomingColors);
+      } else if (updatedMediaKitFromState.colors) {
+        // Fallback to top-level colors
+        incomingColors = updatedMediaKitFromState.colors;
+        console.log("MediaKit: Using colors from top-level object:", incomingColors);
+      }
+      
+      if (incomingColors) {
+        // Ensure the incoming colors conform to ColorScheme
+        const colorScheme = {
+          ...defaultColorScheme, // Start with defaults
+          ...incomingColors, // Override with state values
+        };
+
+        console.log("MediaKit: Final colorScheme:", colorScheme);
+
+        // Map colors correctly from editor format to component format
+        const newStyles = {
+          background: colorScheme.background, 
+          foreground: colorScheme.text,
+          primary: colorScheme.accent, 
+          primaryLight: colorScheme.accent_light, 
+          secondary: colorScheme.secondary, 
+          accent: colorScheme.accent, 
+          neutral: colorScheme.secondary, // Use existing mapping logic
+          border: `${colorScheme.accent}33`
+        };
+
         // Store in localStorage to persist across page reloads
-        localStorage.setItem('mediaKitCustomStyles', JSON.stringify({
-          background: updatedMediaKitFromState.colors.background || '#F5F5F5',
-          foreground: updatedMediaKitFromState.colors.text || '#1A1F2C',
-          primary: updatedMediaKitFromState.colors.accent || '#7E69AB',
-          primaryLight: updatedMediaKitFromState.colors.accent_light || '#E5DAF8',
-          secondary: updatedMediaKitFromState.colors.secondary || '#6E59A5',
-          accent: updatedMediaKitFromState.colors.text || '#1A1F2C',
-          neutral: updatedMediaKitFromState.colors.secondary || '#8E9196',
-          border: `${updatedMediaKitFromState.colors.accent || '#7E69AB'}33`
-        }));
+        localStorage.setItem('mediaKitCustomStyles', JSON.stringify(colorScheme));
         
         // Map colors correctly from editor format to component format
-        setStyles(prev => ({
-          ...prev,
-          background: updatedMediaKitFromState.colors.background || '#F5F5F5',
-          foreground: updatedMediaKitFromState.colors.text || '#1A1F2C',
-          primary: updatedMediaKitFromState.colors.accent || '#7E69AB',
-          primaryLight: updatedMediaKitFromState.colors.accent_light || '#E5DAF8',
-          secondary: updatedMediaKitFromState.colors.secondary || '#6E59A5',
-          accent: updatedMediaKitFromState.colors.text || '#1A1F2C',
-          neutral: updatedMediaKitFromState.colors.secondary || '#8E9196',
-          border: `${updatedMediaKitFromState.colors.accent || '#7E69AB'}33`
-        }));
+        setStyles(newStyles);
       }
     }
   }, [updatedMediaKitFromState]);
@@ -219,6 +321,14 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
       
       // Mark that we've attempted a fetch
       setHasFetched(true);
+
+      // Clear potentially stale localStorage data before fetching fresh data
+      // unless we are in preview/public mode where we don't fetch
+      if (!isPreview && !isPublic) {
+        console.log("MediaKit: Clearing localStorage before fetch");
+        localStorage.removeItem('updatedMediaKit');
+        localStorage.removeItem('mediaKitCustomStyles');
+      }
 
       // Get the most recent profile data directly
       const profileId = id || user?.id;
@@ -277,12 +387,54 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
       };
       
       // Handle media kit data parsing
-      let mediaKitData, skills = [];
+      let mediaKitData: {
+        type: "media_kit_data";
+        brand_name: string;
+        tagline: string;
+        colors: ColorScheme;
+        font: string;
+        selected_template_id?: string;
+        skills?: string[];
+        contact_email?: string;
+        videos?: VideoItem[];
+        portfolio_images?: string[];
+        personal_intro?: string;
+        instagram_handle?: string;
+        tiktok_handle?: string;
+      } | null = null;
+      let templateId = 'default';
+      let skills: string[] = [];
       try {
-        mediaKitData = typeof profileData.media_kit_data === 'string'
+        // Parse first, then assign to the typed variable
+        const rawMediaKitData = typeof profileData.media_kit_data === 'string'
           ? JSON.parse(profileData.media_kit_data)
-          : profileData.media_kit_data || {};
-          
+          : profileData.media_kit_data;
+        
+        // Use a temporary variable for the potentially incomplete parsed data
+        const parsedJson = rawMediaKitData || {};
+
+        // Construct the object ensuring all required fields have defaults
+        mediaKitData = {
+          type: "media_kit_data", 
+          brand_name: parsedJson?.brand_name || profileData.brand_name || '', 
+          tagline: parsedJson?.tagline || profileData.tagline || '', 
+          colors: parsedJson?.colors || { primary: '#7E69AB', secondary: '#6E59A5', accent: '#1A1F2C', background: '#F5F5F5', text: '#1A1F2C', accent_light: '#E5DAF8' }, 
+          font: parsedJson?.font || 'Inter', 
+          // Spread the rest of the parsed data
+          ...parsedJson,
+        }; // Assert type after providing defaults
+        
+        // Now assign the correctly typed object back
+        profileData.media_kit_data = mediaKitData;
+
+        // Get template ID from mediaKitData - default to 'default' if not present
+        templateId = mediaKitData?.selected_template_id || 'default'; 
+        
+        // Set activeTemplateId state to ensure it's the source of truth
+        console.log("MediaKit: Setting activeTemplateId from fetched data:", templateId);
+        setActiveTemplateId(templateId);
+        console.log("MediaKit: Loaded template ID:", templateId);
+
         skills = mediaKitData?.skills || [];
         
         // Attach videos to media_kit_data
@@ -331,24 +483,28 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
       }
       
       // Create the complete profile
-      const completeProfile = {
+      const completeProfile: ProfileData = {
         ...profileData,
         skills,
         follower_count: instagramStats.follower_count || 0,
         engagement_rate: instagramStats.engagement_rate || 0,
         avg_likes: instagramStats.avg_likes || 0,
         reach: instagramStats.weekly_reach || 0,
-        services: servicesData?.map(s => s.service_name || 'Unnamed Service') || [],
-        brand_collaborations: collabsData?.map(c => c.brand_name || 'Unnamed Brand') || [],
+        services: servicesData,
+        brand_collaborations: collabsData,
         portfolio_images: [],
-        profile_photo: '',
+        profile_photo: profileData.avatar_url || '',
         video_links: '',
         media_kit_url: profileData.media_kit_url || '',
-        contact_email: profileData.contact_email || ''
+        contact_email: mediaKitData?.contact_email || profileData.contact_email || profileData.email || '',
+        media_kit_data: mediaKitData,
+        selected_template_id: templateId
       };
 
       console.log("MediaKit: Setting complete profile");
       setProfile(completeProfile);
+      // Re-apply theme based on the fetched data AFTER setting profile
+      setStyles(computeStylesFromProfile(completeProfile)); 
       setLoading(false);
     } catch (error) {
       console.error('MediaKit: Fatal error in profile fetching:', error);
@@ -390,6 +546,32 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
     }
   }, [fetchProfile, hasFetched, id, isPreview, isPublic, previewData, publicProfile, user?.id]);
   
+  // Add explicit effect to set activeTemplateId from preview/public data
+  useEffect(() => {
+    if (isPreview && previewData) {
+      // Get template ID from previewData
+      const previewDataObj = previewData as any;
+      const templateId = 
+        (typeof previewDataObj.media_kit_data === 'object' && previewDataObj.media_kit_data?.selected_template_id) ||
+        previewDataObj.selected_template_id ||
+        'default';
+      
+      console.log("MediaKit: Setting template from previewData:", templateId);
+      setActiveTemplateId(templateId);
+    } 
+    else if (isPublic && publicProfile) {
+      // Get template ID from publicProfile
+      const publicProfileObj = publicProfile as any;
+      const templateId = 
+        (typeof publicProfileObj.media_kit_data === 'object' && publicProfileObj.media_kit_data?.selected_template_id) ||
+        publicProfileObj.selected_template_id ||
+        'default';
+      
+      console.log("MediaKit: Setting template from publicProfile:", templateId);
+      setActiveTemplateId(templateId);
+    }
+  }, [isPreview, previewData, isPublic, publicProfile]);
+
   // Simple handler for navigation back from editor  
   useEffect(() => {
     const handlePopState = () => {
@@ -399,30 +581,63 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
         
         // Check for state from navigation
         const state = window.history.state?.usr;
-        if (state?.updatedMediaKit?.colors) {
-          console.log("MediaKit: Found updatedMediaKit in navigation state:", state.updatedMediaKit.colors);
-          
-          // Create and save new styles
-          const newStyles = {
-            background: state.updatedMediaKit.colors.background || '#F5F5F5',
-            foreground: state.updatedMediaKit.colors.text || '#1A1F2C',
-            primary: state.updatedMediaKit.colors.accent || '#7E69AB',
-            primaryLight: state.updatedMediaKit.colors.accent_light || '#E5DAF8',
-            secondary: state.updatedMediaKit.colors.secondary || '#6E59A5',
-            accent: state.updatedMediaKit.colors.text || '#1A1F2C',
-            neutral: state.updatedMediaKit.colors.secondary || '#8E9196',
-            border: `${state.updatedMediaKit.colors.accent || '#7E69AB'}33`
-          };
-          
-          // Save to localStorage for persistence
-          localStorage.setItem('mediaKitCustomStyles', JSON.stringify(newStyles));
-          
-          // Update styles
-          setStyles(newStyles);
-        }
         
-        setHasFetched(false);
-        fetchProfile();
+        // Only proceed if we have navigation state
+        if (state?.updatedMediaKit) {
+          console.log("MediaKit: Found updatedMediaKit in navigation state:", state.updatedMediaKit);
+          
+          // Check and update template selection if it was changed
+          // Look for template ID in media_kit_data, which is where it's actually stored
+          const newTemplateId = state.updatedMediaKit.media_kit_data?.selected_template_id;
+          if (newTemplateId) {
+            console.log("MediaKit: Updating template selection to:", newTemplateId);
+            setActiveTemplateId(newTemplateId);
+            
+            // Save the updated template ID to localStorage for persistence
+            try {
+              const storedData = localStorage.getItem('updatedMediaKit');
+              if (storedData) {
+                const parsedData = JSON.parse(storedData);
+                parsedData.selected_template_id = newTemplateId;
+                localStorage.setItem('updatedMediaKit', JSON.stringify(parsedData));
+                console.log("MediaKit: Saved updated template ID to localStorage");
+              } else {
+                // If no updatedMediaKit exists yet, create one with the template ID
+                localStorage.setItem('updatedMediaKit', JSON.stringify({
+                  selected_template_id: newTemplateId
+                }));
+              }
+            } catch (e) {
+              console.error("MediaKit: Error saving template ID to localStorage:", e);
+            }
+          }
+          
+          // Handle colors as before
+          if (state.updatedMediaKit.colors) {
+            console.log("MediaKit: Found updatedMediaKit.colors in navigation state");
+            
+            // Create and save new styles
+            const newStyles = {
+              background: state.updatedMediaKit.colors.background || '#F5F5F5',
+              foreground: state.updatedMediaKit.colors.text || '#1A1F2C',
+              primary: state.updatedMediaKit.colors.accent || '#7E69AB',
+              primaryLight: state.updatedMediaKit.colors.accent_light || '#E5DAF8',
+              secondary: state.updatedMediaKit.colors.secondary || '#6E59A5',
+              accent: state.updatedMediaKit.colors.text || '#1A1F2C',
+              neutral: state.updatedMediaKit.colors.secondary || '#8E9196',
+              border: `${state.updatedMediaKit.colors.accent || '#7E69AB'}33`
+            };
+            
+            // Save to localStorage for persistence
+            localStorage.setItem('mediaKitCustomStyles', JSON.stringify(newStyles));
+            
+            // Update styles
+            setStyles(newStyles);
+          }
+          
+          setHasFetched(false);
+          fetchProfile();
+        }
       }
     };
     
@@ -467,29 +682,43 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
       if (savedCustomStyles) {
         // If we have custom styles saved from editor, use those instead
         console.log("MediaKit: Using custom styles from localStorage for preview");
-        
-        // Don't set styles here, they'll be loaded from the useEffect that reads localStorage
+        // Styles already loaded from localStorage useEffect
       }
       // Only apply theme colors if no custom styles found
       else if (mediaKitData && mediaKitData.colors) {
-        const colors = mediaKitData.colors;
+        // Ensure the colors conform to ColorScheme
+        const currentColors = {
+          ...defaultColorScheme, // Start with defaults
+          ...mediaKitData.colors, // Override with media kit values
+        };
         
         // Create a mapping from saved colors to UI expected colors
         const mappedStyles = {
-          background: colors.background || '#F5F5F5',
-          foreground: colors.text || '#1A1F2C',
-          primary: colors.accent || '#7E69AB',
-          primaryLight: colors.accent_light || '#E5DAF8',
-          secondary: colors.secondary || '#6E59A5',
-          accent: colors.accent || '#1A1F2C',
-          neutral: colors.secondary || '#8E9196',
-          border: `${colors.accent || '#7E69AB'}33`
+          background: currentColors.background, 
+          foreground: currentColors.text,
+          primary: currentColors.primary, 
+          primaryLight: currentColors.accent_light, 
+          secondary: currentColors.secondary, 
+          accent: currentColors.accent,
+          neutral: currentColors.secondary, // Keep existing mapping logic if needed
+          border: `${currentColors.primary}33`
         };
         
-        console.log('Mapped styles:', mappedStyles);
+        console.log('Mapped styles from processPreviewData:', mappedStyles);
         setStyles(mappedStyles);
       } else {
-        console.warn('No colors found in mediaKitData:', mediaKitData);
+        console.warn('No colors found in mediaKitData, using defaults:', mediaKitData);
+        // Apply default styles if no colors found and no custom styles exist
+        setStyles({
+          background: defaultColorScheme.background,
+          foreground: defaultColorScheme.text,
+          primary: defaultColorScheme.primary,
+          primaryLight: defaultColorScheme.accent_light,
+          secondary: defaultColorScheme.secondary,
+          accent: defaultColorScheme.accent,
+          neutral: defaultColorScheme.secondary, // Or a suitable default neutral
+          border: `${defaultColorScheme.primary}33`
+        });
       }
 
       // pull in anything PublicMediaKit attached for us:
@@ -507,7 +736,8 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
         tagline: mediaKitData?.tagline || '',
         skills: mediaKitData?.skills || [],
         media_kit_url: profileData.media_kit_url || '',
-        contact_email: mediaKitData?.contact_email || profileData.contact_email || ''
+        contact_email: mediaKitData?.contact_email || profileData.contact_email || '',
+        selected_template_id: mediaKitData?.selected_template_id || 'default'
       };
 
       console.log('Processed preview data:', processedData);
@@ -540,21 +770,22 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
   }, [isPreview, previewData]);
 
   // Ensure realData is declared only once
-  const realData = isPreview 
-    ? { ...((typeof previewData === 'object' && previewData) || {}), ...(profile || {}) }
+  const realData: ProfileData = isPreview 
+    ? { ...((typeof previewData === 'object' && previewData) || {}), ...(profile || {}) } as ProfileData
     : isPublic
       ? (() => {
-          // use the fully-processed `profile` state here,
-          // not the raw prop
           const source = profile || (publicProfile as ProfileData) || {} as ProfileData;
           const top = Array.isArray(source.videos) ? source.videos : [];
-          const inner = source.media_kit_data?.videos || [];
+          // Add type guard and nullish access before accessing .videos
+          const inner = typeof source.media_kit_data === 'object' && source.media_kit_data?.videos 
+            ? source.media_kit_data.videos 
+            : [];
           return {
             ...source,
             videos: top.length ? top : inner
-          };
+          } as ProfileData;
         })()
-      : { ...(profile || {}), ...(kitData || {}), videos: videos || [] };
+      : { ...(profile || {}), ...(kitData || {}), videos: videos || [] } as ProfileData;
       
   // Debug log for public profile data flow
   if (isPublic) {
@@ -578,12 +809,18 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
   console.log("MediaKit DEBUG videos:", {
     isPublic,
     topLevelVideos: realData.videos,
-    mediaKitVideos: realData.media_kit_data?.videos,
+    mediaKitVideos: typeof realData.media_kit_data === 'object' ? realData.media_kit_data?.videos : undefined,
     videosLength: realData.videos?.length,
-    mediaKitVideosLength: realData.media_kit_data?.videos?.length,
+    mediaKitVideosLength: typeof realData.media_kit_data === 'object' ? realData.media_kit_data?.videos?.length : undefined,
     publicProfileType: isPublic ? typeof publicProfile : null,
     publicProfileHasVideos: isPublic ? !!(publicProfile as ProfileData)?.videos?.length : null,
-    publicProfileHasMediaKitVideos: isPublic ? !!(publicProfile as ProfileData)?.media_kit_data?.videos?.length : null
+    publicProfileHasMediaKitVideos: isPublic 
+      ? (
+        typeof (publicProfile as ProfileData)?.media_kit_data === 'object' && 
+        (publicProfile as ProfileData)?.media_kit_data !== null && 
+        !!(publicProfile as ProfileData).media_kit_data.videos?.length
+      ) 
+      : null
   });
 
   // Log the realData tagline value 
@@ -595,8 +832,22 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
     taglineType: typeof realData.tagline
   });
 
+  // Debug the updatedMediaKit data from localStorage and state
+  console.log("MediaKit: UpdatedMediaKit Sources:", {
+    fromState: updatedMediaKitFromState ? {
+      selected_template_id: updatedMediaKitFromState.selected_template_id,
+      hasTemplateId: !!updatedMediaKitFromState.selected_template_id
+    } : 'none',
+    fromLocalStorage: localUpdatedMediaKit ? {
+      selected_template_id: localUpdatedMediaKit.selected_template_id,
+      hasTemplateId: !!localUpdatedMediaKit.selected_template_id
+    } : 'none'
+  });
+
   // Add fallbacks for essential properties to prevent errors
   if (!realData.full_name) realData.full_name = 'Media Kit';
+  if (!realData.email) realData.email = ''; // Add fallback for email
+  if (!realData.username) realData.username = ''; // Add fallback for username
   
   // Only add fallback for non-preview mode
   // Preview mode should show exactly what's passed in
@@ -605,15 +856,16 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
   if (!realData.services) realData.services = [];
   if (!realData.brand_collaborations) realData.brand_collaborations = [];
   if (!realData.portfolio_images) realData.portfolio_images = ['https://placehold.co/600x400','https://placehold.co/600x400','https://placehold.co/600x400'];
+  if (!realData.selected_template_id) realData.selected_template_id = 'default';
 
   console.log("MediaKit: Final realData:", {
     hasData: !!realData,
     id: realData?.id,
     name: realData?.full_name,
     email: realData?.email,
-    contact_email: realData?.contact_email,
     hasServices: Array.isArray(realData?.services),
-    serviceCount: Array.isArray(realData?.services) ? realData.services.length : 'N/A'
+    serviceCount: Array.isArray(realData?.services) ? realData.services.length : 'N/A',
+    selected_template_id: realData.selected_template_id
   });
 
   const handleEdit = () => {
@@ -722,64 +974,6 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
     }
   };
 
-  // Add a function to format numbers with K/M/B suffixes for large values
-  const formatNumber = (num: number | string | undefined): string => {
-    if (num === undefined) return '0';
-    
-    const value = typeof num === 'string' ? parseFloat(num) : num;
-    
-    if (isNaN(value)) return '0';
-    
-    if (value >= 1000000000) {
-      return (value / 1000000000).toFixed(1).replace(/\.0$/, '') + 'B';
-    }
-    
-    if (value >= 1000000) {
-      return (value / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
-    }
-    
-    if (value >= 1000) {
-      return (value / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
-    }
-    
-    return value.toString();
-  };
-
-  // Better responsive text styles without truncation
-  const responsiveTextStyles = `
-    .stats-number {
-      font-size: clamp(0.9rem, 4vw, 1.5rem);
-      line-height: 1.2;
-      width: 100%;
-      text-align: center;
-      display: block;
-      margin: 0 auto;
-    }
-    
-    .stats-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-    }
-    
-    .brand-tag, .service-tag {
-      font-size: clamp(0.8rem, 4vw, 0.9rem);
-      word-break: break-word;
-    }
-    
-    .contact-info-text {
-      font-size: clamp(0.75rem, 4vw, 1rem);
-      word-break: break-word;
-      width: 100%;
-    }
-
-    .text-container {
-      display: flex;
-      align-items: center;
-    }
-  `;
-
   // Add this console log just before the return statement to see the theme values
   console.log("MediaKit Theme:", computedStyles);
   console.log("MediaKit kitData:", kitData);
@@ -818,71 +1012,61 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
     error
   });
   
-  // 1) Error screen only once we're done loading and actually have an error
-  if (!loading && error) {
-    return (
-      <div style={{ padding:'2rem', textAlign:'center', color:'red' }}>
-        Error: {error}
-      </div>
-    );
+  // --- Define ActiveTemplateComponent before return ---
+  // Add explicit debug logs about template selection
+  console.log("MediaKit: TEMPLATE SELECTION:", { 
+    activeTemplateId,
+    realDataTemplateId: realData.selected_template_id,
+    mediaKitDataTemplateId: typeof realData.media_kit_data === 'object' ? realData.media_kit_data.selected_template_id : 'N/A',
+    shouldUseAesthetic: activeTemplateId === 'aesthetic'
+  });
+
+  // Force a direct check of the template ID from the data source
+  // This bypasses all the complex state machinery and just directly uses the ID from the data
+  const templateIdFromData = typeof realData.media_kit_data === 'object' ? 
+    realData.media_kit_data.selected_template_id : 
+    realData.selected_template_id || 'default';
+  console.log("DIRECT TEMPLATE ID CHECK:", {
+    fromMediaKitData: typeof realData.media_kit_data === 'object' ? 
+      realData.media_kit_data.selected_template_id : 'not available',
+    fromTopLevel: realData.selected_template_id || 'not available',
+    finalValue: templateIdFromData
+  });
+
+  // ADD EXTREME DEBUG LOGGING FOR TEMPLATE SELECTION
+  console.log("🔥🔥🔥 FINAL TEMPLATE DECISION:", {
+    templateIdFromData,
+    isAesthetic: templateIdFromData === 'aesthetic',
+    isDefault: templateIdFromData === 'default',
+    rawValue: templateIdFromData,
+    type: typeof templateIdFromData,
+    mediaKitDataObject: typeof realData.media_kit_data === 'object' ? 'YES' : 'NO',
+    mediaKitDataSelectedTemplateId: typeof realData.media_kit_data === 'object' ? 
+      realData.media_kit_data.selected_template_id : 'NOT_AVAILABLE'
+  });
+
+  // Simply render the correct template directly
+  // If public or preview, render template directly without extra wrappers/backgrounds
+  if (isPreview || isPublic) {
+    // Find the correct template component
+    const TemplateComponent = templateIdFromData === 'aesthetic' 
+      ? MediaKitTemplateAesthetic 
+      : MediaKitTemplateDefault;
+      
+    // Log which component is being rendered
+    console.log(`Rendering ${templateIdFromData === 'aesthetic' ? 'Aesthetic' : 'Default'} template directly for public/preview`);
+      
+    // Render only the template
+    return <TemplateComponent data={realData} theme={computedStyles} />;
   }
 
-  // 2) Skeleton until we've fetched a real profile (or in preview/public mode)
-  if ((loading && !isPreview && !isPublic) || (!profile && !isPreview && !isPublic)) {
-    console.log("MediaKit: Showing skeleton, loading:", loading, "profile:", !!profile);
-    return (
-      <div className="min-h-screen" style={{ background: computedStyles.background }}>
-        <style>{responsiveTextStyles}</style>
-        {!isPreview && !isPublic && <DashboardNav />}
-        <main className="p-8">
-          <div className="mx-auto" style={{ maxWidth: '1000px' }}>
-            <div className="mb-6 flex justify-end gap-4">
-              <div className="w-32 h-10 bg-white/50 rounded-md animate-pulse"></div>
-              <div className="w-32 h-10 bg-white/50 rounded-md animate-pulse"></div>
-              <div className="w-32 h-10 bg-white/50 rounded-md animate-pulse"></div>
-            </div>
-            
-            <div className="space-y-6">
-              {/* Hero Section Skeleton */}
-              <div className="bg-white rounded-[0.75rem] p-8 shadow-sm border" style={{ borderColor: computedStyles.border }}>
-                <div className="grid grid-cols-1 md:grid-cols-[200px,1fr] gap-8">
-                  <div className="w-[200px] h-[200px] mx-auto md:mx-0 rounded-full overflow-hidden bg-white/60 animate-pulse"></div>
-                  <div className="space-y-4">
-                    <div className="h-10 w-3/4 bg-white/60 rounded animate-pulse"></div>
-                    <div className="h-6 w-1/2 bg-white/60 rounded animate-pulse"></div>
-                    <div className="h-20 w-full bg-white/60 rounded animate-pulse"></div>
-                    <div className="flex gap-3">
-                      <div className="h-10 w-28 bg-white/60 rounded-lg animate-pulse"></div>
-                      <div className="h-10 w-28 bg-white/60 rounded-lg animate-pulse"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Stats Section Skeleton */}
-              <div className="bg-white rounded-[0.75rem] p-6 shadow-sm border" style={{ borderColor: computedStyles.border }}>
-                <div className="h-8 w-48 bg-white/60 rounded animate-pulse mb-6"></div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                  {[1, 2, 3, 4].map(i => (
-                    <div key={i} className="p-6 rounded-[0.75rem] bg-white/60 animate-pulse" style={{ animationDelay: `${i * 0.1}s` }}></div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  // 3) Now we definitely have a `profile` (or are in preview/public), render the real page
+  // --- Default rendering for internal view (/media-kit) ---
   return (
-    <div className="min-h-screen" style={{ background: computedStyles.background }}>
-      <style>{responsiveTextStyles}</style>
-      {!isPreview && !isPublic && <DashboardNav />}
-      <main className="p-8">
+    <div className="min-h-screen bg-white"> {/* Keep white bg for internal page */}
+      <DashboardNav />
+      <main className="p-8"> {/* Keep padding for internal page */}
         <div className="mx-auto" style={{ maxWidth: '1000px' }}>
-          {!isPreview && !isPublic && user?.id === realData.id && (
+          {user?.id === realData.id && ( /* Check user ID for buttons */
             <div className="mb-6 flex justify-end gap-4">
               <Button
                 variant="outline"
@@ -944,296 +1128,62 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
             </div>
           )}
 
-          <div className="media-kit space-y-6">
-            {/* Hero Section */}
-            <div className="hero bg-white rounded-[0.75rem] p-8 shadow-sm border grid grid-cols-1 md:grid-cols-[200px,1fr] gap-8" style={{ borderColor: computedStyles.border }}>
-              <div className="photo w-[200px] h-[200px] mx-auto md:mx-0 rounded-full overflow-hidden border-4" style={{ borderColor: computedStyles.primaryLight }}>
-                {realData.avatar_url ? (
-                  <img src={realData.avatar_url} alt={realData.full_name} className="w-full h-full object-cover" />
-                ) : (
-                  <img src="https://placehold.co/400x400" alt="Profile Photo" className="w-full h-full object-cover" />
-                )}
-              </div>
-              
-              <div className="info text-center md:text-left">
-                <h1 className="font-['Playfair_Display'] text-[2.5rem] mb-2" style={{ color: computedStyles.foreground }}>
-                  {realData.full_name}
-                </h1>
-                <p className="text-[1.1rem] italic mb-4" style={{ color: computedStyles.primary }}>
-                  {realData.tagline}
-                </p>
-
-                <p className="text-base mb-6" style={{ color: computedStyles.neutral }}>
-                  {realData.personal_intro || realData.intro || ''}
-                </p>
-                
-                <div className="social-links flex flex-wrap gap-4 justify-center md:justify-start">
-                  {realData.instagram_handle && (
-                    <a
-                      href={`https://instagram.com/${realData.instagram_handle}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[0.9rem] font-medium px-4 py-2 rounded-lg transition-all hover:bg-primary hover:text-white"
-                      style={{ 
-                        background: computedStyles.primaryLight,
-                        color: computedStyles.foreground
-                      }}
-                    >
-                      Instagram
-                    </a>
-                  )}
-                  {realData.tiktok_handle && (
-                    <a
-                      href={`https://tiktok.com/@${realData.tiktok_handle}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[0.9rem] font-medium px-4 py-2 rounded-lg transition-all hover:bg-primary hover:text-white"
-                      style={{ 
-                        background: computedStyles.primaryLight,
-                        color: computedStyles.foreground
-                      }}
-                    >
-                      TikTok
-                    </a>
-                  )}
-                  {(realData.contact_email || realData.email) && (
-                    <a
-                      href={`mailto:${realData.contact_email || realData.email}`}
-                      className="text-[0.9rem] font-medium px-4 py-2 rounded-lg transition-all hover:bg-primary hover:text-white"
-                      style={{ 
-                        background: computedStyles.primaryLight,
-                        color: computedStyles.foreground
-                      }}
-                    >
-                      Contact
-                    </a>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Analytics Overview */}
-            <div className="section bg-white rounded-[0.75rem] p-6 shadow-sm border" style={{ borderColor: computedStyles.border }}>
-              <h2 className="font-['Playfair_Display'] text-[1.5rem] mb-6 flex items-center gap-2" style={{ color: computedStyles.foreground }}>
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6" style={{ color: computedStyles.primary }}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
-                </svg>
-                Analytics Overview
-              </h2>
-              <div className="stats-grid grid grid-cols-2 md:grid-cols-4 gap-6">
-                <div className="stats-item p-6 rounded-[0.75rem] text-center" style={{ background: computedStyles.primaryLight }}>
-                  <h3 className="stats-number font-semibold mb-1" style={{ color: computedStyles.primary }}>
-                    {formatNumber(realData.follower_count) || '0'}
-                  </h3>
-                  <p className="text-[0.9rem]" style={{ color: computedStyles.neutral }}>Total Followers</p>
-                </div>
-                <div className="stats-item p-6 rounded-[0.75rem] text-center" style={{ background: computedStyles.primaryLight }}>
-                  <h3 className="stats-number font-semibold mb-1" style={{ color: computedStyles.primary }}>
-                    {realData.engagement_rate || '0'}%
-                  </h3>
-                  <p className="text-[0.9rem]" style={{ color: computedStyles.neutral }}>Engagement Rate</p>
-                </div>
-                <div className="stats-item p-6 rounded-[0.75rem] text-center" style={{ background: computedStyles.primaryLight }}>
-                  <h3 className="stats-number font-semibold mb-1" style={{ color: computedStyles.primary }}>
-                    {formatNumber(realData.avg_likes) || '0'}
-                  </h3>
-                  <p className="text-[0.9rem]" style={{ color: computedStyles.neutral }}>Average Likes</p>
-                </div>
-                <div className="stats-item p-6 rounded-[0.75rem] text-center" style={{ background: computedStyles.primaryLight }}>
-                  <h3 className="stats-number font-semibold mb-1" style={{ color: computedStyles.primary }}>
-                    {formatNumber(realData.reach) || '0'}
-                  </h3>
-                  <p className="text-[0.9rem]" style={{ color: computedStyles.neutral }}>Weekly Reach</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Portfolio Showcase - Always show this section */}
-            <div className="section bg-white rounded-[0.75rem] p-6 shadow-sm border" style={{ borderColor: computedStyles.border }}>
-              <h2 className="font-['Playfair_Display'] text-[1.5rem] mb-6 flex items-center gap-2" style={{ color: computedStyles.foreground }}>
-                <PhotoIcon className="w-6 h-6" style={{ color: computedStyles.primary }} />
-                Recent Content
-              </h2>
-              
-              {(() => {
-                // pick whichever source has videos
-                const vids = realData.videos?.length
-                          ? realData.videos
-                          : realData.media_kit_data?.videos || [];
-
-                if (vids.length === 0) {
-                  // fallback to portfolio_images or placeholders…
-                  return (
-                    <div className="grid grid-cols-3 gap-4">
-                      {(realData.portfolio_images?.length 
-                        ? realData.portfolio_images
-                        : [
-                          'https://placehold.co/600x400',
-                          'https://placehold.co/600x400',
-                          'https://placehold.co/600x400'
-                        ]).map((image, index) => (
-                        <img 
-                          key={index}
-                          src={image}
-                          alt={`Portfolio ${index + 1}`}
-                          className="w-full h-[200px] object-cover rounded-[0.75rem] border-2 transition-transform hover:scale-[1.02]"
-                          style={{ borderColor: computedStyles.border }}
-                        />
-                      ))}
-                    </div>
-                  );
-                }
-
-                // Videos: Display all on one row with consistent sizing and proper padding
-                return (
-                  <div className="flex justify-center px-1" 
-                       style={{ 
-                         gap: vids.length >= 3 && vids.length <= 4 ? '1.5rem' : '1rem',
-                       }}>
-                    {vids.map((v, i) => (
-                      <a
-                        key={i}
-                        href={v.url}
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="block rounded-lg overflow-hidden flex-1"
-                        style={{ 
-                          border: `2px solid ${computedStyles.primary}`,
-                          maxWidth: vids.length <= 3 ? '26%' : '19.8%', // Made 4-5 videos 7% larger
-                        }}
-                      >
-                        <div className="relative">
-                          <img
-                            src={v.thumbnail_url}
-                            alt={`Video ${i+1}`}
-                            className="w-full object-cover aspect-[3/4]"
-                          />
-                          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-25">
-                            <svg 
-                              xmlns="http://www.w3.org/2000/svg" 
-                              fill="white" 
-                              viewBox="0 0 24 24" 
-                              className={`${vids.length >= 4 ? 'w-9 h-9' : 'w-10 h-10'}`}
-                            >
-                              <path d="M8 5v14l11-7L8 5z"/>
-                            </svg>
-                          </div>
-                        </div>
-                      </a>
-                    ))}
-                  </div>
-                );
-              })()}
-            </div>
-
-            {/* Brand Collaborations - Always show this section */}
-            <div className="section bg-white rounded-[0.75rem] p-6 shadow-sm border" style={{ borderColor: computedStyles.border }}>
-              <h2 className="font-['Playfair_Display'] text-[1.5rem] mb-6 flex items-center gap-2" style={{ color: computedStyles.foreground }}>
-                <ShareIcon className="w-6 h-6" style={{ color: computedStyles.primary }} />
-                Brand Experience
-              </h2>
-              <div className="brands-grid flex flex-wrap gap-4">
-                {(Array.isArray(realData.brand_collaborations) && realData.brand_collaborations.length > 0) 
-                  ? realData.brand_collaborations.map((brand, index) => (
-                      <div
-                        key={index}
-                        className="brand-tag font-medium px-5 py-3 rounded-lg"
-                        style={{ background: computedStyles.primaryLight, color: computedStyles.primary }}
-                      >
-                        {brand}
-                      </div>
-                    ))
-                  : (
-                    <div className="text-[0.9rem] italic text-gray-400">
-                      No brand collaborations to display
-                    </div>
-                  )
-                }
-              </div>
-            </div>
-
-            {/* Services - Always show this section */}
-            <div className="section bg-white rounded-[0.75rem] p-6 shadow-sm border" style={{ borderColor: computedStyles.border }}>
-              <h2 className="font-['Playfair_Display'] text-[1.5rem] mb-6 flex items-center gap-2" style={{ color: computedStyles.foreground }}>
-                <TagIcon className="w-6 h-6" style={{ color: computedStyles.primary }} />
-                Services Offered
-              </h2>
-              
-              <ul className="services-list grid grid-cols-1 md:grid-cols-3 gap-4">
-                {(Array.isArray(realData.services) && realData.services.length > 0)
-                  ? realData.services.map((service, index) => (
-                      <li
-                        key={index}
-                        className="service-tag font-medium p-4 rounded-[0.75rem] flex items-center gap-2"
-                        style={{ background: computedStyles.primaryLight, color: computedStyles.primary }}
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 flex-shrink-0">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span className="text-container">{service}</span>
-                      </li>
-                    ))
-                  : (
-                    <li className="text-[0.9rem] italic text-gray-400 col-span-3">
-                      No services to display
-                    </li>
-                  )
-                }
-              </ul>
-            </div>
-
-            {/* Contact Information */}
-            <div className="section bg-white rounded-[0.75rem] p-6 shadow-sm border" style={{ borderColor: computedStyles.border }}>
-              <h2 className="font-['Playfair_Display'] text-[1.5rem] mb-6 flex items-center gap-2" style={{ color: computedStyles.foreground }}>
-                <ShareIcon className="w-6 h-6" style={{ color: computedStyles.primary }} />
-                Contact Information
-              </h2>
-              <div className="contact-info grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white p-4 rounded-[0.75rem] border" style={{ borderColor: computedStyles.border }}>
-                  <h4 className="text-[0.9rem] mb-2" style={{ color: computedStyles.neutral }}>Email</h4>
-                  <p>
-                    <a 
-                      href={`mailto:${realData.contact_email || realData.email || 'contact@example.com'}`} 
-                      className="contact-info-text font-medium hover:underline block" 
-                      style={{ color: computedStyles.primary }}
-                    >
-                      {realData.contact_email || realData.email || 'contact@example.com'}
-                    </a>
-                  </p>
-                </div>
-                <div className="bg-white p-4 rounded-[0.75rem] border" style={{ borderColor: computedStyles.border }}>
-                  <h4 className="text-[0.9rem] mb-2" style={{ color: computedStyles.neutral }}>Instagram</h4>
-                  <p>
-                    <a 
-                      href={`https://instagram.com/${realData.instagram_handle ? realData.instagram_handle.replace(/^@/, '') : 'username'}`} 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="contact-info-text font-medium hover:underline block"
-                      style={{ color: computedStyles.primary }}
-                    >
-                      {'@' + (realData.instagram_handle ? realData.instagram_handle.replace(/^@/, '') : 'username')}
-                    </a>
-                  </p>
-                </div>
-                <div className="bg-white p-4 rounded-[0.75rem] border" style={{ borderColor: computedStyles.border }}>
-                  <h4 className="text-[0.9rem] mb-2" style={{ color: computedStyles.neutral }}>TikTok</h4>
-                  <p>
-                    <a 
-                      href={`https://tiktok.com/@${realData.tiktok_handle ? realData.tiktok_handle.replace(/^@/, '') : 'username'}`} 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="contact-info-text font-medium hover:underline block"
-                      style={{ color: computedStyles.primary }}
-                    >
-                      {'@' + (realData.tiktok_handle ? realData.tiktok_handle.replace(/^@/, '') : 'username')}
-                    </a>
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* Template rendering */}
+          {(() => {
+            // Capture exact value for debugging
+            const exactTemplateId = templateIdFromData; 
+            console.log("🔎 RENDER DECISION:", {
+              exactTemplateId,
+              stringComparison: exactTemplateId === 'aesthetic',
+              typeofExactTemplateId: typeof exactTemplateId
+            });
+            
+            // Direct string comparison with explicit values
+            if (exactTemplateId === 'aesthetic') {
+              console.log("✅ RENDERING AESTHETIC TEMPLATE");
+              return <MediaKitTemplateAesthetic data={realData} theme={computedStyles} />;
+            } else {
+              console.log("⚠️ RENDERING DEFAULT TEMPLATE (not aesthetic)");
+              return <MediaKitTemplateDefault data={realData} theme={computedStyles} />;
+            }
+          })()}
         </div>
       </main>
     </div>
   );
 }); 
+
+// Default theme
+const defaultTheme: TemplateTheme = {
+  background: '#F5F5F5',
+  foreground: '#1A1F2C',
+  primary: '#7E69AB',
+  primaryLight: '#E5DAF8',
+  secondary: '#6E59A5',
+  accent: '#1A1F2C', // Often same as foreground in default
+  neutral: '#8E9196',
+  border: 'rgba(126, 105, 171, 0.2)' // #7E69AB with 20% opacity
+};
+
+// Add a helper function to compute styles from profile data
+function computeStylesFromProfile(profileData: ProfileData | null): TemplateTheme {
+  if (!profileData) return defaultTheme;
+
+  const mediaKitData = typeof profileData.media_kit_data === 'string'
+    ? JSON.parse(profileData.media_kit_data)
+    : profileData.media_kit_data;
+    
+  const colors = mediaKitData?.colors || {};
+  const baseColors = { ...defaultColorScheme, ...colors }; // Merge with defaults
+
+  return {
+    background: baseColors.background,
+    foreground: baseColors.text,
+    primary: baseColors.accent, // Map accent to primary
+    primaryLight: baseColors.accent_light,
+    secondary: baseColors.secondary,
+    accent: baseColors.accent, // Keep accent as accent too
+    neutral: baseColors.secondary, // Use secondary for neutral
+    border: `${baseColors.accent}33`,
+  };
+} 
