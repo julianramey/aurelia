@@ -1,23 +1,23 @@
-# GlowFolio - Media Kit Platform for Content Creators
+# Aurelia - AI-Powered Talent Agency for Creatives
 
-GlowFolio is a modern web application that helps content creators showcase their work and metrics to potential brand partners through beautiful, customizable media kits.
+Aurelia is a revolutionary AI-powered talent agency platform that connects beauty and lifestyle micro-influencers with brands, helping them grow their careers and secure meaningful collaborations.
 
 ## Project Overview
 
-GlowFolio empowers creators to:
-- Create professional media kits in minutes
-- Customize colors, content, and layout
-- Share their media kit via a personalized URL
-- Display social media metrics and brand collaborations
-- Present their work in a visually appealing format
+Aurelia empowers creators by:
+- Matching creators with relevant brand opportunities using AI
+- Managing creator-brand relationships and collaborations
+- Providing data-driven insights and growth strategies
+- Automating outreach and negotiation processes
+- Building professional portfolios and media kits
 
 ## Key Features
 
-- **Customizable Media Kits:** Choose from multiple color themes and layout options
-- **Brand Collaboration Showcase:** Highlight past partnerships and brand work
-- **Metrics Display:** Present follower count, engagement rates, and other key metrics
-- **Services Section:** Showcase what services you offer to potential clients
-- **Public Sharing:** Each media kit gets a dedicated public URL for easy sharing
+- **AI-Powered Matching:** Intelligent algorithm to match creators with relevant brands
+- **Portfolio Management:** Professional portfolio and media kit creation
+- **Analytics Dashboard:** Track performance metrics and growth opportunities
+- **Brand Collaboration Tools:** Streamline the entire collaboration process
+- **Career Growth:** AI-driven insights and recommendations for career development
 
 ## Technologies Used
 
@@ -32,6 +32,7 @@ This project is built with a modern tech stack:
 - **Backend:**
   - Supabase for database, authentication, and storage
   - PostgreSQL database
+  - AI/ML integration for matching and recommendations
 
 ## Getting Started
 
@@ -44,8 +45,8 @@ This project is built with a modern tech stack:
 
 ```bash
 # Clone the repository
-git clone https://github.com/julianramey/glow-pitch-perfect.git
-cd glowfolio
+git clone https://github.com/yourusername/aurelia.git
+cd aurelia
 
 # Install dependencies
 npm install
@@ -68,18 +69,19 @@ npm run dev
 
 ## Key Components
 
-- **MediaKit.tsx**: Main component for displaying media kits
-- **MediaKitEditor.tsx**: Editor interface for customizing media kits
-- **PublicMediaKit.tsx**: Public-facing view of a creator's media kit
+- **CreatorProfile.tsx**: Creator profile and portfolio management
+- **BrandMatching.tsx**: AI-powered brand matching interface
+- **Analytics.tsx**: Performance metrics and insights dashboard
+- **CollaborationManager.tsx**: Brand collaboration workflow
 
 ## Database Schema
 
 The application uses several main tables:
-- `profiles`: User profiles and settings
-- `media_kit_stats`: Performance metrics for different platforms
-- `brand_collaborations`: Past brand partnerships 
-- `services`: Services offered to potential clients
-- `portfolio_items`: Portfolio showcase items
+- `profiles`: Creator and brand profiles
+- `opportunities`: Brand collaboration opportunities
+- `collaborations`: Active and past brand partnerships
+- `analytics`: Performance metrics and insights
+- `matches`: AI-generated creator-brand matches
 
 ## Deployment
 
@@ -91,4 +93,4 @@ This project is private and not licensed for public use.
 
 ---
 
-Created with ❤️ for content creators
+Created with ❤️ for the future of creator economy
