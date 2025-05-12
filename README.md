@@ -1,4 +1,4 @@
-# GlowFolio - Media Kit Platform for Content Creators
+# Aurelia - Media Kit Platform for Content Creators
 
 GlowFolio is a modern web application that helps content creators showcase their work and metrics to potential brand partners through beautiful, customizable media kits.
 
