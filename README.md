@@ -45,7 +45,7 @@ This project is built with a modern tech stack:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/aurelia.git
+git clone https://github.com/julianramey/aurelia.git
 cd aurelia
 
 # Install dependencies
