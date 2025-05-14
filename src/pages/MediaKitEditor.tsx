@@ -982,18 +982,48 @@ export default function MediaKitEditor() {
         await updateServices(servicesToSave);
         
         // Videos (upsert logic)
-        if (videoLinks.length) {
-           console.log("💾 Saving Videos:", videoLinks);
-           await supabase
-             .from('media_kit_videos')
-             .upsert(
-               videoLinks.map(v => ({ profile_id: profileId, url: v.url, thumbnail_url: v.thumbnail_url })),
-               { onConflict: 'profile_id,url' }
-             )
+        // 1. Filter out videos with blank URLs (User's Fix #1 preamble)
+        const nonEmptyVideos = videoLinks.filter(v => v.url && v.url.trim() !== '');
+
+        if (nonEmptyVideos.length > 0) {
+          // Fix 1: Only upsert non-empty videos
+          console.log("💾 Upserting non-empty Videos:", nonEmptyVideos);
+          const { error: upsertError } = await supabase
+            .from('media_kit_videos')
+            .upsert(
+              nonEmptyVideos.map(v => ({ 
+                profile_id: profileId, 
+                url: v.url, 
+                thumbnail_url: v.thumbnail_url 
+              })),
+              { onConflict: 'profile_id,url' }
+            );
+          if (upsertError) {
+            console.error("Error upserting videos:", upsertError);
+            // Optionally throw error or display a more specific toast
+          }
         } else {
-           console.log("ℹ️ No videos to save.");
-           // Optional: Delete existing videos if videoLinks is empty
-           // await supabase.from('media_kit_videos').delete().eq('profile_id', profileId);
+          // If there are no non-empty videos, it means the user intends to clear all videos.
+          // This handles cases where videoLinks was initially empty, or all URLs were cleared.
+          console.log("ℹ️ No non-empty videos to save. Clearing all videos for profile:", profileId);
+          const { error: deleteAllError } = await supabase
+            .from('media_kit_videos')
+            .delete()
+            .eq('profile_id', profileId);
+          if (deleteAllError) {
+            console.error("Error deleting all videos for profile:", deleteAllError);
+          }
+        }
+
+        // Fix 2: Explicitly delete any remaining blank-URL rows for this profile.
+        // This acts as a cleanup for any legacy data or edge cases where url might be ''.
+        console.log("🧹 Cleaning up any blank URL video rows for profile:", profileId);
+        const { error: deleteBlankError } = await supabase
+          .from('media_kit_videos')
+          .delete()
+          .match({ profile_id: profileId, url: '' }); 
+        if (deleteBlankError) {
+            console.error("Error cleaning up blank URL videos:", deleteBlankError);
         }
       } else {
          console.warn("No profile ID available for updating related tables.");

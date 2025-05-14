@@ -1,19 +1,22 @@
 import React from 'react';
 import { Card, CardContent } from "@/components/ui/card";
+import { Link } from 'react-router-dom';
 
 const Testimonials = () => {
   const testimonials = [
     {
-      quote: "Glowfolio helped me land my first paid partnership with a lifestyle brand I've been following for years!",
-      name: "Sophia Martinez",
-      role: "Content Creator, 18K followers",
-      avatar: "SM"
+      quote: "Aurelia helped me land my first paid partnership with a lifestyle brand I've been following for years!",
+      name: "Sarah L.",
+      handle: "@sarahstyles",
+      avatar: "https://randomuser.me/api/portraits/women/68.jpg",
+      stars: 5
     },
     {
-      quote: "I used to spend hours creating media kits. With Glowfolio, I made a beautiful one in 5 minutes that brands actually respond to.",
-      name: "Taylor Kim",
-      role: "Digital Creator, 24K followers",
-      avatar: "TK"
+      quote: "I used to spend hours creating media kits. With Aurelia, I made a beautiful one in 5 minutes that brands actually respond to.",
+      name: "Mike P.",
+      handle: "@mikepmedia",
+      avatar: "https://randomuser.me/api/portraits/men/32.jpg",
+      stars: 5
     },
     {
       quote: "The brand database is incredible. I found contacts I couldn't get anywhere else and landed 3 deals in my first month.",
@@ -24,17 +27,13 @@ const Testimonials = () => {
   ];
 
   return (
-    <section className="py-24 px-4 bg-white">
-      <div className="container mx-auto max-w-5xl">
-        <div className="text-center mb-20">
-          <h2 className="text-3xl md:text-4xl font-display font-medium mb-5 text-charcoal">
-            Loved by <span className="text-rose">creators</span> like you
+    <section className="bg-cream py-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-12">
+          <h2 className="text-4xl font-display font-semibold text-charcoal">
+            Loved by creators like you
           </h2>
-          <p className="text-taupe text-lg max-w-2xl mx-auto">
-            Join thousands of content creators using Glowfolio to land their dream brand deals.
-          </p>
         </div>
-
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {testimonials.map((testimonial, i) => (
             <Card key={i} className="border-none shadow-none bg-white overflow-hidden h-full">
@@ -53,12 +52,17 @@ const Testimonials = () => {
                   </div>
                   <div className="ml-3">
                     <p className="text-sm font-medium text-charcoal">{testimonial.name}</p>
-                    <p className="text-xs text-taupe">{testimonial.role}</p>
+                    <p className="text-xs text-taupe">{testimonial.handle}</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
           ))}
+        </div>
+        <div className="mt-12 text-center">
+          <Link to="/signup" className="px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-rose hover:bg-rose/90 md:py-4 md:text-lg md:px-10 shadow-md transition-transform hover:scale-105">
+            Join thousands of content creators using Aurelia to land their dream brand deals.
+          </Link>
         </div>
       </div>
     </section>

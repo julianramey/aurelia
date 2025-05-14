@@ -9,7 +9,7 @@ const Footer = () => {
           <div className="md:col-span-2">
             <Link to="/" className="flex items-center">
               <span className="text-2xl font-display font-semibold text-rose">
-                Glowfolio
+                Aurelia
               </span>
             </Link>
             <p className="mt-4 text-taupe max-w-xs">
@@ -59,7 +59,7 @@ const Footer = () => {
         </div>
         
         <div className="mt-12 pt-6 border-t border-rose/20 flex flex-col md:flex-row justify-between items-center">
-          <p className="text-sm text-taupe">&copy; {new Date().getFullYear()} Glowfolio. All rights reserved.</p>
+          <p className="text-sm text-taupe">&copy; {new Date().getFullYear()} Aurelia. All rights reserved.</p>
           <div className="mt-4 md:mt-0 flex space-x-6 text-sm">
             <Link to="#" className="text-taupe hover:text-rose">Privacy Policy</Link>
             <Link to="#" className="text-taupe hover:text-rose">Terms of Service</Link>

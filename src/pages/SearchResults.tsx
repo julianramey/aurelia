@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Fragment } from 'react';
 import DashboardNav from '@/components/DashboardNav';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -18,6 +18,46 @@ import {
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid';
 import { Popover, Disclosure, Dialog, Transition } from '@headlessui/react';
 import { useLocation, useNavigate } from 'react-router-dom';
+
+interface EmailTemplate {
+  id: string;
+  name: string;
+  subject: string;
+  body: string;
+}
+
+const emailTemplatesData: EmailTemplate[] = [
+  {
+    id: 'template1',
+    name: 'Initial Introduction',
+    subject: 'Collaboration Inquiry: {{brandName}} x [Your Name/Brand]',
+    body: `Hi {{brandName}} Team,\n\nMy name is [Your Name] and I'm a [Your Title/Niche] with a passion for [mention something relevant to the brand]. I've been a long-time admirer of {{brandName}} and how you [mention specific positive aspect].\n\nI believe my audience of [mention audience size/demographics] would resonate strongly with your products/message. I'd love to discuss potential collaboration opportunities.\n\nAre you available for a quick chat next week?\n\nBest,\n[Your Name]\n[Your Website/Social Link]`
+  },
+  {
+    id: 'template2',
+    name: 'Follow-Up (No Response)',
+    subject: 'Following Up: Collaboration Inquiry with {{brandName}}',
+    body: `Hi {{brandName}} Team,\n\nI hope this email finds you well.\n\nI recently reached out regarding a potential collaboration between {{brandName}} and myself. I understand you're busy, so I wanted to gently follow up on my previous email.\n\nI'm still very enthusiastic about the possibility of working together and believe it could be a great fit. You can see more of my work here: [Your Portfolio/Media Kit Link].\n\nWould you be open to a brief discussion?\n\nThanks,\n[Your Name]`
+  },
+  {
+    id: 'template3',
+    name: 'Specific Product Pitch',
+    subject: 'Idea for {{brandName}}: Featuring [Specific Product]',
+    body: `Hi {{brandName}} Team,\n\nI'm particularly excited about your new [Specific Product Name] and I have a creative idea for how I could feature it to my audience. [Briefly explain your content idea].\n\nI think this would genuinely engage my followers and showcase {{brandName}}'s [Specific Product] in a unique light.\n\nLet me know if this sounds interesting!\n\nCheers,\n[Your Name]`
+  },
+  {
+    id: 'template4',
+    name: 'Event/Campaign Tie-In',
+    subject: '{{brandName}} x [Your Name] for your [Event/Campaign Name]?',
+    body: `Hi {{brandName}} Team,\n\nI saw you're currently running the [Event/Campaign Name] and it looks fantastic! I had an idea for how I could contribute to its success by [Your Idea related to the campaign].\n\nMy audience aligns well with [mention target of campaign], and I'd be thrilled to help amplify {{brandName}}'s message.\n\nBest regards,\n[Your Name]`
+  },
+  {
+    id: 'template5',
+    name: 'Quick & Casual Check-In',
+    subject: 'Quick hello from a {{brandName}} fan!',
+    body: `Hey {{brandName}} Team,\n\nJust wanted to send a quick note to say I continue to be impressed by {{brandName}}'s work in [Brand's Industry/Niche].\n\nIf you ever explore collaborations with creators like me, I'd love to be considered!\n\nKeep up the great work,\n[Your Name]`
+  },
+];
 
 interface Brand {
   id: number;
@@ -293,19 +333,21 @@ mockBrands.forEach(brand => {
         id: 1,
         name: `Alex Johnson`,
         title: 'Marketing Director',
-        email: `alex@${brand.name.toLowerCase().replace(/\s+/g, '')}.com`
+        email: `alex@${brand.name.toLowerCase().replace(/\s+/g, '')}.com`,
+        profileImage: undefined // Explicitly set optional field
       },
       {
         id: 2,
         name: `Taylor Smith`,
         title: 'Partnerships Manager',
-        email: `taylor@${brand.name.toLowerCase().replace(/\s+/g, '')}.com`
+        email: `taylor@${brand.name.toLowerCase().replace(/\s+/g, '')}.com`,
+        profileImage: undefined // Explicitly set optional field
       }
     ];
   } else {
-    // Remove any existing profile images
     brand.contacts.forEach(contact => {
-      delete contact.profileImage;
+      // Ensuring profileImage is optional if deleted, or handling existing ones
+      if (contact.profileImage === '') delete contact.profileImage; 
     });
   }
 });
@@ -314,7 +356,7 @@ export default function SearchResults() {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilters, setActiveFilters] = useState({
+  const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({
     industry: [],
     location: [],
     size: [],
@@ -335,6 +377,12 @@ export default function SearchResults() {
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showContacts, setShowContacts] = useState(false);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [currentEmailTarget, setCurrentEmailTarget] = useState<Brand | Contact | null>(null);
+  const [selectedTemplateInModal, setSelectedTemplateInModal] = useState<EmailTemplate | null>(null);
+
+  // NEW: Separate state for Template Selector Modal
+  const [isTemplateSelectorModalOpen, setIsTemplateSelectorModalOpen] = useState(false);
 
   // Reset showContacts when a new brand is selected
   useEffect(() => {
@@ -348,7 +396,7 @@ export default function SearchResults() {
     setSearchTerm(search);
     
     // Parse filters from URL
-    const filters: any = {};
+    const filters: Record<string, string[]> = {};
     Object.keys(activeFilters).forEach(key => {
       const filterValues = params.getAll(key);
       if (filterValues.length > 0) {
@@ -369,7 +417,7 @@ export default function SearchResults() {
   }, [location.search]);
 
   // Perform search with filters
-  const performSearch = (term: string, filters: any, page: number) => {
+  const performSearch = (term: string, filters: Record<string, string[]>, page: number) => {
     setIsLoading(true);
     
     // Simulate API call delay
@@ -520,7 +568,7 @@ export default function SearchResults() {
   };
 
   // Update URL and perform search
-  const updateUrlAndSearch = (term: string, filters: any, page: number) => {
+  const updateUrlAndSearch = (term: string, filters: Record<string, string[]>, page: number) => {
     const params = new URLSearchParams();
     
     // Add search term
@@ -619,6 +667,62 @@ export default function SearchResults() {
   const toggleContacts = (e: React.MouseEvent) => {
     e.stopPropagation();
     setShowContacts(prev => !prev);
+  };
+
+  // MODIFIED: Handlers for the template selection modal
+  const openTemplateSelectorModal = (target: Brand | Contact) => {
+    setCurrentEmailTarget(target);
+    setSelectedTemplateInModal(null);
+    setIsTemplateSelectorModalOpen(true); // Controls Template Selector Modal
+  };
+
+  const closeTemplateSelectorModal = () => {
+    setIsTemplateSelectorModalOpen(false); // Controls Template Selector Modal
+    setCurrentEmailTarget(null);
+    setSelectedTemplateInModal(null);
+  };
+
+  const handleSendEmailWithTemplate = (useBlankEmail: boolean = false) => {
+    if (!currentEmailTarget) return;
+
+    let recipientEmail = '';
+    let brandNameForEmail = '';
+
+    if ('contacts' in currentEmailTarget) { // It's a Brand object
+      brandNameForEmail = currentEmailTarget.name;
+      if (currentEmailTarget.contacts && currentEmailTarget.contacts.length > 0 && currentEmailTarget.contacts[0].email) {
+        recipientEmail = currentEmailTarget.contacts[0].email;
+      } else {
+        recipientEmail = `contact@${currentEmailTarget.name.toLowerCase().replace(/\s+/g, '')}.com`;
+        alert(`No primary contact email found for ${currentEmailTarget.name}. Using a generic one. Please verify.`);
+      }
+    } else { // It's a Contact object
+      recipientEmail = (currentEmailTarget as Contact).email; // Type assertion
+      // If you need brand name for contact, it should be passed along or fetched.
+      // For now, using a generic placeholder or the contact's name if suitable.
+      brandNameForEmail = currentEmailTarget.name.split(' ')[0]; // Example: use contact's first name or a generic 'Brand'
+    }
+
+    if (!recipientEmail) {
+        alert("No email address found for this contact/brand.");
+        closeTemplateSelectorModal();
+        return;
+    }
+
+    let subject = '';
+    let body = '';
+    const yourNamePlaceholder = "[Your Name/Brand]";
+
+    if (!useBlankEmail && selectedTemplateInModal) {
+      subject = selectedTemplateInModal.subject.replace(/{{brandName}}/g, brandNameForEmail).replace(/\[Your Name\/Brand\]/g, yourNamePlaceholder);
+      body = selectedTemplateInModal.body.replace(/{{brandName}}/g, brandNameForEmail).replace(/\[Your Name\/Brand\]/g, yourNamePlaceholder);
+    } else {
+      subject = `Collaboration Inquiry with ${brandNameForEmail}`;
+      body = `Hi ${brandNameForEmail} Team,\n\n[Write your email here]\n\nBest,\n${yourNamePlaceholder}`;
+    }
+
+    window.location.href = `mailto:${recipientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    closeTemplateSelectorModal();
   };
 
   return (
@@ -988,7 +1092,12 @@ export default function SearchResults() {
                   >
                     <button 
                       className="absolute top-4 right-4 p-1.5 bg-[rgb(229,218,248)] text-rose rounded-lg border border-transparent hover:bg-[rgb(229,218,248)]/80 hover:border-rose/20 transition-all"
-                      onClick={() => window.location.href = 'mailto:hey@glowfolio.co?subject=Hey%20world!&body=I%20love%20glowfolio!%0A%0AHere%27s%20my%20media%20kit:%20glowfolio.co/julian%0A%0A-Julian'}
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        const target = brand.contacts && brand.contacts.length > 0 ? brand.contacts[0] : brand;
+                        openTemplateSelectorModal(target); 
+                      }}
+                      title={`Email ${brand.name}`}
                     >
                       <EnvelopeIcon className="w-4 h-4" />
                     </button>
@@ -1091,7 +1200,7 @@ export default function SearchResults() {
             </div>
           )}
 
-          {/* Brand Modal */}
+          {/* Brand Modal - uses isModalOpen */}
           <AnimatePresence>
             {isModalOpen && selectedBrand && (
               <div className="fixed inset-0 z-[100] pointer-events-none">
@@ -1246,14 +1355,18 @@ export default function SearchResults() {
                     <div className="flex gap-4">
                       <button
                         className="flex-1 py-3 px-6 bg-[rgb(229,218,248)] text-rose rounded-lg hover:bg-[rgb(229,218,248)]/80 transition-colors flex items-center justify-center gap-2"
-                        onClick={() => window.location.href = 'mailto:hey@glowfolio.co?subject=Hey%20world!&body=I%20love%20glowfolio!%0A%0AHere%27s%20my%20media%20kit:%20glowfolio.co/julian%0A%0A-Julian'}
+                        onClick={(e) => { 
+                            e.stopPropagation(); 
+                            const target = selectedBrand.contacts && selectedBrand.contacts.length > 0 ? selectedBrand.contacts[0] : selectedBrand;
+                            openTemplateSelectorModal(target); 
+                        }}
                       >
                         <EnvelopeIcon className="w-5 h-5" />
                         <span>Contact Brand</span>
                       </button>
                       <button
                         className="flex-1 py-3 px-6 bg-rose text-white rounded-lg hover:bg-rose/90 transition-colors flex items-center justify-center gap-2"
-                        onClick={toggleContacts}
+                        onClick={toggleContacts} // This shows/hides the contact list
                       >
                         <EnvelopeIcon className="w-5 h-5" />
                         <span>Email Decision Makers</span>
@@ -1296,10 +1409,11 @@ export default function SearchResults() {
                                 </div>
                                 <button 
                                   className="px-3 py-1.5 bg-rose text-white text-xs rounded-lg hover:bg-rose/90 transition-colors flex items-center gap-1 flex-shrink-0 ml-2"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    window.location.href = `mailto:${contact.email}?subject=Hi ${contact.name.split(' ')[0]}, I'd like to work with ${selectedBrand.name}&body=Hello ${contact.name},%0A%0AI'm interested in working with ${selectedBrand.name} and would love to discuss potential opportunities.%0A%0ABest regards,%0A[Your Name]`;
+                                  onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    openTemplateSelectorModal(contact); 
                                   }}
+                                  title={`Email ${contact.name}`}
                                 >
                                   <EnvelopeIcon className="w-3 h-3" />
                                   <span>Email</span>
@@ -1317,6 +1431,86 @@ export default function SearchResults() {
           </AnimatePresence>
         </div>
       </main>
+
+      {/* Template Selection Modal - uses isTemplateSelectorModalOpen */}
+      <Transition appear show={isTemplateSelectorModalOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-[100]" onClose={closeTemplateSelectorModal}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black bg-opacity-25" />
+          </Transition.Child>
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 text-center">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                  <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-charcoal flex justify-between items-center">
+                    Choose an Email Template
+                    <button onClick={closeTemplateSelectorModal} className="p-1 rounded-md hover:bg-blush/50">
+                        <XMarkIcon className="h-5 w-5 text-taupe"/>
+                    </button>
+                  </Dialog.Title>
+                  <div className="mt-4 space-y-3 max-h-96 overflow-y-auto pr-2">
+                    {emailTemplatesData.map((template) => (
+                      <div 
+                        key={template.id}
+                        onClick={() => setSelectedTemplateInModal(template)}
+                        className={`p-4 border rounded-lg cursor-pointer hover:shadow-md transition-shadow ${
+                            selectedTemplateInModal?.id === template.id ? 'border-rose ring-2 ring-rose bg-rose/5' : 'border-blush/30 bg-cream/30'
+                        }`}
+                      >
+                        <p className="font-semibold text-charcoal">{template.name}</p>
+                        <p className="text-sm text-taupe mt-1">Subject: {template.subject.substring(0, 100) + (template.subject.length > 100 ? '...' : '')}</p>
+                        {selectedTemplateInModal?.id === template.id && (
+                            <p className="text-xs text-charcoal mt-2 whitespace-pre-line bg-cream p-2 rounded-md">{template.body.substring(0,200) + (template.body.length > 200 ? '...':'')}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-6 flex justify-end space-x-3">
+                    <button
+                      type="button"
+                      className="inline-flex justify-center rounded-md border border-transparent bg-blush/20 px-4 py-2 text-sm font-medium text-rose hover:bg-blush/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose focus-visible:ring-offset-2"
+                      onClick={closeTemplateSelectorModal}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex justify-center rounded-md border border-transparent bg-taupe/20 px-4 py-2 text-sm font-medium text-charcoal hover:bg-taupe/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-taupe focus-visible:ring-offset-2"
+                      onClick={() => handleSendEmailWithTemplate(true)}
+                    >
+                      Use Blank Email
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex justify-center rounded-md border border-transparent bg-rose px-4 py-2 text-sm font-medium text-white hover:bg-rose/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose focus-visible:ring-offset-2 disabled:opacity-50"
+                      onClick={() => handleSendEmailWithTemplate(false)}
+                      disabled={!selectedTemplateInModal}
+                    >
+                      Use Selected Template
+                    </button>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
     </div>
   );
 } 

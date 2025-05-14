@@ -1,5 +1,23 @@
 {
-  "project": "glowfolio",
+  "project": "aurelia",
+  "version": "1.0.0",
+  "description": "A brief summary of your project",
+  "entryPoint": "src/main.tsx",
+  "author": "Your Name",
+  "license": "MIT",
+  "commands": {
+    "dev": "npm run dev",
+    "build": "npm run build",
+    "lint": "npm run lint"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "recommendedExtensions": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode"
+  ],
   "editor": {
     "mediaKit": {
       "mediaKitTemplate": {

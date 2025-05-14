@@ -17,7 +17,7 @@ const Hero = () => {
           </h1>
           <p className="mt-6 text-lg text-taupe max-w-xl mx-auto">
             Create stunning media kits and pitch top brands in just minutes. 
-            Turn your influence into income with Glowfolio.
+            Turn your influence into income with Aurelia.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 mt-10">
@@ -53,7 +53,7 @@ const Hero = () => {
           <div className="absolute inset-0 rounded-2xl overflow-hidden shadow-sm border border-border/20">
             <img 
               src="https://images.unsplash.com/photo-1588345921523-c2dcdb7f1dcd?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1170&q=80" 
-              alt="Glowfolio Media Kit Preview" 
+              alt="Aurelia Media Kit Preview" 
               className="w-full h-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-b from-transparent to-charcoal/30"></div>

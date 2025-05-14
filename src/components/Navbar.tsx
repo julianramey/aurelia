@@ -12,7 +12,7 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { UserCircleIcon, Cog6ToothIcon, DocumentIcon, HomeIcon, RectangleGroupIcon } from "@heroicons/react/24/outline";
+import { UserCircleIcon, Cog6ToothIcon, DocumentIcon, HomeIcon, RectangleGroupIcon, SparklesIcon } from "@heroicons/react/24/outline";
 
 const Navbar = () => {
   const { user, signOut } = useAuth();
@@ -39,8 +39,10 @@ const Navbar = () => {
       <div className="container mx-auto flex justify-between items-center">
         <div className="flex items-center gap-2">
           <Link to="/" className="flex items-center">
+            {/* <img src={Logo} alt="Aurelia Logo" className="h-8 w-auto" /> */}
+            {/* <SparklesIcon className="h-7 w-7 text-rose" /> */}
             <span className="text-xl font-display font-medium text-charcoal">
-              Glowfolio
+              Aurelia
             </span>
           </Link>
         </div>

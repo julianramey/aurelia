@@ -36,7 +36,7 @@ export default function DashboardNav() {
           <div className="flex">
             <Link to="/" className="flex items-center">
               <span className="text-xl font-display font-medium text-charcoal">
-                Glowfolio
+                Aurelia
               </span>
             </Link>
             
@@ -45,6 +45,16 @@ export default function DashboardNav() {
                 to="/dashboard"
                 className={`inline-flex items-center px-1 pt-1 text-sm font-medium border-b-2 ${
                   location.pathname === '/dashboard'
+                    ? 'text-rose border-rose'
+                    : 'text-taupe border-transparent hover:text-rose hover:border-rose/40'
+                }`}
+              >
+                Dashboard
+              </Link>
+              <Link
+                to="/analytics"
+                className={`inline-flex items-center px-1 pt-1 text-sm font-medium border-b-2 ${
+                  location.pathname === '/analytics'
                     ? 'text-rose border-rose'
                     : 'text-taupe border-transparent hover:text-rose hover:border-rose/40'
                 }`}
@@ -70,6 +80,36 @@ export default function DashboardNav() {
                 }`}
               >
                 Brand Directory
+              </Link>
+              <Link
+                to="/outreach-tracker"
+                className={`inline-flex items-center px-1 pt-1 text-sm font-medium border-b-2 ${
+                  location.pathname === '/outreach-tracker'
+                    ? 'text-rose border-rose'
+                    : 'text-taupe border-transparent hover:text-rose hover:border-rose/40'
+                }`}
+              >
+                Outreach Tracker
+              </Link>
+              <Link
+                to="/agent"
+                className={`inline-flex items-center px-1 pt-1 text-sm font-medium border-b-2 ${
+                  location.pathname === '/agent'
+                    ? 'text-rose border-rose'
+                    : 'text-taupe border-transparent hover:text-rose hover:border-rose/40'
+                }`}
+              >
+                Agent
+              </Link>
+              <Link
+                to="/rate-calculator"
+                className={`inline-flex items-center px-1 pt-1 text-sm font-medium border-b-2 ${
+                  location.pathname === '/rate-calculator'
+                    ? 'text-rose border-rose'
+                    : 'text-taupe border-transparent hover:text-rose hover:border-rose/40'
+                }`}
+              >
+                Rate Calculator
               </Link>
             </div>
           </div>

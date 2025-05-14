@@ -34,7 +34,7 @@ const HowItWorks = () => {
       <div className="container mx-auto max-w-5xl">
         <div className="text-center mb-20">
           <h2 className="text-3xl md:text-4xl font-display font-medium mb-5">
-            How <span className="text-rose">Glowfolio</span> works
+            How <span className="text-rose">Aurelia</span> works
           </h2>
           <p className="text-taupe text-lg max-w-2xl mx-auto">
             Four simple steps to transform your influence into paid brand collaborations.
@@ -61,7 +61,7 @@ const HowItWorks = () => {
           <div className="max-w-2xl mx-auto text-center">
             <h3 className="text-2xl md:text-3xl font-display font-medium mb-5 text-charcoal">Ready to start pitching?</h3>
             <p className="text-taupe text-lg mb-8">
-              Join thousands of creators who are landing brand deals every day with Glowfolio.
+              Join thousands of creators who are landing brand deals every day with Aurelia.
             </p>
             <Link to={user ? "/dashboard" : "/login"}>
               <Button className="bg-rose hover:bg-rose/90 text-white px-8 py-3 rounded-full text-lg font-medium transition-colors">

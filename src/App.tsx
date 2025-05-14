@@ -19,6 +19,10 @@ import MediaKitGenerator from './pages/MediaKitGenerator';
 import MediaKitEditor from './pages/MediaKitEditor';
 import BrandDirectory from './pages/BrandDirectory';
 import SearchResults from './pages/SearchResults';
+import Analytics from './pages/Analytics';
+import Agent from './pages/Agent';
+import RateCalculator from './pages/RateCalculator';
+import OutreachTracker from './pages/OutreachTracker';
 
 const queryClient = new QueryClient();
 
@@ -71,6 +75,14 @@ const App = () => (
               }
             />
             <Route
+              path="/analytics"
+              element={
+                <ProtectedRoute>
+                  <Analytics />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/media-kit"
               element={
                 <ProtectedRoute>
@@ -83,6 +95,30 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <BrandDirectory />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/agent"
+              element={
+                <ProtectedRoute>
+                  <Agent />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/rate-calculator"
+              element={
+                <ProtectedRoute>
+                  <RateCalculator />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/outreach-tracker"
+              element={
+                <ProtectedRoute>
+                  <OutreachTracker />
                 </ProtectedRoute>
               }
             />

@@ -115,8 +115,10 @@ export default function Onboarding() {
     <div className="min-h-screen bg-gradient-to-br from-pink-100 to-purple-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md mx-auto bg-white rounded-xl shadow-lg p-8">
         <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold text-gray-800">Complete Your Profile</h2>
-          <p className="mt-2 text-gray-600">Let's get your Glowfolio set up!</p>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+            Welcome to your new HQ!
+          </h1>
+          <p className="mt-2 text-gray-600">Let's get your Aurelia set up!</p>
         </div>
 
         {error && (
