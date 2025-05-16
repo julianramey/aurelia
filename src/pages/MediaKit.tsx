@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { useMediaKitData } from '@/lib/hooks/useMediaKitData';
 import { Button } from '@/components/ui/button';
-import DashboardNav from '@/components/DashboardNav';
+import { withPreview } from '@/lib/withPreview';
 import MediaKitTemplateDefault from '@/components/media-kit-templates/MediaKitTemplateDefault';
 import MediaKitTemplateAesthetic from '@/components/media-kit-templates/MediaKitTemplateAesthetic';
 import {
@@ -18,6 +18,7 @@ import {
   ShareIcon,
 } from '@heroicons/react/24/outline';
 import type { Profile as ImportedProfile, BrandCollaboration, Service, MediaKitStats } from '@/lib/types';
+import PreviewLoadingFallback from '@/components/PreviewLoadingFallback';
 
 // Placeholder types based on error message - adjust if actual types exist
 // import type { ColorScheme, VideoItem } from '@/lib/types';
@@ -60,9 +61,10 @@ interface MediaKitProps {
     neutral: string;
     border: string;
   };
+  previewUsername?: string;
 }
 
-interface ProfileData {
+export interface ProfileData {
   id: string;
   user_id: string;
   username: string;
@@ -106,10 +108,22 @@ interface ProfileData {
   created_at?: string;
   updated_at?: string;
   niche?: string;
+  media_kit_stats?: MediaKitStats[];
+  section_visibility?: {
+    profileDetails?: boolean;
+    profilePicture?: boolean;
+    socialMedia?: boolean;
+    audienceStats?: boolean;
+    performance?: boolean;
+    tiktokVideos?: boolean;
+    brandExperience?: boolean;
+    servicesSkills?: boolean;
+    contactDetails?: boolean;
+  };
 }
 
 // Define default colorscheme const
-const defaultColorScheme: ColorScheme = {
+export const defaultColorScheme: ColorScheme = {
   primary: '#7E69AB',
   secondary: '#6E59A5',
   accent: '#1A1F2C',
@@ -119,11 +133,11 @@ const defaultColorScheme: ColorScheme = {
 };
 
 // Create a memoized version of MediaKit to prevent unnecessary rerenders
-export default memo(function MediaKit({ isPreview = false, previewData = null, isPublic = false, publicProfile = null, theme }: MediaKitProps) {
-  const { id } = useParams();
+const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, previewData = null, isPublic = false, publicProfile = null, theme, previewUsername }: MediaKitProps) {
+  const { id: routeIdFromParams } = useParams<{ id?: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { stats, collaborations, services, portfolio, videos, loading: dataLoading, error: dataError, refetch } = useMediaKitData();
+  const { stats: initialStats, collaborations: initialCollabs, services: initialServices, portfolio: initialPortfolio, videos: initialVideos } = useMediaKitData();
   const location = useLocation();
   
   const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -140,11 +154,7 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
     neutral: '#8E9196',
     border: 'rgba(126, 105, 171, 0.2)'
   });
-  
-  // Use the provided theme prop if available, otherwise fallback to internal styles
   const computedStyles = theme || styles;
-
-  // Flag to prevent duplicate fetches
   const [hasFetched, setHasFetched] = useState(false);
   
   // IMPORTANT: Load saved styles from localStorage FIRST, before any other effects run
@@ -303,15 +313,23 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
     }
 
     console.log("MediaKit: fetchProfile called", {
-      isPreview, isPublic, userId: user?.id, paramId: id
+      isPreview, isPublic, userId: user?.id, paramId: routeIdFromParams, previewUsernameProvided: !!previewUsername
     });
 
-    // If preview or public, no need to fetch the authenticated user's data
-    if (isPreview || isPublic) return;
+    // ✅ Only skip real "public" page renders
+    if (isPublic) return;
 
     // Check user existence - Just return if no ID yet, don't set error here
-    if (!user?.id && !id) {
-      console.log("MediaKit fetchProfile: still waiting on user.id or route id");
+    // For preview mode, previewUsername is the key. For standard, user.id or routeIdFromParams.
+    if (!isPreview && !user?.id && !routeIdFromParams) {
+      console.log("MediaKit fetchProfile: (standard mode) still waiting on user.id or route id");
+      return;
+    }
+    if (isPreview && !previewUsername) {
+      console.log("MediaKit fetchProfile: (preview mode) no previewUsername provided.");
+      // Potentially set error or loading false if this is a permanent state
+      setError("Preview username not available for fetching.");
+      setLoading(false);
       return;
     }
 
@@ -323,29 +341,37 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
       setHasFetched(true);
 
       // Clear potentially stale localStorage data before fetching fresh data
-      // unless we are in preview/public mode where we don't fetch
-      if (!isPreview && !isPublic) {
-        console.log("MediaKit: Clearing localStorage before fetch");
+      // unless we are in preview/public mode where we don't fetch (already handled by isPublic guard)
+      // if (!isPreview && !isPublic) { // This condition is effectively !isPublic now
+      if (!isPublic) { // Only clear if not in public mode. Previews will clear.
+        console.log("MediaKit: Clearing localStorage before fetch (not public mode)");
         localStorage.removeItem('updatedMediaKit');
         localStorage.removeItem('mediaKitCustomStyles');
       }
 
-      // Get the most recent profile data directly
-      const profileId = id || user?.id;
-      console.log("MediaKit: Fetching profile data for ID:", profileId);
+      // use previewUsername when in preview mode
+      const profileId = isPreview
+        ? previewUsername           // ← your Dashboard passed this in
+        : (routeIdFromParams || user?.id);
+      
+      console.log("MediaKit: Fetching profile data for effective ID:", profileId, " (isPreview:", isPreview, ")");
       
       if (!profileId) {
-        console.error("MediaKit: No profile ID found");
-        setError("Profile not found or incomplete");
+        console.error("MediaKit: No effective profile ID found (profileId is undefined/null)");
+        setError("Profile identifier not found or incomplete");
         setLoading(false);
         return;
       }
       
       // Fetch profile data first
+      // When isPreview is true, profileId is previewUsername, so we query by 'username'
+      // When isPreview is false, profileId is routeIdFromParams (username) or user.id (uuid)
+      const queryTargetColumn = isPreview ? 'username' : (routeIdFromParams ? 'username' : 'id');
+
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', profileId)
+        .eq(queryTargetColumn, profileId) // Use queryTargetColumn
         .single();
 
       if (profileError) {
@@ -511,49 +537,29 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
       setError('Failed to load media kit');
       setLoading(false);
     }
-  }, [id, user?.id, isPreview, isPublic, hasFetched]);
+  }, [routeIdFromParams, user?.id, isPreview, isPublic, hasFetched, previewUsername]);
 
   // Simplified initial data load effect
   useEffect(() => {
-    // Skip fetch entirely during preview/public mode
-    if (isPreview || isPublic) {
-      // For preview mode, process the previewData directly
-      if (isPreview && previewData) {
-        processPreviewData(previewData);
-      } 
-      // For public mode, process the publicProfile directly
-      else if (isPublic && publicProfile) {
-        const profile = publicProfile as ProfileData;
-        const processedProfile = { ...profile };
-        
-        if (typeof profile.media_kit_data === 'string') {
-          try {
-            processedProfile.media_kit_data = JSON.parse(profile.media_kit_data);
-          } catch (e) {
-            console.error("Failed to parse public profile media_kit_data:", e);
-          }
-        }
-        
-        processPreviewData(processedProfile);
-      }
-      return;
-    }
+    // (no skips here—let preview call fetchProfile)
 
     // Simple one-time fetch on component mount
-    if (!hasFetched && (user?.id || id)) {
-      console.log("MediaKit: Initial data fetch");
+    // Ensure fetchProfile is called if we have any valid identifier for any mode
+    if (!hasFetched && (previewUsername || user?.id || routeIdFromParams)) {
+      console.log("MediaKit: Initial data fetch triggered by useEffect", { hasFetched, previewUsernameProvided: !!previewUsername, userIdProvided: !!user?.id, routeIdFromParamsProvided: !!routeIdFromParams });
       fetchProfile();
     }
-  }, [fetchProfile, hasFetched, id, isPreview, isPublic, previewData, publicProfile, user?.id]);
+  }, [fetchProfile, hasFetched, previewUsername, user?.id, routeIdFromParams]); // Added previewUsername to deps
   
   // Add explicit effect to set activeTemplateId from preview/public data
   useEffect(() => {
     if (isPreview && previewData) {
       // Get template ID from previewData
-      const previewDataObj = previewData as any;
+      const previewDataObj = previewData as ProfileData | null;
+      const mediaKitObject = previewDataObj && typeof previewDataObj.media_kit_data === 'object' ? previewDataObj.media_kit_data : null;
       const templateId = 
-        (typeof previewDataObj.media_kit_data === 'object' && previewDataObj.media_kit_data?.selected_template_id) ||
-        previewDataObj.selected_template_id ||
+        (mediaKitObject?.selected_template_id) ||
+        previewDataObj?.selected_template_id ||
         'default';
       
       console.log("MediaKit: Setting template from previewData:", templateId);
@@ -561,10 +567,12 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
     } 
     else if (isPublic && publicProfile) {
       // Get template ID from publicProfile
-      const publicProfileObj = publicProfile as any;
+      const publicProfileObj = publicProfile as ProfileData | null;
+      const mediaKitObject = publicProfileObj && typeof publicProfileObj.media_kit_data === 'object' ? publicProfileObj.media_kit_data : null;
+
       const templateId = 
-        (typeof publicProfileObj.media_kit_data === 'object' && publicProfileObj.media_kit_data?.selected_template_id) ||
-        publicProfileObj.selected_template_id ||
+        (mediaKitObject?.selected_template_id) ||
+        publicProfileObj?.selected_template_id ||
         'default';
       
       console.log("MediaKit: Setting template from publicProfile:", templateId);
@@ -660,92 +668,58 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
 
   function processPreviewData(data: unknown) {
     try {
-      console.log('processPreviewData called with data:', data);
-      
-      const profileData = data as ProfileData;
-      
-      // Debug the structure of the incoming data
-      console.log('DEBUG: profile structure:', {
-        hasMediaKitData: !!profileData.media_kit_data,
-        mediaKitDataType: typeof profileData.media_kit_data
-      });
-      
-      const mediaKitData = typeof profileData.media_kit_data === 'string'
-        ? JSON.parse(profileData.media_kit_data)
-        : profileData.media_kit_data;
-      
-      console.log('DEBUG: parsed mediaKitData:', mediaKitData);
-      
-      // Check for custom styles in localStorage first
-      const savedCustomStyles = localStorage.getItem('mediaKitCustomStyles');
-      
-      if (savedCustomStyles) {
-        // If we have custom styles saved from editor, use those instead
-        console.log("MediaKit: Using custom styles from localStorage for preview");
-        // Styles already loaded from localStorage useEffect
+      const pData = data as ProfileData;
+      let mKitDataObj: Partial<Extract<ProfileData['media_kit_data'], object>> = {}; // Default to empty object
+      if (typeof pData.media_kit_data === 'string') {
+        try { 
+          const parsed = JSON.parse(pData.media_kit_data);
+          if (typeof parsed === 'object' && parsed !== null) mKitDataObj = parsed;
+        } catch { /* ignore parse error, use empty object */ }
+      } else if (typeof pData.media_kit_data === 'object' && pData.media_kit_data !== null) {
+        mKitDataObj = pData.media_kit_data;
       }
-      // Only apply theme colors if no custom styles found
-      else if (mediaKitData && mediaKitData.colors) {
-        // Ensure the colors conform to ColorScheme
-        const currentColors = {
-          ...defaultColorScheme, // Start with defaults
-          ...mediaKitData.colors, // Override with media kit values
-        };
-        
-        // Create a mapping from saved colors to UI expected colors
-        const mappedStyles = {
-          background: currentColors.background, 
-          foreground: currentColors.text,
-          primary: currentColors.primary, 
-          primaryLight: currentColors.accent_light, 
-          secondary: currentColors.secondary, 
-          accent: currentColors.accent,
-          neutral: currentColors.secondary, // Keep existing mapping logic if needed
-          border: `${currentColors.primary}33`
-        };
-        
-        console.log('Mapped styles from processPreviewData:', mappedStyles);
-        setStyles(mappedStyles);
-      } else {
-        console.warn('No colors found in mediaKitData, using defaults:', mediaKitData);
-        // Apply default styles if no colors found and no custom styles exist
-        setStyles({
-          background: defaultColorScheme.background,
-          foreground: defaultColorScheme.text,
-          primary: defaultColorScheme.primary,
-          primaryLight: defaultColorScheme.accent_light,
-          secondary: defaultColorScheme.secondary,
-          accent: defaultColorScheme.accent,
-          neutral: defaultColorScheme.secondary, // Or a suitable default neutral
-          border: `${defaultColorScheme.primary}33`
-        });
-      }
+      
+      const currentPrevColors = mKitDataObj.colors || defaultColorScheme;
+      const mediaKitDataForStyles = { ...mKitDataObj, colors: currentPrevColors, type: "media_kit_data" as const, brand_name: mKitDataObj.brand_name || '', tagline: mKitDataObj.tagline || '', font: mKitDataObj.font || 'Inter' }; 
+      const finalPrevStyles = computeStylesFromProfile({ ...pData, media_kit_data: mediaKitDataForStyles } as ProfileData);
+      
+      const videosL = pData.videos || mKitDataObj.videos || [];
+      const portfolioL = mKitDataObj.portfolio_images || pData.portfolio_images || [];
 
-      // pull in anything PublicMediaKit attached for us:
-      const videos = profileData.videos || mediaKitData.videos || [];
-      const portfolioImages = profileData.portfolio_images || mediaKitData.portfolio_images || [];
-
-      const processedData = {
-        ...profileData,
-
-        // make sure our videos & portfolio show up
-        videos,
-        portfolio_images: portfolioImages,
-        
-        media_kit_data: mediaKitData,
-        tagline: mediaKitData?.tagline || '',
-        skills: mediaKitData?.skills || [],
-        media_kit_url: profileData.media_kit_url || '',
-        contact_email: mediaKitData?.contact_email || profileData.contact_email || '',
-        selected_template_id: mediaKitData?.selected_template_id || 'default'
+      const processedP: ProfileData = {
+        ...pData,
+        videos: videosL,
+        portfolio_images: portfolioL,
+        media_kit_data: { 
+            type: "media_kit_data",
+            brand_name: mKitDataObj.brand_name || pData.brand_name || '',
+            tagline: mKitDataObj.tagline || pData.tagline || '',
+            colors: currentPrevColors,
+            font: mKitDataObj.font || 'Inter',
+            selected_template_id: mKitDataObj.selected_template_id || pData.selected_template_id || 'default',
+            skills: mKitDataObj.skills || pData.skills || [],
+            contact_email: mKitDataObj.contact_email || pData.contact_email || pData.email || '',
+            videos: videosL,
+            portfolio_images: portfolioL,
+            personal_intro: mKitDataObj.personal_intro || pData.personal_intro || '',
+            instagram_handle: mKitDataObj.instagram_handle || pData.instagram_handle || '',
+            tiktok_handle: mKitDataObj.tiktok_handle || pData.tiktok_handle || '',
+        },
+        tagline: mKitDataObj.tagline || pData.tagline || '',
+        skills: mKitDataObj.skills || pData.skills || [],
+        selected_template_id: mKitDataObj.selected_template_id || pData.selected_template_id || 'default'
       };
-
-      console.log('Processed preview data:', processedData);
-      setProfile(processedData);
+      setProfile(processedP);
+      setStyles(finalPrevStyles);
+      setActiveTemplateId(processedP.selected_template_id || 'default');
       setLoading(false);
-    } catch (error) {
-      console.error('Error processing data:', error);
-      setError('Failed to process data');
+    } catch (err: unknown) { 
+      if (err instanceof Error) {
+        setError('Failed to process preview data: ' + err.message); 
+      } else {
+        setError('Failed to process preview data');
+      }
+      setLoading(false); 
     }
   }
 
@@ -770,36 +744,92 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
   }, [isPreview, previewData]);
 
   // Ensure realData is declared only once
-  const realData: ProfileData = isPreview 
-    ? { ...((typeof previewData === 'object' && previewData) || {}), ...(profile || {}) } as ProfileData
-    : isPublic
-      ? (() => {
-          const source = profile || (publicProfile as ProfileData) || {} as ProfileData;
-          const top = Array.isArray(source.videos) ? source.videos : [];
-          // Add type guard and nullish access before accessing .videos
-          const inner = typeof source.media_kit_data === 'object' && source.media_kit_data?.videos 
-            ? source.media_kit_data.videos 
-            : [];
-          return {
-            ...source,
-            videos: top.length ? top : inner
-          } as ProfileData;
-        })()
-      : { ...(profile || {}), ...(kitData || {}), videos: videos || [] } as ProfileData;
-      
+  const realData: ProfileData = useMemo(() => {
+    let baseProf: ProfileData | null | unknown = null;
+    if (isPreview) baseProf = previewData || profile;
+    else if (isPublic) baseProf = publicProfile || profile;
+    else baseProf = localUpdatedMediaKit || profile;
+
+    const p = baseProf as ProfileData | null;
+    if (!p) return { id:'', user_id:'', username:'', full_name:'Media Kit', email:'', media_kit_data: {type:"media_kit_data", brand_name:"", tagline:"", colors:defaultColorScheme, font:"Inter"}, services: [], brand_collaborations: [], portfolio_images: [], videos: [], media_kit_stats: [] } as ProfileData;
+
+    let mKitObjParsed: Partial<Extract<ProfileData['media_kit_data'], object>> = {};
+    if (typeof p.media_kit_data === 'string') {
+        try { 
+          const parsed = JSON.parse(p.media_kit_data);
+          if (typeof parsed === 'object' && parsed !== null) mKitObjParsed = parsed;
+        } catch { /* use empty object */ }
+    } else if (typeof p.media_kit_data === 'object' && p.media_kit_data !== null) {
+        mKitObjParsed = p.media_kit_data;
+    }
+    
+    const finalVideos = p.videos || mKitObjParsed.videos || []; // p.videos should take precedence (from join)
+    const finalPortfolioImages = mKitObjParsed.portfolio_images || p.portfolio_images || [];
+
+    const constructedRealData = {
+        ...p, 
+        services: p.services || [],
+        brand_collaborations: p.brand_collaborations || [],
+        videos: finalVideos, 
+        portfolio_images: finalPortfolioImages, 
+        follower_count: p.follower_count || 0,
+        engagement_rate: p.engagement_rate || 0,
+        avg_likes: p.avg_likes || 0,
+        reach: p.reach || 0,
+        media_kit_data: { 
+            type: "media_kit_data",
+            brand_name: mKitObjParsed.brand_name || p.brand_name || '',
+            tagline: mKitObjParsed.tagline || p.tagline || '',
+            colors: mKitObjParsed.colors || defaultColorScheme,
+            font: mKitObjParsed.font || 'Inter',
+            selected_template_id: mKitObjParsed.selected_template_id || p.selected_template_id || 'default',
+            skills: mKitObjParsed.skills || p.skills || [],
+            contact_email: mKitObjParsed.contact_email || p.contact_email || p.email || '',
+            videos: finalVideos, 
+            portfolio_images: finalPortfolioImages,
+            personal_intro: mKitObjParsed.personal_intro || p.personal_intro || '',
+            instagram_handle: mKitObjParsed.instagram_handle || p.instagram_handle || '',
+            tiktok_handle: mKitObjParsed.tiktok_handle || p.tiktok_handle || '',
+        },
+        full_name: p.full_name || mKitObjParsed.brand_name || p.brand_name || 'Media Kit Name',
+        email: p.email || '',
+        username: p.username || '',
+        tagline: mKitObjParsed.tagline || p.tagline || (!isPreview ? 'Content Creator' : ''),
+        selected_template_id: mKitObjParsed.selected_template_id || p.selected_template_id || 'default',
+    } as ProfileData;
+
+    const finalRealData = {
+      ...constructedRealData,
+      section_visibility: constructedRealData.section_visibility ?? {
+        profileDetails:      true,
+        profilePicture:      true,
+        socialMedia:         true,
+        audienceStats:       true,
+        performance:         true,
+        tiktokVideos:        true,
+        brandExperience:     true,
+        servicesSkills:      true,
+        contactDetails:      true,
+      },
+    };
+    return finalRealData;
+  }, [profile, previewData, publicProfile, isPreview, isPublic, localUpdatedMediaKit]);
+  
   // Debug log for public profile data flow
   if (isPublic) {
+    const publicProfileData = publicProfile as ProfileData | null;
+    const publicMediaKitObject = publicProfileData && typeof publicProfileData.media_kit_data === 'object' ? publicProfileData.media_kit_data : null;
     console.log("REAL DATA CONSTRUCTION (PUBLIC MODE):", {
       publicProfileType: typeof publicProfile,
-      publicProfileHasVideos: !!(publicProfile as ProfileData)?.videos?.length,
-      publicProfileVideosType: typeof (publicProfile as ProfileData)?.videos,
-      publicProfileHasMediaKitVideos: !!(publicProfile as ProfileData)?.media_kit_data?.videos?.length,
+      publicProfileHasVideos: !!publicProfileData?.videos?.length,
+      publicProfileVideosType: typeof publicProfileData?.videos,
+      publicProfileHasMediaKitVideos: !!publicMediaKitObject?.videos?.length,
       processedProfileHasVideos: !!profile?.videos?.length,
       finalRealDataHasVideos: !!realData.videos?.length,
       realDataVideosType: typeof realData.videos,
-      computedVideosValue: ((typeof publicProfile === 'object' && publicProfile) as ProfileData)?.videos?.length > 0
+      computedVideosValue: (publicProfileData?.videos?.length || 0) > 0
         ? "Using publicProfile.videos"
-        : ((typeof publicProfile === 'object' && publicProfile) as ProfileData)?.media_kit_data?.videos?.length > 0
+        : (publicMediaKitObject?.videos?.length || 0) > 0
           ? "Using publicProfile.media_kit_data.videos"
           : "Using empty array fallback"
     });
@@ -813,12 +843,14 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
     videosLength: realData.videos?.length,
     mediaKitVideosLength: typeof realData.media_kit_data === 'object' ? realData.media_kit_data?.videos?.length : undefined,
     publicProfileType: isPublic ? typeof publicProfile : null,
-    publicProfileHasVideos: isPublic ? !!(publicProfile as ProfileData)?.videos?.length : null,
+    publicProfileHasVideos: isPublic ? !!(publicProfile as ProfileData | null)?.videos?.length : null,
     publicProfileHasMediaKitVideos: isPublic 
       ? (
-        typeof (publicProfile as ProfileData)?.media_kit_data === 'object' && 
-        (publicProfile as ProfileData)?.media_kit_data !== null && 
-        !!(publicProfile as ProfileData).media_kit_data.videos?.length
+        (() => {
+          const pp = publicProfile as ProfileData | null;
+          const mkObj = pp && typeof pp.media_kit_data === 'object' ? pp.media_kit_data : null;
+          return !!mkObj?.videos?.length;
+        })()
       ) 
       : null
   });
@@ -879,101 +911,109 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
   };
 
   // Add function to initialize media kit data
-  const initializeMediaKitData = async () => {
-    if (!user?.id) {
-      console.error("No user ID available for initialization");
-      return;
-    }
-    
-    console.log("Initializing media kit data for user:", user.id);
-    
-    try {
-      // 1. Create a default media kit data object
-      const defaultMediaKitData = {
-        colors: {
-          primary: '#7E69AB',
-          secondary: '#6E59A5',
-          accent: '#1A1F2C'
-        },
-        skills: ['Content Creation', 'Social Media', 'Photography']
-      };
-      
-      // 2. Update the profile with this data
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ 
-          media_kit_data: defaultMediaKitData,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', user.id);
-        
-      if (profileError) throw profileError;
-      
-      // 3. Create basic Instagram stats
-      const { error: statsError } = await supabase
-        .from('media_kit_stats')
-        .upsert([{
-          profile_id: user.id,
-          platform: 'instagram',
-          follower_count: 1000,
-          engagement_rate: 3.5,
-          avg_likes: 85,
-          weekly_reach: 2500,
-          avg_comments: 10,
-          monthly_impressions: 5000
-        }]);
-        
-      if (statsError) throw statsError;
-      
-      // 4. Create sample brand collaborations
-      const { error: collabsError } = await supabase
-        .from('brand_collaborations')
-        .upsert([
-          {
-            profile_id: user.id,
-            brand_name: 'Example Brand 1',
-            collaboration_type: 'Sponsored Post',
-            collaboration_date: new Date().toISOString().split('T')[0]
-          },
-          {
-            profile_id: user.id,
-            brand_name: 'Example Brand 2',
-            collaboration_type: 'Affiliate',
-            collaboration_date: new Date().toISOString().split('T')[0]
-          }
-        ]);
-        
-      if (collabsError) throw collabsError;
-      
-      // 5. Create sample services
-      const { error: servicesError } = await supabase
-        .from('services')
-        .upsert([
-          {
-            profile_id: user.id,
-            service_name: 'Content Creation',
-            description: 'Professional content creation for your brand',
-            price_range: '$100-$500'
-          },
-          {
-            profile_id: user.id,
-            service_name: 'Social Media Management',
-            description: 'Manage and grow your social media presence',
-            price_range: '$200-$1000'
-          }
-        ]);
-        
-      if (servicesError) throw servicesError;
-      
-      console.log("Successfully initialized media kit data");
-      
-      // Refresh the page to show new data
-      window.location.reload();
-    } catch (error) {
-      console.error("Error initializing media kit data:", error);
-    }
-  };
+  const initializeMediaKitData = useCallback(async () => {
+    if (hasFetched && !(isPreview && !profile)) { setLoading(false); return; }
+    setLoading(true); setError(null); setHasFetched(true);
 
+    if (isPreview && previewData) { processPreviewData(previewData); return; }
+    if (isPublic && publicProfile) {
+        const profileDataToSet = publicProfile as ProfileData;
+        setProfile(profileDataToSet);
+        const templateId = (typeof profileDataToSet.media_kit_data === 'object' && profileDataToSet.media_kit_data?.selected_template_id) || profileDataToSet.selected_template_id || 'default';
+        setActiveTemplateId(templateId);
+        setStyles(computeStylesFromProfile(profileDataToSet));
+        setLoading(false);
+        return;
+    }
+
+    const targetId = isPreview ? previewUsername : (routeIdFromParams || user?.id);
+    const queryColumn = isPreview ? 'username' : (routeIdFromParams ? 'username' : 'id');
+    if (!targetId) { setError('Profile identifier not found.'); setLoading(false); return; }
+
+    try {
+      const { data: fetchedProfileData, error: supabaseError } = await supabase
+        .from('profiles')
+        .select(`*, media_kit_stats(*), brand_collaborations(*), services(*), media_kit_videos(url, thumbnail_url)`)
+        .eq(queryColumn, targetId)
+        .single();
+
+      if (supabaseError) throw supabaseError;
+      if (!fetchedProfileData) throw new Error('Profile not found.');
+
+      let parsedMediaKitObject: Partial<Extract<ProfileData['media_kit_data'], object>> = {};
+      if (typeof fetchedProfileData.media_kit_data === 'string') {
+        try { 
+          const parsed = JSON.parse(fetchedProfileData.media_kit_data);
+          if (typeof parsed === 'object' && parsed !== null) parsedMediaKitObject = parsed;
+        } catch { /* ignore parse error, use empty object */ }
+      } else if (typeof fetchedProfileData.media_kit_data === 'object' && fetchedProfileData.media_kit_data !== null) {
+        parsedMediaKitObject = fetchedProfileData.media_kit_data;
+      }
+      
+      const joinedVideos: VideoItem[] = (fetchedProfileData.media_kit_videos as VideoItem[]) || [];
+      const joinedServices: Service[] = (fetchedProfileData.services as Service[]) || [];
+      const joinedCollabs: BrandCollaboration[] = (fetchedProfileData.brand_collaborations as BrandCollaboration[]) || [];
+      const joinedStats: MediaKitStats[] = (fetchedProfileData.media_kit_stats as MediaKitStats[]) || [];
+
+      const completeProfile: ProfileData = {
+        ...(fetchedProfileData as Omit<ProfileData, 'media_kit_data' | 'videos' | 'services' | 'brand_collaborations'>), // Spread base, then override
+        id: fetchedProfileData.id || '',
+        user_id: fetchedProfileData.user_id || '',
+        username: fetchedProfileData.username || '',
+        full_name: fetchedProfileData.full_name || parsedMediaKitObject?.brand_name || '',
+        email: fetchedProfileData.email || '',
+        media_kit_data: { 
+          type: "media_kit_data",
+          brand_name: parsedMediaKitObject?.brand_name || fetchedProfileData.brand_name || '',
+          tagline: parsedMediaKitObject?.tagline || fetchedProfileData.tagline || '',
+          colors: parsedMediaKitObject?.colors || defaultColorScheme,
+          font: parsedMediaKitObject?.font || 'Inter',
+          selected_template_id: parsedMediaKitObject?.selected_template_id || fetchedProfileData.selected_template_id || 'default',
+          skills: parsedMediaKitObject?.skills || fetchedProfileData.skills || [],
+          contact_email: parsedMediaKitObject?.contact_email || fetchedProfileData.contact_email || fetchedProfileData.email || '',
+          videos: joinedVideos, 
+          portfolio_images: parsedMediaKitObject?.portfolio_images || fetchedProfileData.portfolio_images || [],
+          personal_intro: parsedMediaKitObject?.personal_intro || fetchedProfileData.personal_intro || '',
+          instagram_handle: parsedMediaKitObject?.instagram_handle || fetchedProfileData.instagram_handle || '',
+          tiktok_handle: parsedMediaKitObject?.tiktok_handle || fetchedProfileData.tiktok_handle || '',
+        },
+        services: joinedServices,
+        brand_collaborations: joinedCollabs,
+        videos: joinedVideos, 
+        follower_count: joinedStats.find(s => s.platform === 'instagram')?.follower_count || 0,
+        engagement_rate: joinedStats.find(s => s.platform === 'instagram')?.engagement_rate || 0,
+        avg_likes: joinedStats.find(s => s.platform === 'instagram')?.avg_likes || 0,
+        reach: joinedStats.find(s => s.platform === 'instagram')?.weekly_reach || 0,
+        selected_template_id: parsedMediaKitObject?.selected_template_id || fetchedProfileData.selected_template_id || 'default',
+        tagline: parsedMediaKitObject?.tagline || fetchedProfileData.tagline || '',
+      };
+      if (!completeProfile.full_name && (typeof completeProfile.media_kit_data === 'object' && completeProfile.media_kit_data.brand_name)) {
+        completeProfile.full_name = completeProfile.media_kit_data.brand_name;
+      }
+      
+      const newStyles = computeStylesFromProfile(completeProfile);
+      const newActiveTemplateId = (typeof completeProfile.media_kit_data === 'object' && completeProfile.media_kit_data.selected_template_id) || completeProfile.selected_template_id || 'default';
+
+      setProfile(completeProfile);
+      setStyles(newStyles);
+      setActiveTemplateId(newActiveTemplateId);
+      setLoading(false);
+    } catch (e: unknown) { 
+      if (e instanceof Error) {
+        setError(e.message || 'Failed to load media kit data.');
+      } else {
+        setError('Failed to load media kit data.');
+      }
+      setLoading(false); 
+    }
+  }, [ routeIdFromParams, user?.id, isPreview, isPublic, hasFetched, previewUsername, previewData, publicProfile, setActiveTemplateId, setProfile, setStyles, setLoading, setError, setHasFetched ]);
+
+  useEffect(() => {
+    if (!hasFetched && (previewUsername || user?.id || routeIdFromParams || (isPublic && publicProfile) || (isPreview && previewData) )) {
+      initializeMediaKitData();
+    }
+  }, [initializeMediaKitData, hasFetched, previewUsername, user?.id, routeIdFromParams, isPublic, publicProfile, isPreview, previewData]);
+  
   // Add this console log just before the return statement to see the theme values
   console.log("MediaKit Theme:", computedStyles);
   console.log("MediaKit kitData:", kitData);
@@ -1007,7 +1047,7 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
     hasPublicProfile: !!publicProfile,
     profile: profile ? 'exists' : 'null',
     loading,
-    dataLoading,
+    dataLoading: !!initialStats,
     kitData: kitData ? 'exists' : 'null',
     error
   });
@@ -1033,27 +1073,17 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
     finalValue: templateIdFromData
   });
 
-  // ADD EXTREME DEBUG LOGGING FOR TEMPLATE SELECTION
-  console.log("🔥🔥🔥 FINAL TEMPLATE DECISION:", {
-    templateIdFromData,
-    isAesthetic: templateIdFromData === 'aesthetic',
-    isDefault: templateIdFromData === 'default',
-    rawValue: templateIdFromData,
-    type: typeof templateIdFromData,
-    mediaKitDataObject: typeof realData.media_kit_data === 'object' ? 'YES' : 'NO',
-    mediaKitDataSelectedTemplateId: typeof realData.media_kit_data === 'object' ? 
-      realData.media_kit_data.selected_template_id : 'NOT_AVAILABLE'
-  });
-
-  // Conditionally render the new loading screen for the main media kit view
-  if (loading && !isPreview && !isPublic) {
-    return (
-      <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white">
-        <div className="text-lg font-medium text-purple-600 mb-4">Loading...</div>
-        <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
-      </div>
-    );
+  // --- NEW LOADING CHECK FOR PREVIEW MODE --- 
+  if (isPreview) {
+    if (loading || !profile) {
+      return (
+        <div className="w-full h-full flex items-center justify-center bg-white">
+          <PreviewLoadingFallback />
+        </div>
+      );
+    }
   }
+  // --- END NEW LOADING CHECK ---
 
   // If public or preview, render template directly without extra wrappers/backgrounds
   if (isPreview || isPublic) {
@@ -1061,18 +1091,23 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
     const TemplateComponent = templateIdFromData === 'aesthetic' 
       ? MediaKitTemplateAesthetic 
       : MediaKitTemplateDefault;
+
+    if (!realData || (typeof realData.media_kit_data === 'string' && !JSON.parse(realData.media_kit_data)) || (typeof realData.media_kit_data === 'object' && !realData.media_kit_data)) {
+        console.warn("⚠️ No realData or empty media_kit_data – this might lead to a blank template!");
+    }
+    const mediaKitObjectPreview = typeof realData.media_kit_data === 'object' ? realData.media_kit_data : null;
+    console.log("📄 Template ID for rendering:", templateIdFromData, " (from realData.selected_template_id:", realData.selected_template_id, ", from realData.media_kit_data.selected_template_id:", mediaKitObjectPreview?.selected_template_id, ")");
       
     // Log which component is being rendered
     console.log(`Rendering ${templateIdFromData === 'aesthetic' ? 'Aesthetic' : 'Default'} template directly for public/preview`);
       
     // Render only the template
-    return <TemplateComponent data={realData} theme={computedStyles} />;
+    return <TemplateComponent data={realData as any} theme={computedStyles} loading={loading} />;
   }
 
   // --- Default rendering for internal view (/media-kit) ---
   return (
     <div className="min-h-screen bg-white"> {/* Keep white bg for internal page */}
-      <DashboardNav />
       <main className="p-8"> {/* Keep padding for internal page */}
         <div className="mx-auto" style={{ maxWidth: '1000px' }}>
           {user?.id === realData.id && ( /* Check user ID for buttons */
@@ -1150,17 +1185,20 @@ export default memo(function MediaKit({ isPreview = false, previewData = null, i
             // Direct string comparison with explicit values
             if (exactTemplateId === 'aesthetic') {
               console.log("✅ RENDERING AESTHETIC TEMPLATE");
-              return <MediaKitTemplateAesthetic data={realData} theme={computedStyles} />;
+              return <MediaKitTemplateAesthetic data={realData as any} theme={computedStyles} loading={loading} />;
             } else {
               console.log("⚠️ RENDERING DEFAULT TEMPLATE (not aesthetic)");
-              return <MediaKitTemplateDefault data={realData} theme={computedStyles} />;
+              return <MediaKitTemplateDefault data={realData as any} theme={computedStyles} loading={loading} />;
             }
           })()}
         </div>
       </main>
     </div>
   );
-}); 
+});
+
+// Export the HOC-wrapped memoized component
+export default withPreview(MemoizedMediaKitComponent);
 
 // Default theme
 const defaultTheme: TemplateTheme = {
@@ -1178,11 +1216,11 @@ const defaultTheme: TemplateTheme = {
 function computeStylesFromProfile(profileData: ProfileData | null): TemplateTheme {
   if (!profileData) return defaultTheme;
 
-  const mediaKitData = typeof profileData.media_kit_data === 'string'
-    ? JSON.parse(profileData.media_kit_data)
+  const mediaKitDataObject = typeof profileData.media_kit_data === 'string'
+    ? (JSON.parse(profileData.media_kit_data) as Extract<ProfileData['media_kit_data'], object> | null)
     : profileData.media_kit_data;
     
-  const colors = mediaKitData?.colors || {};
+  const colors = mediaKitDataObject?.colors || {};
   const baseColors = { ...defaultColorScheme, ...colors }; // Merge with defaults
 
   return {

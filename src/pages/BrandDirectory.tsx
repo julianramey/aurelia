@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import DashboardNav from '@/components/DashboardNav';
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import { BookmarkIcon, FunnelIcon, XMarkIcon, ChevronDownIcon, HeartIcon } from '@heroicons/react/24/outline';
 import { Popover, Disclosure } from '@headlessui/react';
 import { useNavigate } from 'react-router-dom';
+import { withPreview } from '@/lib/withPreview';
 
 const shimmerAnimation = {
   '.animate-shimmer': {
@@ -15,7 +15,7 @@ const shimmerAnimation = {
   }
 };
 
-export default function BrandDirectory() {
+const BrandDirectoryComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
   const navigate = useNavigate();
   const glowIntensity = useMotionValue(0);
   const textShadow = useTransform(
@@ -134,13 +134,13 @@ export default function BrandDirectory() {
   ];
 
   useEffect(() => {
+    // Always run the animation, regardless of isPreview
     const controls = animate(count, 10261, {
       duration: 1.5,
       ease: [0.19, 1.0, 0.22, 1.0],
     });
-
     return controls.stop;
-  }, []);
+  }, [count]); // Depend only on count, as isPreview no longer gates it
 
   const handleHoverStart = () => {
     glowIntensity.set(0);
@@ -226,16 +226,17 @@ export default function BrandDirectory() {
   const isSearchDisabled = getActiveFilterCount() > 0;
 
   const handleSearch = () => {
+    if (isPreview) return; // Prevent action in preview mode
     navigate('/search-results');
   };
 
   const handleCategoryClick = (categoryId: string) => {
+    if (isPreview) return; // Prevent action in preview mode
     navigate('/search-results');
   };
 
   return (
     <div className="min-h-screen bg-cream">
-      <DashboardNav />
       <main className="p-6">
         <div className="max-w-6xl mx-auto">
           {/* Hero Section - Moved up */}
@@ -675,4 +676,6 @@ export default function BrandDirectory() {
       </main>
     </div>
   );
-} 
+};
+
+export default withPreview(BrandDirectoryComponent); 

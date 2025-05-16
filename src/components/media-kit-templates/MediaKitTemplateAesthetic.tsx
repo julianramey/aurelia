@@ -1,7 +1,8 @@
 import React from 'react';
-import type { Profile, ColorScheme, MediaKitStats, BrandCollaboration, Service, PortfolioItem, VideoItem } from '@/lib/types';
+import type { Profile, ColorScheme, MediaKitStats, BrandCollaboration, Service, PortfolioItem, VideoItem, SectionVisibilityState } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Example UI import
 import { AtSymbolIcon, PhoneIcon } from '@heroicons/react/24/solid'; // Example icons
+import PreviewLoadingFallback from '@/components/PreviewLoadingFallback'; // Import the loader
 
 // Define the structure of the nested media_kit_data if it's an object
 type MediaKitDataObject = {
@@ -22,12 +23,14 @@ type MediaKitDataObject = {
 // Define a more specific type for the previewData prop, combining Profile with potential nested data
 // This might need further refinement based on how MediaKitEditor actually structures previewData
 type ExtendedProfilePreview = Omit<Profile, 'brand_collaborations' | 'services'> & {
+  brand_name?: string;
   stats?: MediaKitStats[];
   brand_collaborations?: BrandCollaboration[];
   services?: Service[];
   portfolio_items?: PortfolioItem[]; // Assuming portfolio items might be passed directly
   videos?: VideoItem[]; // Use the existing VideoItem type
   profile_photo?: string; // Ensure profile_photo is included if passed separately
+  section_visibility?: SectionVisibilityState;
   // Include other fields from MediaKitData that might be directly on previewData
   tagline?: string;
   skills?: string[];
@@ -51,17 +54,40 @@ export interface MediaKitTemplateAestheticProps {
     neutral: string;
     border: string;
   };
+  loading?: boolean; // Add loading prop
 }
 
 const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
   isPreview = false,
   data,
   theme,
+  loading, // Destructure loading prop
 }) => {
-  if (!data) {
-    // Optionally render a loading state or null if no data
-    return null;
+  // console.log("[MediaKitTemplateAesthetic] Props Check. Data:", data, "Theme:", theme, "Loading:", loading); // Reverted
+  
+  if (loading) {
+    return (
+      <div className="w-full min-h-[500px] flex items-center justify-center bg-white rounded-lg">
+        <PreviewLoadingFallback />
+      </div>
+    );
   }
+  
+  if (!data) {
+    return <div className="w-full min-h-[500px] flex items-center justify-center"><p>No data available for this media kit.</p></div>;
+  }
+
+  const visibility: SectionVisibilityState = {
+    profileDetails:      data.section_visibility?.profileDetails  ?? true,
+    profilePicture:      data.section_visibility?.profilePicture  ?? true,
+    socialMedia:         data.section_visibility?.socialMedia     ?? true, // Assuming socialMedia might be relevant here too
+    audienceStats:       data.section_visibility?.audienceStats   ?? true,
+    performance:         data.section_visibility?.performance     ?? true,
+    tiktokVideos:        data.section_visibility?.tiktokVideos    ?? true,
+    brandExperience:     data.section_visibility?.brandExperience ?? true,
+    servicesSkills:      data.section_visibility?.servicesSkills  ?? true,
+    contactDetails:      data.section_visibility?.contactDetails  ?? true,
+  };
 
   const profile = data;
   // Explicitly type mediaKitData using `object` instead of `{}`
@@ -70,7 +96,8 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
     : {};
 
   // Now access properties safely using optional chaining
-  const brandName = (mediaKitData as MediaKitDataObject)?.brand_name ?? profile?.full_name ?? 'Your Name';
+  // Prioritize profile.brand_name (from EditorFormData), then mediaKitData.brand_name, then profile.full_name
+  const brandName = profile?.brand_name || (mediaKitData as MediaKitDataObject)?.brand_name || profile?.full_name || 'Aesthetic Name';
   const tagline = (mediaKitData as MediaKitDataObject)?.tagline ?? profile?.tagline ?? 'Content Creator & Influencer';
   const personalIntro = (mediaKitData as MediaKitDataObject)?.personal_intro ?? profile?.personal_intro ?? '';
   const profilePhoto = profile?.profile_photo ?? profile?.avatar_url;
@@ -93,65 +120,78 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
       style={{ backgroundColor: theme.background, color: theme.foreground }}
     >
       {/* --- Header Section --- */}
-      <header className="flex flex-col md:flex-row items-center justify-between mb-12 gap-8 border-b pb-8" style={{ borderColor: theme.border }}>
-        <div className="text-center md:text-left">
-          <h1 className="text-4xl font-bold mb-2" style={{ color: theme.primary }}>
-            {brandName}
-          </h1>
-          <p className="text-lg italic" style={{ color: theme.secondary }}>
-            {tagline}
-          </p>
-        </div>
-        {profilePhoto && (
-          <img
-            src={profilePhoto}
-            alt={`${brandName} profile`}
-            className="w-32 h-32 rounded-full object-cover border-4 shadow-md"
-            style={{ borderColor: theme.accent }}
-          />
-        )}
-      </header>
+      {(visibility.profileDetails || visibility.profilePicture) && (
+        <header className="flex flex-col md:flex-row items-center justify-between mb-12 gap-8 border-b pb-8" style={{ borderColor: theme.border }}>
+          {visibility.profileDetails && (
+            <div className="text-center md:text-left">
+              <h1 className="text-4xl font-bold mb-2" style={{ color: theme.primary }}>
+                {brandName}
+              </h1>
+              <p className="text-lg italic" style={{ color: theme.secondary }}>
+                {tagline}
+              </p>
+            </div>
+          )}
+          {visibility.profilePicture && profilePhoto && (
+            <img
+              src={profilePhoto}
+              alt={`${brandName} profile`}
+              className="w-32 h-32 rounded-full object-cover border-4 shadow-md"
+              style={{ borderColor: theme.accent }}
+            />
+          )}
+        </header>
+      )}
 
       {/* --- Main Content Grid --- */}
       <main className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {/* Left Column (About, Stats, Skills) */}
         <section className="md:col-span-1 space-y-8">
           {/* About Me */}
-          <div className="p-6 rounded-lg" style={{ backgroundColor: theme.primaryLight + '30' }}> {/* Light accent bg */}
-            <h2 className="text-2xl font-semibold mb-4 border-b pb-2" style={{ borderColor: theme.border, color: theme.primary }}>About Me</h2>
-            <p className="text-base leading-relaxed" style={{ color: theme.foreground }}>
-              {personalIntro || 'Introduce yourself here. Talk about your journey, your passion, and what makes your content unique.'}
-            </p>
-          </div>
+          {visibility.profileDetails && (
+            <div className="p-6 rounded-lg" style={{ backgroundColor: theme.primaryLight + '30' }}>
+              <h2 className="text-2xl font-semibold mb-4 border-b pb-2" style={{ borderColor: theme.border, color: theme.primary }}>About Me</h2>
+              <p className="text-base leading-relaxed" style={{ color: theme.foreground }}>
+                {personalIntro || 'Introduce yourself here. Talk about your journey, your passion, and what makes your content unique.'}
+              </p>
+            </div>
+          )}
 
           {/* Stats */}
-          {stats.length > 0 && (
+          {(visibility.audienceStats || visibility.performance) && stats.length > 0 && (
             <div className="p-6 rounded-lg border" style={{ borderColor: theme.border }}>
               <h2 className="text-2xl font-semibold mb-4" style={{ color: theme.primary }}>Key Stats</h2>
-              {/* Use a vertical list for better spacing and adjust font size */}
               <div className="space-y-3">
-                <div className="flex justify-between items-baseline text-sm"> {/* Use items-baseline */} 
-                  <span style={{ color: theme.secondary }}>Followers:</span>
-                  <span className="font-medium text-base" style={{ color: theme.foreground }}>{formatNumber(stats[0].follower_count) || 'N/A'}</span> {/* Changed to text-base */} 
-                </div>
-                <div className="flex justify-between items-baseline text-sm"> {/* Use items-baseline */} 
-                  <span style={{ color: theme.secondary }}>Engagement:</span>
-                  <span className="font-medium text-base" style={{ color: theme.foreground }}>{stats[0].engagement_rate ? `${stats[0].engagement_rate}%` : 'N/A'}</span> {/* Changed to text-base */} 
-                </div>
-                <div className="flex justify-between items-baseline text-sm"> {/* Use items-baseline */} 
-                  <span style={{ color: theme.secondary }}>Avg Likes:</span>
-                  <span className="font-medium text-base" style={{ color: theme.foreground }}>{formatNumber(stats[0].avg_likes) || 'N/A'}</span> {/* Changed to text-base */} 
-                </div>
-                <div className="flex justify-between items-baseline text-sm"> {/* Use items-baseline */} 
-                  <span style={{ color: theme.secondary }}>Reach:</span>
-                  <span className="font-medium text-base" style={{ color: theme.foreground }}>{formatNumber(stats[0].weekly_reach) || 'N/A'}</span> {/* Changed to text-base */} 
-                </div>
+                {visibility.audienceStats && (
+                  <>
+                    <div className="flex justify-between items-baseline text-sm">
+                      <span style={{ color: theme.secondary }}>Followers:</span>
+                      <span className="font-medium text-base" style={{ color: theme.foreground }}>{formatNumber(stats[0]?.follower_count) || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between items-baseline text-sm">
+                      <span style={{ color: theme.secondary }}>Engagement:</span>
+                      <span className="font-medium text-base" style={{ color: theme.foreground }}>{stats[0]?.engagement_rate ? `${stats[0]?.engagement_rate}%` : 'N/A'}</span>
+                    </div>
+                  </>
+                )}
+                {visibility.performance && (
+                  <>
+                    <div className="flex justify-between items-baseline text-sm">
+                      <span style={{ color: theme.secondary }}>Avg Likes:</span>
+                      <span className="font-medium text-base" style={{ color: theme.foreground }}>{formatNumber(stats[0]?.avg_likes) || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between items-baseline text-sm">
+                      <span style={{ color: theme.secondary }}>Reach:</span>
+                      <span className="font-medium text-base" style={{ color: theme.foreground }}>{formatNumber(stats[0]?.weekly_reach) || 'N/A'}</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           )}
 
           {/* Skills */}
-          {skills.length > 0 && (
+          {visibility.servicesSkills && skills.length > 0 && (
              <div className="p-6 rounded-lg border" style={{ borderColor: theme.border }}>
               <h2 className="text-2xl font-semibold mb-4" style={{ color: theme.primary }}>Skills</h2>
                <div className="flex flex-wrap gap-2">
@@ -167,8 +207,8 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
 
         {/* Right Column (Portfolio, Videos, Collaborations, Services) */}
         <section className="md:col-span-2 space-y-8">
-          {/* Portfolio Images */}
-          {portfolioImages.length > 0 && (
+          {/* Portfolio Images - Show if brandExperience or tiktokVideos is on, and images exist */}
+          {(visibility.brandExperience || visibility.tiktokVideos) && portfolioImages.length > 0 && (
             <div>
               <h2 className="text-2xl font-semibold mb-4" style={{ color: theme.primary }}>Portfolio</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -185,18 +225,17 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
           )}
 
           {/* TikTok Videos */}
-          {videos.length > 0 && (
+          {visibility.tiktokVideos && videos.length > 0 && (
             <div>
               <h2 className="text-2xl font-semibold mb-4" style={{ color: theme.primary }}>Featured Videos</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 {videos.map((video, index) => (
                   <a key={index} href={video.url} target="_blank" rel="noopener noreferrer" className="block rounded-lg overflow-hidden group transition-shadow hover:shadow-lg">
                     <img
-                      src={video.thumbnail_url || '/placeholder-video.png'} // Add a placeholder
+                      src={video.thumbnail_url || '/placeholder-video.png'} 
                       alt={`Video thumbnail ${index + 1}`}
                       className="object-cover w-full h-full aspect-video group-hover:opacity-80"
                     />
-                    {/* Optional: Add a play icon overlay */}
                   </a>
                 ))}
               </div>
@@ -204,7 +243,7 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
           )}
 
           {/* Collaborations */}
-          {collaborations.length > 0 && (
+          {visibility.brandExperience && collaborations.length > 0 && (
             <div className="p-6 rounded-lg border" style={{ borderColor: theme.border }}>
               <h2 className="text-2xl font-semibold mb-4" style={{ color: theme.primary }}>Brand Collaborations</h2>
               <ul className="list-disc list-inside space-y-1" style={{ color: theme.secondary }}>
@@ -216,7 +255,7 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
           )}
 
           {/* Services */}
-          {services.length > 0 && (
+          {visibility.servicesSkills && services.length > 0 && (
             <div className="p-6 rounded-lg border" style={{ borderColor: theme.border }}>
               <h2 className="text-2xl font-semibold mb-4" style={{ color: theme.primary }}>Services Offered</h2>
               <ul className="list-disc list-inside space-y-1" style={{ color: theme.secondary }}>
@@ -230,20 +269,21 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
       </main>
 
       {/* --- Footer / Contact --- */}
-      <footer className="mt-12 pt-8 border-t text-center" style={{ borderColor: theme.border }}>
-        <h2 className="text-2xl font-semibold mb-4" style={{ color: theme.primary }}>Get In Touch</h2>
-        {contactEmail && (
-          <a
-            href={`mailto:${contactEmail}`}
-            className="inline-flex items-center gap-2 px-6 py-2 rounded-full transition-colors duration-200 hover:text-white"
-            style={{ backgroundColor: theme.accent, color: getContrast(theme.accent) }} // Use contrast helper
-          >
-            <AtSymbolIcon className="w-5 h-5" />
-            Contact Me
-          </a>
-        )}
-        {/* Add social links here if available */}
-      </footer>
+      {visibility.contactDetails && (
+        <footer className="mt-12 pt-8 border-t text-center" style={{ borderColor: theme.border }}>
+          <h2 className="text-2xl font-semibold mb-4" style={{ color: theme.primary }}>Get In Touch</h2>
+          {contactEmail && (
+            <a
+              href={`mailto:${contactEmail}`}
+              className="inline-flex items-center gap-2 px-6 py-2 rounded-full transition-colors duration-200 hover:text-white"
+              style={{ backgroundColor: theme.accent, color: getContrast(theme.accent) }}
+            >
+              <AtSymbolIcon className="w-5 h-5" />
+              Contact Me
+            </a>
+          )}
+        </footer>
+      )}
     </div>
   );
 };

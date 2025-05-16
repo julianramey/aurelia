@@ -50,6 +50,7 @@ import type { MediaKitTemplateDefaultProps } from '@/components/media-kit-templa
 import type { MediaKitTemplateAestheticProps } from '@/components/media-kit-templates/MediaKitTemplateAesthetic'; 
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import TemplateThumbnail from '@/components/media-kit-templates/TemplateThumbnail'; // Import the new thumbnail component
 
 // TRACK (the pill background)
 const TRACK = [
@@ -202,31 +203,35 @@ interface TemplateTheme {
 }
 
 // Refined EditorPreviewData type
-type EditorPreviewData = Omit<Profile, 'media_kit_data' | 'created_at' | 'updated_at' | 'services' | 'brand_collaborations'> & {
+// CORRECTED Omit: Add back 'created_at' and 'updated_at' to Omit, as they are not typically part of preview data.
+// media_kit_data is now an explicit property, not omitted from Profile here.
+type EditorPreviewData = Omit<Profile, 'created_at' | 'updated_at' | 'services' | 'brand_collaborations'> & {
   // Directly include fields derived from formData for live preview
   brand_name: string;
   tagline: string;
   colors: ColorScheme;
   font: string;
   personal_intro: string;
-  skills: string[]; // Parsed from skills_text
-  // Use simpler object structure for preview if full type isn't needed by templates
-  brand_collaborations: { id?: string; brand_name: string }[]; // Parsed from collabs_text
-  services: { id?: string; service_name: string }[]; // Parsed from services_text
-  instagram_handle: string; // Use string from form
-  tiktok_handle: string; // Use string from form
+  skills: string[];
+  brand_collaborations: BrandCollaboration[];
+  services: Service[];
+  instagram_handle: string;
+  tiktok_handle: string;
   portfolio_images: string[];
   videos: VideoItem[];
-  contact_email: string; 
+  contact_email: string;
   section_visibility: SectionVisibilityState;
   // Metrics
   follower_count: number;
   engagement_rate: number;
   avg_likes: number;
   reach: number;
-  stats: MediaKitStats[]; // Include the constructed stats array
-  // Include profile_photo based on form/avatar_url
+  stats: MediaKitStats[];
   profile_photo?: string;
+  selected_template_id?: string;
+  // ADDED: Explicit media_kit_data to satisfy Profile-based types, even if templates primarily use flattened fields.
+  // Templates should ideally not rely on this nested structure for preview data if flattened data is available.
+  media_kit_data: MediaKitData | null; 
 };
 
 // Update MediaKitPreviewProps to use the new preview data type
@@ -244,65 +249,88 @@ const MediaKitPreview = ({ data, theme, templateId }: MediaKitPreviewProps) => {
   const TemplateComponent = 
     templateId === 'aesthetic' ? MediaKitTemplateAesthetic : MediaKitTemplateDefault;
 
-  // Revert to using `as any` for the data prop here to handle dynamic types
+  // Attempt to remove 'as any' by ensuring data conforms to both template prop types
   return (
     <div className="bg-white rounded-lg p-4 shadow-sm">
-      <TemplateComponent data={data as any} theme={theme} /> 
+      <TemplateComponent data={data} theme={theme} /> {/* REMOVED 'as any' */}
     </div>
   );
 };
 
-// --- Add Placeholder Data --- 
-const PLACEHOLDER_PREVIEW_DATA = {
-  id: 'placeholder-id',
-  user_id: 'placeholder-user',
-  username: 'yourusername',
-  email: 'you@example.com',
-  full_name: 'Your Name Here',
-  avatar_url: 'https://placehold.co/400x400/E5DAF8/7E69AB?text=U', // Updated placeholder
-  instagram_handle: 'yourusername',
-  tiktok_handle: 'yourusername',
-  personal_intro: 'This is a brief introduction about the creator, highlighting their niche and passion for creating compelling content. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
-  tagline: 'Content Creator & Digital Storyteller',
+// --- Add Placeholder Data ---
+// UPDATED PLACEHOLDER_PREVIEW_DATA structure and content
+const PLACEHOLDER_PREVIEW_DATA: EditorPreviewData = {
+  // Fields from Omit<Profile, ...>
+  id: 'ph-profile-123',
+  user_id: 'ph-user-abc',
+  username: 'yourusername', // SIMPLIFIED
+  avatar_url: 'https://placehold.co/150/7E69AB/FFFFFF?text=YN', // SIMPLIFIED (Your Name)
+  website: 'https://yourprofile.example.com',
+  full_name: 'Your Name Here', // SIMPLIFIED
+  email: 'your.email@example.com', // SIMPLIFIED (base email)
+  niche: 'Lifestyle & Travel',
   media_kit_url: 'yourusername',
-  media_kit_data: { // Simulate object structure
-    type: 'media_kit_data' as const,
-    brand_name: 'Your Name Here',
-    tagline: 'Content Creator & Digital Storyteller',
-    colors: { // Use default colors for placeholder
-      background: '#F8F8F8', // Slightly off-white
-      text: '#2D2D2D', // Dark Gray
-      secondary: '#888888', // Medium Gray
-      accent_light: '#EAE6FF', // Lighter purple
-      accent: '#7D5BA6' // Muted Purple
-    },
-    font: 'Inter',
-    skills: ['Video Editing', 'Photography', 'Content Strategy', 'Copywriting', 'SEO'],
-    videos: [
-      { url: '#', thumbnail_url: 'https://placehold.co/300x400/EAE6FF/7D5BA6?text=Vid+1' },
-      { url: '#', thumbnail_url: 'https://placehold.co/300x400/EAE6FF/7D5BA6?text=Vid+2' },
-      { url: '#', thumbnail_url: 'https://placehold.co/300x400/EAE6FF/7D5BA6?text=Vid+3' },
-    ],
-    contact_email: 'you@example.com',
-    personal_intro: 'This is a brief introduction... (same as above)',
-    portfolio_images: [
-      'https://placehold.co/600x400/EAE6FF/7D5BA6?text=Portfolio+1',
-      'https://placehold.co/600x400/EAE6FF/7D5BA6?text=Portfolio+2',
-      'https://placehold.co/600x400/EAE6FF/7D5BA6?text=Portfolio+3'
-    ],
-  },
-  // Add stats and other top-level fields expected by templates
-  stats: [{
-    id: 'stat1', profile_id: 'placeholder', platform: 'instagram' as SocialPlatform,
-    follower_count: 12500, engagement_rate: 4.5, avg_likes: 980, avg_comments: 55, weekly_reach: 35000, monthly_impressions: 150000
-  }],
-  brand_collaborations: ['Brand A', 'Brand B', 'Brand C', 'Another Brand'],
-  services: ['Sponsored Posts', 'Product Reviews', 'Content Creation', 'Consulting'],
-  profile_photo: 'https://placehold.co/400x400/E5DAF8/7E69AB?text=U',
-  follower_count: 12500,
+  onboarding_complete: true,
+
+  // Fields specific to EditorPreviewData definition
+  brand_name: 'Your Name Here', // SIMPLIFIED
+  tagline: 'Lifestyle Influencer | Content Creator', // SIMPLIFIED
+  colors: COLOR_PRESETS[0].colors, // Ensures Default Purple theme
+  font: 'Inter',
+  personal_intro: 'Showcase your unique style and collaborations. Perfect for creators and influencers looking to make an impact.', // SIMPLIFIED
+  skills: ['Content Creation', 'Social Media Savvy', 'Photography Basics'], // SIMPLIFIED
+  brand_collaborations: [
+    { id: 'ph-collab-1', profile_id: 'ph-user-abc', brand_name: 'Chic Boutique', collaboration_type: 'Sponsored Post', collaboration_date: '2023-10-15' }, // SIMPLIFIED
+    { id: 'ph-collab-2', profile_id: 'ph-user-abc', brand_name: 'Wanderlust Travel Co.', collaboration_type: 'Campaign', collaboration_date: '2023-11-20' }, // SIMPLIFIED
+  ],
+  services: [
+    { id: 'ph-service-1', profile_id: 'ph-user-abc', service_name: 'Sponsored Instagram Post', description: 'Engaging post on Instagram.', price_range: 'Enquire' }, // SIMPLIFIED
+    { id: 'ph-service-2', profile_id: 'ph-user-abc', service_name: 'TikTok Video Feature', description: 'Creative TikTok video.', price_range: 'Enquire' }, // SIMPLIFIED
+  ],
+  instagram_handle: '@yourinsta', // SIMPLIFIED
+  tiktok_handle: '@yourtiktok', // SIMPLIFIED
+  portfolio_images: [
+    'https://placehold.co/600x400/E5DAF8/7E69AB?text=Portfolio+1',
+    'https://placehold.co/600x400/CDB4DB/7E69AB?text=Portfolio+2',
+    'https://placehold.co/600x400/B1A2CF/7E69AB?text=Portfolio+3',
+  ],
+  videos: [
+    { url: '#vid1', thumbnail_url: 'https://placehold.co/300x400/E5DAF8/7E69AB?text=Video+A' },
+    { url: '#vid2', thumbnail_url: 'https://placehold.co/300x400/CDB4DB/7E69AB?text=Video+B' },
+  ],
+  contact_email: 'your.email@example.com', // SIMPLIFIED
+  section_visibility: defaultSectionVisibility,
+  follower_count: 15200,
   engagement_rate: 4.5,
-  avg_likes: 980,
+  avg_likes: 850,
   reach: 35000,
+  stats: [
+    {
+      id: 'ph-stats-ig', profile_id: 'ph-user-abc', platform: 'instagram' as SocialPlatform,
+      follower_count: 15200, engagement_rate: 4.5, avg_likes: 850, avg_comments: 45,
+      weekly_reach: 35000, monthly_impressions: 150000,
+    }
+  ],
+  profile_photo: 'https://placehold.co/400x400/7E69AB/FFFFFF?text=YN', // SIMPLIFIED (Your Name)
+  selected_template_id: 'default',
+  media_kit_data: { 
+    type: 'media_kit_data',
+    brand_name: 'Your Name Here', // SIMPLIFIED
+    colors: COLOR_PRESETS[0].colors, // Ensures Default Purple theme
+    tagline: 'Lifestyle Influencer | Content Creator', // SIMPLIFIED
+    font: 'Inter',
+    selected_template_id: 'default',
+    section_visibility: defaultSectionVisibility,
+    personal_intro: 'Showcase your unique style and collaborations. Perfect for creators and influencers looking to make an impact.', // SIMPLIFIED
+    skills: ['Content Creation', 'Social Media Savvy', 'Photography Basics'], // SIMPLIFIED
+    contact_email: 'your.email@example.com', // SIMPLIFIED
+    // Optional fields from MediaKitData, filled if simple
+    profile_photo: 'https://placehold.co/400x400/7E69AB/FFFFFF?text=YN', // SIMPLIFIED
+    instagram_handle: 'yourinsta', // SIMPLIFIED (no @ for DB)
+    tiktok_handle: 'yourtiktok', // SIMPLIFIED (no @ for DB)
+    portfolio_images: ['https://placehold.co/600x400/E5DAF8/7E69AB?text=Portfolio+1'],
+    videos: [{ url: '#vid1', thumbnail_url: 'https://placehold.co/300x400/E5DAF8/7E69AB?text=Video+A' }],
+  },
 };
 
 // --- Define Equalized Individual Color Swatches (12 each) --- 
@@ -519,8 +547,12 @@ export default function MediaKitEditor() {
     let loadedTemplateId = 'default';
 
     // Load overrides from media_kit_data
-    const mkData = profile.media_kit_data; 
-    if (mkData) {
+    // const mkData = profile.media_kit_data; // Old way
+    const mkData = (typeof profile.media_kit_data === 'string' && profile.media_kit_data)
+      ? JSON.parse(profile.media_kit_data)
+      : profile.media_kit_data; // New: Ensure parsing if it's a string
+
+    if (mkData && typeof mkData === 'object') { // Ensure mkData is a usable object
       initialFormState.brand_name = mkData.brand_name || initialFormState.brand_name;
       initialFormState.tagline = mkData.tagline || '';
       initialFormState.colors = mkData.colors || initialFormState.colors;
@@ -562,13 +594,27 @@ export default function MediaKitEditor() {
 
     // Parse text inputs from current formData
     const previewSkills = formData.skills_text ? formData.skills_text.split(',').map(item => item.trim()).filter(Boolean) : [];
-    const previewServices = formData.services_text 
-      ? formData.services_text.split(',').map((item, index) => ({ id: `prev-s-${index}`, service_name: item.trim() })).filter(s => s.service_name)
-      : [];
-    const previewCollabs = formData.brand_collaborations_text
-      ? formData.brand_collaborations_text.split(',').map((item, index) => ({ id: `prev-c-${index}`, brand_name: item.trim() })).filter(b => b.brand_name)
+    
+    const previewServices: Service[] = formData.services_text
+      ? formData.services_text.split(',').map((item, index) => ({
+          id: `prev-s-${profile.id}-${index}`,
+          profile_id: profile.id,
+          service_name: item.trim(),
+          description: '',
+          price_range: '',
+        })).filter(s => s.service_name)
       : [];
       
+    const previewCollabs: BrandCollaboration[] = formData.brand_collaborations_text
+      ? formData.brand_collaborations_text.split(',').map((item, index) => ({
+          id: `prev-c-${profile.id}-${index}`,
+          profile_id: profile.id,
+          brand_name: item.trim(),
+          collaboration_type: '',
+          collaboration_date: '',
+        })).filter(b => b.brand_name)
+      : [];
+
     // Construct stats array for preview from formData
     const previewStats: MediaKitStats[] = [{
         id: 'preview-stats',
@@ -583,17 +629,18 @@ export default function MediaKitEditor() {
       }];
 
     // Build the preview object matching EditorPreviewData type
-    const previewData: EditorPreviewData = {
-      // Base fields from profile (can filter/omit if needed)
+    const currentPreviewData: EditorPreviewData = {
+      // Base fields from profile (created_at, updated_at will be omitted by the type)
       id: profile.id,
       user_id: profile.user_id,
       username: profile.username || '',
+      avatar_url: profile.avatar_url || '',
       website: profile.website || '',
+      full_name: profile.full_name || '',
+      email: profile.email || '',
       niche: profile.niche || '',
       media_kit_url: profile.media_kit_url || '',
       onboarding_complete: profile.onboarding_complete || false,
-      selected_template_id: selectedTemplateId, // Current template selection
-      avatar_url: profile.avatar_url || '', // Base avatar
       
       // Fields directly from formData or parsed from it
       brand_name: formData.brand_name,
@@ -601,27 +648,48 @@ export default function MediaKitEditor() {
       colors: formData.colors,
       font: formData.font,
       personal_intro: formData.personal_intro,
-      profile_photo: formData.profile_photo || profile.avatar_url || '', // Prefer form photo
+      profile_photo: formData.profile_photo || profile.avatar_url || '',
       contact_email: formData.email,
       instagram_handle: formData.instagram_handle, 
       tiktok_handle: formData.tiktok_handle, 
       portfolio_images: formData.portfolio_images,
-      videos: videoLinks, // From videoLinks state
+      videos: videoLinks, 
       skills: previewSkills,
       brand_collaborations: previewCollabs, 
       services: previewServices, 
-      section_visibility: sectionVisibility, // From visibility state
+      section_visibility: sectionVisibility, 
       
-      // Metrics from form
       follower_count: parseFloat(String(formData.follower_count)) || 0,
       engagement_rate: parseFloat(String(formData.engagement_rate)) || 0,
       avg_likes: parseFloat(String(formData.avg_likes)) || 0,
       reach: parseFloat(String(formData.reach)) || 0,
-      stats: previewStats, // Generated stats array
+      stats: previewStats,
+      selected_template_id: selectedTemplateId,
+
+      // Construct a valid MediaKitData object or null for the preview
+      // This should mirror how actual media_kit_data is saved/structured if possible
+      media_kit_data: {
+        type: 'media_kit_data',
+        brand_name: formData.brand_name,
+        colors: formData.colors,
+        tagline: formData.tagline,
+        font: formData.font,
+        selected_template_id: selectedTemplateId,
+        section_visibility: sectionVisibility,
+        // Optional fields from MediaKitData, can be included if available/needed
+        profile_photo: formData.profile_photo || undefined,
+        personal_intro: formData.personal_intro || undefined,
+        skills: previewSkills.length > 0 ? previewSkills : undefined,
+        instagram_handle: formData.instagram_handle?.replace('@', '') || undefined,
+        tiktok_handle: formData.tiktok_handle?.replace('@', '') || undefined,
+        portfolio_images: formData.portfolio_images.length > 0 ? formData.portfolio_images : undefined,
+        videos: videoLinks.length > 0 ? videoLinks : undefined,
+        contact_email: formData.email || undefined,
+      },
     };
         
-    return previewData;
-  }, [profile, formData, videoLinks, selectedTemplateId, sectionVisibility]); // Dependencies are correct
+    return currentPreviewData;
+  }, [profile, formData, videoLinks, selectedTemplateId, sectionVisibility]);
 
   // Add a loading state for initial data fetch
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
@@ -877,16 +945,17 @@ export default function MediaKitEditor() {
   };
 
   const getPlaceholderTheme = (templateId: string | null): TemplateTheme => {
-    const colors = PLACEHOLDER_PREVIEW_DATA.media_kit_data.colors;
-    const primary = colors.accent;
+    // UPDATED: Access colors directly from the flattened PLACEHOLDER_PREVIEW_DATA
+    const colors = PLACEHOLDER_PREVIEW_DATA.colors;
+    const primary = colors.accent || '#7E69AB'; // Fallback if accent is somehow undefined
     return {
       background: colors.background,
       foreground: colors.text,
       primary: primary,
       primaryLight: colors.accent_light,
       secondary: colors.secondary,
-      accent: colors.accent,
-      neutral: colors.secondary,
+      accent: colors.accent || '#7E69AB', // Fallback
+      neutral: colors.secondary, 
       border: `${primary}33`
     };
   }
@@ -1204,10 +1273,10 @@ export default function MediaKitEditor() {
                     </Button>
                   </div>
 
-                  {/* --- Template Rendering Area --- */}
+                  {/* --- Template Rendering Area --- */} 
                   <div className="flex-1 overflow-y-auto p-4 bg-gray-100"> 
                     {React.createElement(getTemplateComponent(detailedPreviewTemplateId), {
-                      data: PLACEHOLDER_PREVIEW_DATA as any, 
+                      data: PLACEHOLDER_PREVIEW_DATA, // REMOVED 'as any'
                       theme: getPlaceholderTheme(detailedPreviewTemplateId)
                     })}
                   </div>
@@ -1217,61 +1286,77 @@ export default function MediaKitEditor() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 p-4 overflow-y-auto flex-1">
                   {/* Template 1: Default */}
                   <div 
-                    className="border rounded-lg p-4 text-center shadow hover:shadow-md transition-shadow h-fit cursor-pointer"
+                    className="relative border rounded-lg shadow-md hover:shadow-lg transition-shadow h-80 cursor-pointer overflow-hidden hover:[box-shadow:0_0_0_2px_rgba(126,105,171,0.3),0_0_20px_2px_rgba(126,105,171,0.3),0_0_40px_2px_rgba(126,105,171,0.2)] duration-300 ease-in-out"
                     onClick={() => setDetailedPreviewTemplateId('default')}
                   >
-                    <div>
-                       <div className="bg-gray-200 h-48 w-full rounded mb-3"></div> 
-                       <h3 className="font-medium text-lg">Classic Minimal</h3>
-                    </div>
-                    <div className="flex gap-2 justify-center pt-2 mt-4"> 
-                       <Button 
-                         size="sm" 
-                         variant="secondary" 
-                         onClick={(e) => { e.stopPropagation(); setDetailedPreviewTemplateId('default'); }} 
-                        >
-                           Preview
-                         </Button>
-                       <Button 
-                         size="sm" 
-                         onClick={(e) => { 
-                           e.stopPropagation(); // Prevent parent onClick from firing
-                           setSelectedTemplateId('default');
-                           setIsLibraryOpen(false);
-                         }}
-                        >
-                           Select
-                         </Button>
+                    <TemplateThumbnail 
+                      templateId="default" 
+                      data={PLACEHOLDER_PREVIEW_DATA} // REMOVED 'as any'
+                      theme={getPlaceholderTheme('default')} 
+                    />
+                    <div className="absolute inset-0 flex flex-col justify-end p-4 bg-gradient-to-t from-black/70 via-black/50 to-transparent text-center">
+                      <h3 className="font-semibold text-xl text-white mb-4">Classic Minimal</h3>
+                      {/* Layered Pill Button Group - Centered */}
+                      <div className="relative flex justify-center items-center h-10">
+                         {/* Select Button (Back Layer - Wider) */}
+                         <Button 
+                           size="sm" 
+                           className="absolute bg-rose hover:bg-rose/90 text-white font-semibold pl-6 pr-14 py-2 rounded-full shadow-md z-0 transform -translate-x-8"
+                           onClick={(e) => { 
+                             e.stopPropagation();
+                             setSelectedTemplateId('default');
+                             setIsLibraryOpen(false);
+                           }}
+                          >
+                             Select
+                           </Button>
+                         {/* Preview Button (Front Layer - Standard Oval) */}
+                         <Button 
+                           size="sm" 
+                           className="absolute bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-6 py-2 rounded-full shadow-md z-10 transform translate-x-10"
+                           onClick={(e) => { e.stopPropagation(); setDetailedPreviewTemplateId('default'); }} 
+                          >
+                             Preview
+                           </Button>
+                      </div>
                     </div>
                   </div>
                   
                   {/* Template 2: Aesthetic */}
                   <div 
-                    className="border rounded-lg p-4 text-center shadow hover:shadow-md transition-shadow h-fit cursor-pointer"
+                    className="relative border rounded-lg shadow-md hover:shadow-lg transition-shadow h-80 cursor-pointer overflow-hidden hover:[box-shadow:0_0_0_2px_rgba(126,105,171,0.3),0_0_20px_2px_rgba(126,105,171,0.3),0_0_40px_2px_rgba(126,105,171,0.2)] duration-300 ease-in-out"
                     onClick={() => setDetailedPreviewTemplateId('aesthetic')}
                    >
-                     <div>
-                       <div className="bg-gray-200 h-48 w-full rounded mb-3"></div> 
-                       <h3 className="font-medium text-lg">Modern Aesthetic</h3>
-                     </div>
-                    <div className="flex gap-2 justify-center pt-2 mt-4">
-                       <Button 
-                         size="sm" 
-                         variant="secondary" 
-                         onClick={(e) => { e.stopPropagation(); setDetailedPreviewTemplateId('aesthetic'); }}
-                        >
-                           Preview
-                         </Button>
-                       <Button 
-                         size="sm" 
-                         onClick={(e) => { 
-                           e.stopPropagation(); // Prevent parent onClick from firing
-                           setSelectedTemplateId('aesthetic');
-                           setIsLibraryOpen(false);
-                         }}
-                        >
-                           Select
-                         </Button>
+                     <TemplateThumbnail 
+                       templateId="aesthetic" 
+                       data={PLACEHOLDER_PREVIEW_DATA} // REMOVED 'as any'
+                       theme={getPlaceholderTheme('aesthetic')} 
+                     />
+                     <div className="absolute inset-0 flex flex-col justify-end p-4 bg-gradient-to-t from-black/70 via-black/50 to-transparent text-center">
+                       <h3 className="font-semibold text-xl text-white mb-4">Modern Aesthetic</h3>
+                       {/* Layered Pill Button Group - Centered */}
+                       <div className="relative flex justify-center items-center h-10">
+                         {/* Select Button (Back Layer - Wider) */}
+                         <Button 
+                           size="sm" 
+                           className="absolute bg-rose hover:bg-rose/90 text-white font-semibold pl-6 pr-14 py-2 rounded-full shadow-md z-0 transform -translate-x-8"
+                           onClick={(e) => { 
+                             e.stopPropagation();
+                             setSelectedTemplateId('aesthetic');
+                             setIsLibraryOpen(false);
+                           }}
+                          >
+                             Select
+                           </Button>
+                           {/* Preview Button (Front Layer - Standard Oval) */}
+                         <Button 
+                           size="sm" 
+                           className="absolute bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-6 py-2 rounded-full shadow-md z-10 transform translate-x-10"
+                           onClick={(e) => { e.stopPropagation(); setDetailedPreviewTemplateId('aesthetic'); }}
+                          >
+                             Preview
+                           </Button>
+                       </div>
                     </div>
                   </div>
                   {/* Add more template entries here */}
@@ -1912,7 +1997,7 @@ export default function MediaKitEditor() {
           {/* Preview - make wider */}
           <div className="w-full md:w-3/5 md:sticky md:top-20 h-fit">
             <MediaKitPreview
-              key={`preview-${selectedTemplateId}-${formData.profile_photo}-${formData.tagline}`}
+              key={`preview-${selectedTemplateId}-${formData.brand_name}-${formData.profile_photo}-${formData.tagline}`}
               data={mediaKitPreviewData}
               theme={getPreviewTheme()}
               templateId={selectedTemplateId}

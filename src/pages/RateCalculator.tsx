@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import DashboardNav from '../components/DashboardNav';
+// import DashboardNav from '../components/DashboardNav'; // Removed: Handled by withPreview HOC
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import { 
   CalculatorIcon, 
@@ -10,8 +10,10 @@ import {
   PhotoIcon,
   DocumentTextIcon 
 } from '@heroicons/react/24/outline';
+import { withPreview } from '@/lib/withPreview'; // Added HOC import
 
-export default function RateCalculator() {
+// Renamed from RateCalculator to RateCalculatorComponent
+const RateCalculatorComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
   const [followerCount, setFollowerCount] = useState<string>('');
   const [engagementRate, setEngagementRate] = useState<string>('');
   const [contentType, setContentType] = useState<string>('photo');
@@ -85,7 +87,7 @@ export default function RateCalculator() {
 
   return (
     <div className="min-h-screen bg-cream">
-      <DashboardNav />
+      {/* <DashboardNav /> */}{/* Removed: Handled by withPreview HOC */}
       <main className="p-6">
         <div className="max-w-6xl mx-auto">
           {/* Hero Section */}
@@ -249,32 +251,21 @@ export default function RateCalculator() {
                         whileTap={{ scale: 0.98 }}
                         className="px-4 py-3 bg-white border border-rose text-rose rounded-lg hover:bg-rose/5 transition-colors text-sm font-medium"
                       >
-                        Download Rate Card
+                        Save to Media Kit
                       </motion.button>
                       <motion.button
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        className="px-4 py-3 bg-rose text-white rounded-lg hover:bg-rose/90 transition-colors text-sm font-medium"
+                        className="px-4 py-3 bg-rose text-cream rounded-lg hover:bg-rose/90 transition-colors text-sm font-medium"
                       >
-                        Share with Brands
+                        Share Rate
                       </motion.button>
                     </div>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center py-12">
-                    <motion.div
-                      initial={{ scale: 0.8, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ 
-                        duration: 0.5,
-                        repeat: Infinity,
-                        repeatType: "reverse",
-                        ease: "easeInOut"
-                      }}
-                    >
-                      <CalculatorIcon className="h-16 w-16 text-rose/60 mb-4" />
-                    </motion.div>
-                    <p className="text-taupe">Enter your details and calculate your recommended rate</p>
+                  <div className="text-center py-10">
+                    <CalculatorIcon className="h-12 w-12 text-taupe/30 mx-auto mb-4" />
+                    <p className="text-taupe">Enter your details above to calculate your rate.</p>
                   </div>
                 )}
               </div>
@@ -320,4 +311,7 @@ export default function RateCalculator() {
       </main>
     </div>
   );
-} 
+};
+
+// Export the HOC-wrapped component as the default
+export default withPreview(RateCalculatorComponent); 

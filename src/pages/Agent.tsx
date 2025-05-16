@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import DashboardNav from '../components/DashboardNav';
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import { 
   PaperAirplaneIcon,
@@ -21,6 +20,7 @@ import {
 } from '@heroicons/react/20/solid';
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import { withPreview } from '@/lib/withPreview';
 
 // Message types
 type MessageRole = 'user' | 'assistant' | 'system';
@@ -123,7 +123,8 @@ const THUMB_CLASSES = cn(
   "data-[state=checked]:translate-x-5" // ON state (was translate-x-5 in ShadCN)
 );
 
-export default function Agent() {
+// Renamed from Agent to AgentComponent
+const AgentComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
   // State for messages
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -264,10 +265,10 @@ export default function Agent() {
   
   // Scroll to bottom when messages update
   useEffect(() => {
-    if (messagesEndRef.current) {
+    if (!isPreview && messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages]);
+  }, [messages, isPreview]);
   
   // Check API configuration on component mount
   useEffect(() => {
@@ -632,7 +633,7 @@ export default function Agent() {
   
   return (
     <div className="min-h-screen bg-cream">
-      <DashboardNav />
+      {/* <DashboardNav /> */}{/* Removed: Handled by withPreview HOC */}
       <main className="relative h-[calc(100vh-4rem)] pt-4 px-4 overflow-hidden">
         <div className="max-w-6xl mx-auto h-full flex flex-col">
           {/* Title Section - Mobile Only */}
@@ -1163,4 +1164,7 @@ export default function Agent() {
       </main>
     </div>
   );
-} 
+};
+
+// Export the HOC-wrapped component as the default
+export default withPreview(AgentComponent); 

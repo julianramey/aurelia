@@ -16,7 +16,7 @@ import {
   CursorArrowRaysIcon, 
   DocumentTextIcon 
 } from '@heroicons/react/24/outline';
-import DashboardNav from '../components/DashboardNav';
+import { withPreview } from '@/lib/withPreview';
 
 // Register ChartJS components
 ChartJS.register(
@@ -111,10 +111,9 @@ const stats = [
   },
 ];
 
-export default function Dashboard() {
+const AnalyticsDashboardComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
   return (
     <div className="min-h-screen bg-background">
-      <DashboardNav />
       <main className="p-6">
         <div className="mx-auto max-w-7xl">
           <div className="mb-8">
@@ -157,4 +156,6 @@ export default function Dashboard() {
       </main>
     </div>
   );
-} 
+};
+
+export default withPreview(AnalyticsDashboardComponent); 

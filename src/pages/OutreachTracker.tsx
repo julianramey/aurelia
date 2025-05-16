@@ -1,7 +1,8 @@
 import React, { useState, Fragment } from 'react';
-import DashboardNav from '../components/DashboardNav';
+// import DashboardNav from '../components/DashboardNav'; // Removed: Handled by withPreview HOC
 import { CheckCircleIcon, PencilSquareIcon, EnvelopeIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { Dialog, Transition } from '@headlessui/react';
+import { withPreview } from '@/lib/withPreview'; // Added HOC import
 
 // Interfaces based on SearchResults.tsx mockData
 interface Contact {
@@ -183,7 +184,8 @@ const transformedBrandsData: OutreachBrand[] = mockBrandsFromSearchResults.map(b
   ],
 }));
 
-export default function OutreachTracker() {
+// Renamed from OutreachTracker to OutreachTrackerComponent
+const OutreachTrackerComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
   const [brands, setBrands] = useState<OutreachBrand[]>(transformedBrandsData);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [currentActionDetails, setCurrentActionDetails] = useState<ActionDetails>(null);
@@ -287,7 +289,7 @@ export default function OutreachTracker() {
 
   return (
     <div className="min-h-screen bg-cream">
-      <DashboardNav />
+      {/* <DashboardNav /> */}{/* Removed: Handled by withPreview HOC */}
       <main className="p-6">
         <div className="mx-auto max-w-7xl">
           <div className="mb-8">
@@ -558,4 +560,7 @@ export default function OutreachTracker() {
       </Transition>
     </div>
   );
-} 
+};
+
+// Export the HOC-wrapped component as the default
+export default withPreview(OutreachTrackerComponent); 
