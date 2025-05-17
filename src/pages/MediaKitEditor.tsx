@@ -11,8 +11,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import MediaKit from './MediaKit';
-import MediaKitTemplateDefault from '@/components/media-kit-templates/MediaKitTemplateDefault';
-import MediaKitTemplateAesthetic from '@/components/media-kit-templates/MediaKitTemplateAesthetic';
 import type { 
   Profile, 
   MediaKitData,
@@ -23,8 +21,13 @@ import type {
   ColorScheme,
   VideoItem, 
   EditableSection,
-  SectionVisibilityState
+  SectionVisibilityState,
+  TemplateTheme,      // Import from types.ts
+  EditorPreviewData   // Import from types.ts
 } from '@/lib/types';
+import type { DefaultSpecificData } from '@/components/media-kit-templates/MediaKitTemplateDefault';
+import type { AestheticSpecificData } from '@/components/media-kit-templates/MediaKitTemplateAesthetic';
+import type { LuxurySpecificData } from '@/components/media-kit-templates/MediaKitTemplateLuxury';
 import {
   ArrowLeftIcon,
   SwatchIcon,
@@ -46,11 +49,25 @@ import {
   DialogClose,
 } from "@/components/ui/dialog"
 import { AtSymbolIcon, PhoneIcon } from '@heroicons/react/24/solid';
-import type { MediaKitTemplateDefaultProps } from '@/components/media-kit-templates/MediaKitTemplateDefault'; 
-import type { MediaKitTemplateAestheticProps } from '@/components/media-kit-templates/MediaKitTemplateAesthetic'; 
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import TemplateThumbnail from '@/components/media-kit-templates/TemplateThumbnail'; // Import the new thumbnail component
+import TemplateThumbnail from '@/components/media-kit-templates/TemplateThumbnail';
+import { TEMPLATES } from '@/lib/templateRegistry';
+import { SECTIONS, type EditorFormProps } from '@/lib/sections'; // <-- IMPORT SECTIONS and EditorFormProps
+import PerformanceForm from '@/components/media-kit-editor-forms/PerformanceForm';
+import { DEFAULT_COLORS } from '@/lib/placeholder-data';
+
+// Ensure all form components are imported here:
+import ProfileDetailsForm from '@/components/media-kit-editor-forms/ProfileDetailsForm';
+import BrandExperienceForm from '@/components/media-kit-editor-forms/BrandExperienceForm';
+import ServicesSkillsForm from '@/components/media-kit-editor-forms/ServicesSkillsForm';
+import SocialMediaForm from '@/components/media-kit-editor-forms/SocialMediaForm';
+import ContactDetailsForm from '@/components/media-kit-editor-forms/ContactDetailsForm';
+import ProfilePictureForm from '@/components/media-kit-editor-forms/ProfilePictureForm';
+import TikTokVideosForm from '@/components/media-kit-editor-forms/TikTokVideosForm';
+import AudienceStatsForm from '@/components/media-kit-editor-forms/AudienceStatsForm';
+import TemplateLibraryDialog from '@/components/media-kit-editor/TemplateLibraryDialog'; // +++ ADD IMPORT
+import ThemeEditorCard from '@/components/media-kit-editor/ThemeEditorCard'; // +++ IMPORT ThemeEditorCard
 
 // TRACK (the pill background)
 const TRACK = [
@@ -190,50 +207,6 @@ const getContrast = (hex: string): string => {
   return yiq >= 128 ? '#000000' : '#ffffff';
 };
 
-// Interface for the theme styles (matching TemplateTheme in default template)
-interface TemplateTheme {
-  background: string;
-  foreground: string;
-  primary: string;
-  primaryLight: string;
-  secondary: string;
-  accent: string;
-  neutral: string;
-  border: string;
-}
-
-// Refined EditorPreviewData type
-// CORRECTED Omit: Add back 'created_at' and 'updated_at' to Omit, as they are not typically part of preview data.
-// media_kit_data is now an explicit property, not omitted from Profile here.
-type EditorPreviewData = Omit<Profile, 'created_at' | 'updated_at' | 'services' | 'brand_collaborations'> & {
-  // Directly include fields derived from formData for live preview
-  brand_name: string;
-  tagline: string;
-  colors: ColorScheme;
-  font: string;
-  personal_intro: string;
-  skills: string[];
-  brand_collaborations: BrandCollaboration[];
-  services: Service[];
-  instagram_handle: string;
-  tiktok_handle: string;
-  portfolio_images: string[];
-  videos: VideoItem[];
-  contact_email: string;
-  section_visibility: SectionVisibilityState;
-  // Metrics
-  follower_count: number;
-  engagement_rate: number;
-  avg_likes: number;
-  reach: number;
-  stats: MediaKitStats[];
-  profile_photo?: string;
-  selected_template_id?: string;
-  // ADDED: Explicit media_kit_data to satisfy Profile-based types, even if templates primarily use flattened fields.
-  // Templates should ideally not rely on this nested structure for preview data if flattened data is available.
-  media_kit_data: MediaKitData | null; 
-};
-
 // Update MediaKitPreviewProps to use the new preview data type
 interface MediaKitPreviewProps {
   data: EditorPreviewData | null; // Use the new preview type
@@ -246,91 +219,21 @@ interface MediaKitPreviewProps {
 const MediaKitPreview = ({ data, theme, templateId }: MediaKitPreviewProps) => {
   if (!data) return null;
 
-  const TemplateComponent = 
-    templateId === 'aesthetic' ? MediaKitTemplateAesthetic : MediaKitTemplateDefault;
+  const template = TEMPLATES.find(t => t.id === templateId);
 
-  // Attempt to remove 'as any' by ensuring data conforms to both template prop types
-  return (
-    <div className="bg-white rounded-lg p-4 shadow-sm">
-      <TemplateComponent data={data} theme={theme} /> {/* REMOVED 'as any' */}
-    </div>
-  );
-};
-
-// --- Add Placeholder Data ---
-// UPDATED PLACEHOLDER_PREVIEW_DATA structure and content
-const PLACEHOLDER_PREVIEW_DATA: EditorPreviewData = {
-  // Fields from Omit<Profile, ...>
-  id: 'ph-profile-123',
-  user_id: 'ph-user-abc',
-  username: 'yourusername', // SIMPLIFIED
-  avatar_url: 'https://placehold.co/150/7E69AB/FFFFFF?text=YN', // SIMPLIFIED (Your Name)
-  website: 'https://yourprofile.example.com',
-  full_name: 'Your Name Here', // SIMPLIFIED
-  email: 'your.email@example.com', // SIMPLIFIED (base email)
-  niche: 'Lifestyle & Travel',
-  media_kit_url: 'yourusername',
-  onboarding_complete: true,
-
-  // Fields specific to EditorPreviewData definition
-  brand_name: 'Your Name Here', // SIMPLIFIED
-  tagline: 'Lifestyle Influencer | Content Creator', // SIMPLIFIED
-  colors: COLOR_PRESETS[0].colors, // Ensures Default Purple theme
-  font: 'Inter',
-  personal_intro: 'Showcase your unique style and collaborations. Perfect for creators and influencers looking to make an impact.', // SIMPLIFIED
-  skills: ['Content Creation', 'Social Media Savvy', 'Photography Basics'], // SIMPLIFIED
-  brand_collaborations: [
-    { id: 'ph-collab-1', profile_id: 'ph-user-abc', brand_name: 'Chic Boutique', collaboration_type: 'Sponsored Post', collaboration_date: '2023-10-15' }, // SIMPLIFIED
-    { id: 'ph-collab-2', profile_id: 'ph-user-abc', brand_name: 'Wanderlust Travel Co.', collaboration_type: 'Campaign', collaboration_date: '2023-11-20' }, // SIMPLIFIED
-  ],
-  services: [
-    { id: 'ph-service-1', profile_id: 'ph-user-abc', service_name: 'Sponsored Instagram Post', description: 'Engaging post on Instagram.', price_range: 'Enquire' }, // SIMPLIFIED
-    { id: 'ph-service-2', profile_id: 'ph-user-abc', service_name: 'TikTok Video Feature', description: 'Creative TikTok video.', price_range: 'Enquire' }, // SIMPLIFIED
-  ],
-  instagram_handle: '@yourinsta', // SIMPLIFIED
-  tiktok_handle: '@yourtiktok', // SIMPLIFIED
-  portfolio_images: [
-    'https://placehold.co/600x400/E5DAF8/7E69AB?text=Portfolio+1',
-    'https://placehold.co/600x400/CDB4DB/7E69AB?text=Portfolio+2',
-    'https://placehold.co/600x400/B1A2CF/7E69AB?text=Portfolio+3',
-  ],
-  videos: [
-    { url: '#vid1', thumbnail_url: 'https://placehold.co/300x400/E5DAF8/7E69AB?text=Video+A' },
-    { url: '#vid2', thumbnail_url: 'https://placehold.co/300x400/CDB4DB/7E69AB?text=Video+B' },
-  ],
-  contact_email: 'your.email@example.com', // SIMPLIFIED
-  section_visibility: defaultSectionVisibility,
-  follower_count: 15200,
-  engagement_rate: 4.5,
-  avg_likes: 850,
-  reach: 35000,
-  stats: [
-    {
-      id: 'ph-stats-ig', profile_id: 'ph-user-abc', platform: 'instagram' as SocialPlatform,
-      follower_count: 15200, engagement_rate: 4.5, avg_likes: 850, avg_comments: 45,
-      weekly_reach: 35000, monthly_impressions: 150000,
+  if (!template) {
+    const defaultTemplateEntry = TEMPLATES.find(t => t.id === 'default');
+    if (defaultTemplateEntry) {
+      return <defaultTemplateEntry.Component data={data} theme={theme} section_visibility={data.section_visibility} />;
     }
-  ],
-  profile_photo: 'https://placehold.co/400x400/7E69AB/FFFFFF?text=YN', // SIMPLIFIED (Your Name)
-  selected_template_id: 'default',
-  media_kit_data: { 
-    type: 'media_kit_data',
-    brand_name: 'Your Name Here', // SIMPLIFIED
-    colors: COLOR_PRESETS[0].colors, // Ensures Default Purple theme
-    tagline: 'Lifestyle Influencer | Content Creator', // SIMPLIFIED
-    font: 'Inter',
-    selected_template_id: 'default',
-    section_visibility: defaultSectionVisibility,
-    personal_intro: 'Showcase your unique style and collaborations. Perfect for creators and influencers looking to make an impact.', // SIMPLIFIED
-    skills: ['Content Creation', 'Social Media Savvy', 'Photography Basics'], // SIMPLIFIED
-    contact_email: 'your.email@example.com', // SIMPLIFIED
-    // Optional fields from MediaKitData, filled if simple
-    profile_photo: 'https://placehold.co/400x400/7E69AB/FFFFFF?text=YN', // SIMPLIFIED
-    instagram_handle: 'yourinsta', // SIMPLIFIED (no @ for DB)
-    tiktok_handle: 'yourtiktok', // SIMPLIFIED (no @ for DB)
-    portfolio_images: ['https://placehold.co/600x400/E5DAF8/7E69AB?text=Portfolio+1'],
-    videos: [{ url: '#vid1', thumbnail_url: 'https://placehold.co/300x400/E5DAF8/7E69AB?text=Video+A' }],
-  },
+    return <div>Error: Template not found and default template missing.</div>;
+  }
+
+  // template.Component expects { data: SpecificData | null, theme: SpecificTheme }
+  // We are passing { data: EditorPreviewData | null, theme: TemplateTheme }
+  // This is now okay because individual template components props were changed to accept EditorPreviewData.
+  // And SpecificTheme extends TemplateTheme.
+  return <template.Component data={data} theme={theme} section_visibility={data.section_visibility} />;
 };
 
 // --- Define Equalized Individual Color Swatches (12 each) --- 
@@ -438,9 +341,7 @@ export default function MediaKitEditor() {
   // State for selected template
   const [selectedTemplateId, setSelectedTemplateId] = useState('default'); 
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
-  
-  // --- Add State for Detailed Preview --- 
-  const [detailedPreviewTemplateId, setDetailedPreviewTemplateId] = useState<string | null>(null);
+  const [templateLibraryOpen, setTemplateLibraryOpen] = useState(false);
   
   const [activeTab, setActiveTab] = useState('branding');
   const [isSaving, setIsSaving] = useState(false);
@@ -471,227 +372,19 @@ export default function MediaKitEditor() {
   // hold up to 5 TikTok links + thumbnails
   const [videoLinks, setVideoLinks] = useState<VideoItem[]>([]);
   
-  // --- Add State for Color Picker --- 
-  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
-  // State to hold colors being edited in the dialog
-  const [currentCustomColors, setCurrentCustomColors] = useState<ColorScheme>(formData.colors);
-  // --- State for Saved Themes Dialog --- 
-  const [isSavedThemesOpen, setIsSavedThemesOpen] = useState(false);
+  // Map formComponentName strings to actual components
+  const formComponentMap: Record<string, React.FC<EditorFormProps>> = {
+    ProfileDetailsForm: ProfileDetailsForm,
+    BrandExperienceForm: BrandExperienceForm,
+    ServicesSkillsForm: ServicesSkillsForm,
+    SocialMediaForm: SocialMediaForm,
+    ContactDetailsForm: ContactDetailsForm,
+    ProfilePictureForm: ProfilePictureForm,
+    TikTokVideosForm: TikTokVideosForm,
+    AudienceStatsForm: AudienceStatsForm,
+    PerformanceForm: PerformanceForm,
+  };
 
-  // add a new empty slot (max 5)
-  const handleAddVideo = () => {
-    if (videoLinks.length < 5) {
-      setVideoLinks([...videoLinks, { url: '', thumbnail_url: '' }])
-    }
-  }
-
-  // remove by index
-  const handleRemoveVideo = async (idx: number) => {
-    const toDelete = videoLinks[idx]
-    if (profile?.id && toDelete.url) {
-      await supabase
-        .from('media_kit_videos')
-        .delete()
-        .match({ profile_id: profile.id, url: toDelete.url })
-    }
-    setVideoLinks(videoLinks.filter((_, i) => i !== idx))
-  }
-
-  // update URL, fetch thumbnail, persist immediately
-  const handleVideoUrlChange = async (idx: number, url: string) => {
-    const thumbnail = url ? await fetchTikTokThumbnail(url) : ''
-    const updated = videoLinks.map((v, i) =>
-      i === idx ? { url, thumbnail_url: thumbnail } : v
-    )
-    setVideoLinks(updated)
-    if (profile?.id && url) {
-      await supabase
-        .from('media_kit_videos')
-        .upsert(
-          updated.map(v => ({
-            profile_id: profile.id,
-            url: v.url,
-            thumbnail_url: v.thumbnail_url
-          })),
-          { onConflict: 'profile_id,url' }
-        )
-    }
-  }
-  
-  // --- Updated useEffect for initial data loading ---
-  useEffect(() => {
-    if (!profile) return; // Exit if profile hasn't loaded
-
-    // Initialize with default structure matching EditorFormData
-    const initialFormState: EditorFormData = {
-        brand_name: profile.full_name || '',
-        tagline: '',
-        colors: COLOR_PRESETS[0].colors,
-        font: 'Inter',
-        personal_intro: profile.personal_intro || '',
-        instagram_handle: profile.instagram_handle ? `@${profile.instagram_handle}` : '',
-        tiktok_handle: profile.tiktok_handle ? `@${profile.tiktok_handle}` : '',
-        portfolio_images: [],
-        brand_collaborations_text: '', 
-        services_text: '', 
-        skills_text: '', 
-        follower_count: '',
-        engagement_rate: '',
-        avg_likes: '',
-        reach: '',
-        email: profile.email || '', 
-        profile_photo: profile.avatar_url || '', 
-    };
-
-    let loadedVisibility = defaultSectionVisibility;
-    let loadedTemplateId = 'default';
-
-    // Load overrides from media_kit_data
-    // const mkData = profile.media_kit_data; // Old way
-    const mkData = (typeof profile.media_kit_data === 'string' && profile.media_kit_data)
-      ? JSON.parse(profile.media_kit_data)
-      : profile.media_kit_data; // New: Ensure parsing if it's a string
-
-    if (mkData && typeof mkData === 'object') { // Ensure mkData is a usable object
-      initialFormState.brand_name = mkData.brand_name || initialFormState.brand_name;
-      initialFormState.tagline = mkData.tagline || '';
-      initialFormState.colors = mkData.colors || initialFormState.colors;
-      initialFormState.font = mkData.font || 'Inter';
-      initialFormState.personal_intro = mkData.personal_intro || initialFormState.personal_intro;
-      initialFormState.skills_text = (mkData.skills || []).join(', ');
-      initialFormState.portfolio_images = mkData.portfolio_images || [];
-      initialFormState.email = mkData.contact_email || initialFormState.email; 
-      initialFormState.profile_photo = mkData.profile_photo || initialFormState.profile_photo;
-      initialFormState.instagram_handle = mkData.instagram_handle ? `@${mkData.instagram_handle}` : initialFormState.instagram_handle;
-      initialFormState.tiktok_handle = mkData.tiktok_handle ? `@${mkData.tiktok_handle}` : initialFormState.tiktok_handle;
-      
-      loadedVisibility = { ...defaultSectionVisibility, ...(mkData.section_visibility || {}) };
-      loadedTemplateId = mkData.selected_template_id || 'default';
-    } 
-
-    // Load stats 
-    const instagramStats = stats.find(s => s.platform === 'instagram');
-    if (instagramStats) {
-      initialFormState.follower_count = instagramStats.follower_count ?? '';
-      initialFormState.engagement_rate = instagramStats.engagement_rate ?? '';
-      initialFormState.avg_likes = instagramStats.avg_likes ?? '';
-      initialFormState.reach = instagramStats.weekly_reach ?? '';
-    } else { /* Clear stats */ }
-
-    // Load text fields from related tables
-    initialFormState.brand_collaborations_text = collaborations.map(c => c.brand_name).join(', ');
-    initialFormState.services_text = services.map(s => s.service_name).join(', ');
-
-    setFormData(initialFormState);
-    setSectionVisibility(loadedVisibility);
-    setSelectedTemplateId(loadedTemplateId);
-    
-  }, [profile, stats, collaborations, services, refetch]);
-
-  // --- Updated mediaKitPreviewData construction ---
-  const mediaKitPreviewData = useMemo((): EditorPreviewData | null => {
-    if (!profile) return null; // Need profile for base data
-
-    // Parse text inputs from current formData
-    const previewSkills = formData.skills_text ? formData.skills_text.split(',').map(item => item.trim()).filter(Boolean) : [];
-    
-    const previewServices: Service[] = formData.services_text
-      ? formData.services_text.split(',').map((item, index) => ({
-          id: `prev-s-${profile.id}-${index}`,
-          profile_id: profile.id,
-          service_name: item.trim(),
-          description: '',
-          price_range: '',
-        })).filter(s => s.service_name)
-      : [];
-      
-    const previewCollabs: BrandCollaboration[] = formData.brand_collaborations_text
-      ? formData.brand_collaborations_text.split(',').map((item, index) => ({
-          id: `prev-c-${profile.id}-${index}`,
-          profile_id: profile.id,
-          brand_name: item.trim(),
-          collaboration_type: '',
-          collaboration_date: '',
-        })).filter(b => b.brand_name)
-      : [];
-
-    // Construct stats array for preview from formData
-    const previewStats: MediaKitStats[] = [{
-        id: 'preview-stats',
-        profile_id: profile.id,
-        platform: 'instagram' as SocialPlatform,
-        follower_count: parseFloat(String(formData.follower_count)) || 0,
-        engagement_rate: parseFloat(String(formData.engagement_rate)) || 0,
-        avg_likes: parseFloat(String(formData.avg_likes)) || 0,
-        weekly_reach: parseFloat(String(formData.reach)) || 0,
-        avg_comments: 0, 
-        monthly_impressions: 0 
-      }];
-
-    // Build the preview object matching EditorPreviewData type
-    const currentPreviewData: EditorPreviewData = {
-      // Base fields from profile (created_at, updated_at will be omitted by the type)
-      id: profile.id,
-      user_id: profile.user_id,
-      username: profile.username || '',
-      avatar_url: profile.avatar_url || '',
-      website: profile.website || '',
-      full_name: profile.full_name || '',
-      email: profile.email || '',
-      niche: profile.niche || '',
-      media_kit_url: profile.media_kit_url || '',
-      onboarding_complete: profile.onboarding_complete || false,
-      
-      // Fields directly from formData or parsed from it
-      brand_name: formData.brand_name,
-      tagline: formData.tagline,
-      colors: formData.colors,
-      font: formData.font,
-      personal_intro: formData.personal_intro,
-      profile_photo: formData.profile_photo || profile.avatar_url || '',
-      contact_email: formData.email,
-      instagram_handle: formData.instagram_handle, 
-      tiktok_handle: formData.tiktok_handle, 
-      portfolio_images: formData.portfolio_images,
-      videos: videoLinks, 
-      skills: previewSkills,
-      brand_collaborations: previewCollabs, 
-      services: previewServices, 
-      section_visibility: sectionVisibility, 
-      
-      follower_count: parseFloat(String(formData.follower_count)) || 0,
-      engagement_rate: parseFloat(String(formData.engagement_rate)) || 0,
-      avg_likes: parseFloat(String(formData.avg_likes)) || 0,
-      reach: parseFloat(String(formData.reach)) || 0,
-      stats: previewStats,
-      selected_template_id: selectedTemplateId,
-
-      // Construct a valid MediaKitData object or null for the preview
-      // This should mirror how actual media_kit_data is saved/structured if possible
-      media_kit_data: {
-        type: 'media_kit_data',
-        brand_name: formData.brand_name,
-        colors: formData.colors,
-        tagline: formData.tagline,
-        font: formData.font,
-        selected_template_id: selectedTemplateId,
-        section_visibility: sectionVisibility,
-        // Optional fields from MediaKitData, can be included if available/needed
-        profile_photo: formData.profile_photo || undefined,
-        personal_intro: formData.personal_intro || undefined,
-        skills: previewSkills.length > 0 ? previewSkills : undefined,
-        instagram_handle: formData.instagram_handle?.replace('@', '') || undefined,
-        tiktok_handle: formData.tiktok_handle?.replace('@', '') || undefined,
-        portfolio_images: formData.portfolio_images.length > 0 ? formData.portfolio_images : undefined,
-        videos: videoLinks.length > 0 ? videoLinks : undefined,
-        contact_email: formData.email || undefined,
-      },
-    };
-        
-    return currentPreviewData;
-  }, [profile, formData, videoLinks, selectedTemplateId, sectionVisibility]);
-
-  // Add a loading state for initial data fetch
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
 
   useEffect(() => {
@@ -721,7 +414,7 @@ export default function MediaKitEditor() {
   const debouncedUpdateServicesRef = useRef<ReturnType<typeof debounce> | null>(null);
 
   useEffect(() => {
-    let initialData: Partial<MediaKitData & { email: string, profile_photo: string, video_links: string }> = {};
+    let initialData: Partial<EditorFormData> = {};
     if (profile) {
       // Get media_kit_data properly parsed
       const mediaKitData = typeof profile.media_kit_data === 'string' 
@@ -741,14 +434,11 @@ export default function MediaKitEditor() {
         personal_intro: profile.personal_intro || '',
         instagram_handle: profile.instagram_handle ? `@${profile.instagram_handle}` : '',
         tiktok_handle: profile.tiktok_handle ? `@${profile.tiktok_handle}` : '',
-        skills: mediaKitData?.skills || [],
         skills_text: mediaKitData?.skills ? mediaKitData.skills.join(', ') : '',
         tagline: mediaKitData?.tagline || '',
         colors: mediaKitData?.colors || COLOR_PRESETS[0].colors,
         font: mediaKitData?.font || 'Inter',
-        // Directly get contact_email from media_kit_data
         email: mediaKitData?.contact_email || profile.email || '',
-        // Load the profile photo URL from media_kit_data or avatar_url
         profile_photo: mediaKitData?.profile_photo || profile.avatar_url || ''
       };
     }
@@ -768,7 +458,6 @@ export default function MediaKitEditor() {
       const collabNames = collaborations.map(c => c.brand_name);
       initialData = {
         ...initialData,
-        brand_collaborations: collabNames,
         brand_collaborations_text: collabNames.join(', ')
       };
     }
@@ -776,7 +465,6 @@ export default function MediaKitEditor() {
       const serviceNames = services.map(s => s.service_name);
       initialData = {
         ...initialData,
-        services: serviceNames,
         services_text: serviceNames.join(', ')
       };
     }
@@ -856,13 +544,6 @@ export default function MediaKitEditor() {
     });
   };
 
-  const handleColorPresetChange = (preset: typeof COLOR_PRESETS[0]) => {
-    setFormData(prev => ({
-      ...prev,
-      colors: { ...preset.colors }
-    }));
-  };
-
   const handleSocialChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     const cleanValue = value === '' ? '' : (value.startsWith('@') ? value : `@${value}`);
@@ -934,33 +615,54 @@ export default function MediaKitEditor() {
     setFormData(prev => ({
       ...prev,
       skills_text: text,
-      skills: text ? text.split(',').map(item => item.trim()).filter(Boolean) : []
     }));
   };
 
-  // --- Helper Functions for Template Library --- 
-  const getTemplateComponent = (templateId: string | null) => {
-    if (templateId === 'aesthetic') return MediaKitTemplateAesthetic;
-    return MediaKitTemplateDefault; // Default to default template
+  // +++ RESTORED handleVisibilityChange +++
+  const handleVisibilityChange = (section: EditableSection, checked: boolean) => {
+    setSectionVisibility(prev => ({ ...prev, [section]: checked }));
   };
 
-  const getPlaceholderTheme = (templateId: string | null): TemplateTheme => {
-    // UPDATED: Access colors directly from the flattened PLACEHOLDER_PREVIEW_DATA
-    const colors = PLACEHOLDER_PREVIEW_DATA.colors;
-    const primary = colors.accent || '#7E69AB'; // Fallback if accent is somehow undefined
-    return {
-      background: colors.background,
-      foreground: colors.text,
-      primary: primary,
-      primaryLight: colors.accent_light,
-      secondary: colors.secondary,
-      accent: colors.accent || '#7E69AB', // Fallback
-      neutral: colors.secondary, 
-      border: `${primary}33`
-    };
-  }
-  // --- End Helper Functions ---
+  // +++ RESTORED Video Handlers +++
+  const handleAddVideo = () => {
+    if (videoLinks.length < 5) { 
+      setVideoLinks(prev => [...prev, { url: '', thumbnail_url: '' }]); 
+    } else { 
+      toast({ title: "Limit Reached", description: "You can add a maximum of 5 videos.", variant: "default" }); 
+    }
+  };
 
+  const handleRemoveVideo = async (idx: number) => { 
+    setVideoLinks(prev => prev.filter((_, i) => i !== idx)); 
+    // If direct DB deletion is needed on remove, add logic here, e.g.:
+    // const videoToRemove = videoLinks[idx]; // Get before state update
+    // if (profile?.id && videoToRemove?.url) { /* supabase.delete logic */ }
+  };
+
+  const handleVideoUrlChange = async (idx: number, url: string) => {
+    const newVideoLinks = [...videoLinks]; 
+    const oldVideoData = newVideoLinks[idx];
+    newVideoLinks[idx] = { ...oldVideoData, url };
+    
+    if (url && (url.includes('tiktok.com') || url.includes('youtube.com') || url.includes('youtu.be'))) {
+      if (url.includes('tiktok.com')) { 
+         try { 
+            const thumbnailUrl = await fetchTikTokThumbnail(url); 
+            newVideoLinks[idx].thumbnail_url = thumbnailUrl || 'https://via.placeholder.com/150/000000/FFFFFF?text=Video';
+        } catch (e) { 
+            console.error("Error fetching TikTok thumbnail:", e); 
+            newVideoLinks[idx].thumbnail_url = 'https://via.placeholder.com/150/000000/FFFFFF?text=Error';
+        }
+      } else { 
+        newVideoLinks[idx].thumbnail_url = oldVideoData.thumbnail_url || 'https://via.placeholder.com/150/000000/FFFFFF?text=Video';
+      }
+    } else if (!url) { 
+      newVideoLinks[idx].thumbnail_url = ''; 
+    }
+    setVideoLinks(newVideoLinks);
+  };
+  // --- End Restored Video Handlers ---
+  
   // --- Updated handleSave function ---
   const handleSave = async () => {
     setIsSaving(true);
@@ -1113,58 +815,121 @@ export default function MediaKitEditor() {
     }
   };
 
-  // --- useEffect to update currentCustomColors when dialog opens or formData.colors changes --- 
-  useEffect(() => {
-    // Reset custom colors to current form data when dialog opens
-    // or if the main form data colors change externally
-    setCurrentCustomColors(formData.colors);
-  }, [formData.colors, isColorPickerOpen]); // Add isColorPickerOpen dependency
-
-  // --- Handler for Color Input Change in Dialog --- 
-  const handleCustomColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setCurrentCustomColors(prev => ({
-      ...prev,
-      [name]: value
-    }));
+  // +++ RESTORED handleApplyTemplateFromDialog +++
+  const handleApplyTemplateFromDialog = (templateId: string) => {
+    setSelectedTemplateId(templateId);
+    setIsLibraryOpen(false); 
   };
+  
+  // UPDATED: mediaKitPreviewData now uses the registry for base data
+  const mediaKitPreviewData = useMemo((): EditorPreviewData | null => {
+    if (!profile) return null;
 
-  // --- Handler to Apply Custom Colors from Dialog --- 
-  const handleApplyCustomColors = () => {
-    setFormData(prev => ({
-      ...prev,
-      colors: { ...currentCustomColors }
-    }));
-    setIsColorPickerOpen(false); // Close dialog
-  };
+    const template = TEMPLATES.find(t => t.id === selectedTemplateId);
+    // basePreviewData is SpecificData | {}
+    const basePreviewData = template ? template.getPreviewData() : {}; 
+    
+    // getBaseProp now takes keyof EditorPreviewData
+    const getBaseProp = <K extends keyof EditorPreviewData>(
+      propName: K
+    ): EditorPreviewData[K] | undefined => {
+      if (template && basePreviewData && propName in basePreviewData) {
+        // We trust that SpecificData fields align with EditorPreviewData fields
+        return (basePreviewData as Partial<EditorPreviewData>)[propName] as EditorPreviewData[K];
+      }
+      return undefined;
+    };
+    
+    const skillsArray = formData.skills_text 
+      ? formData.skills_text.split(',').map(s => s.trim()).filter(Boolean) 
+      : (getBaseProp('skills') || []);
 
-  // --- Handler for Swatch Click --- 
-  const handleSwatchClick = (key: keyof ColorScheme, hex: string) => {
-    // Directly update the specific color key
-    setCurrentCustomColors(prev => ({
-      ...prev,
-      [key]: hex
-    }));
-    // We could also directly update the main formData here if preferred,
-    // but updating currentCustomColors keeps the dialog state consistent
-  };
+    const previewBrandCollaborations: BrandCollaboration[] = formData.brand_collaborations_text
+      ? formData.brand_collaborations_text.split(',').map((name, index) => ({
+          id: `preview-collab-${index}`,
+          profile_id: profile.id,
+          brand_name: name.trim(),
+        })).filter(c => c.brand_name)
+      : (getBaseProp('brand_collaborations') || []);
 
-  // --- Handler for visibility toggle ---
-  const handleVisibilityChange = (section: EditableSection, checked: boolean) => {
-    setSectionVisibility(prev => ({
-      ...prev,
-      [section]: checked,
-    }));
-  };
+    const previewServices: Service[] = formData.services_text
+      ? formData.services_text.split(',').map((name, index) => ({
+          id: `preview-service-${index}`,
+          profile_id: profile.id,
+          service_name: name.trim(),
+        })).filter(s => s.service_name)
+      : (getBaseProp('services') || []);
 
-  // ... (rest of handlers: handleTaglineChange etc.) ...
+    return {
+      id: profile.id,
+      user_id: profile.user_id,
+      username: profile.username || getBaseProp('username') || '', 
+      avatar_url: formData.profile_photo || profile.avatar_url || getBaseProp('avatar_url') || '', 
+      website: profile.website || getBaseProp('website') || '', 
+      full_name: formData.brand_name || profile.full_name || getBaseProp('full_name') || '', 
+      niche: profile.niche || getBaseProp('niche') || '', 
+      media_kit_url: profile.media_kit_url || getBaseProp('media_kit_url') || '', 
+      onboarding_complete: profile.onboarding_complete ?? getBaseProp('onboarding_complete') ?? false,
+      email: profile.email || getBaseProp('email') || '',
 
-  // --- Loading / Error States --- 
-  if (profileLoading || mediaKitLoading) {
-     // ... loading skeleton ...
-  }
+      brand_name: formData.brand_name || getBaseProp('brand_name') || '',
+      tagline: formData.tagline || getBaseProp('tagline') || '',
+      colors: formData.colors, 
+      font: formData.font || getBaseProp('font') || 'Inter',
+      personal_intro: formData.personal_intro || getBaseProp('personal_intro') || '',
+      skills: skillsArray, 
+      instagram_handle: formData.instagram_handle || getBaseProp('instagram_handle') || '',
+      tiktok_handle: formData.tiktok_handle || getBaseProp('tiktok_handle') || '', 
+      portfolio_images: formData.portfolio_images?.length ? formData.portfolio_images : (getBaseProp('portfolio_images') || []), 
+      videos: videoLinks?.length ? videoLinks : (getBaseProp('videos') || []), 
+      contact_email: formData.email || getBaseProp('contact_email') || '',
+      profile_photo: formData.profile_photo || getBaseProp('profile_photo') || profile.avatar_url || '',
+      section_visibility: sectionVisibility, 
+      selected_template_id: selectedTemplateId,
+      
+      follower_count: parseFloat(String(formData.follower_count)) || (getBaseProp('follower_count') as number) || 0,
+      engagement_rate: parseFloat(String(formData.engagement_rate)) || (getBaseProp('engagement_rate') as number) || 0,
+      avg_likes: parseFloat(String(formData.avg_likes)) || (getBaseProp('avg_likes') as number) || 0,
+      reach: parseFloat(String(formData.reach)) || (getBaseProp('reach') as number) || 0,
+      
+      stats: stats?.length ? stats : (getBaseProp('stats') || []),
+      brand_collaborations: previewBrandCollaborations, 
+      services: previewServices,
+      
+      instagram_followers: getBaseProp('instagram_followers'),
+      tiktok_followers: getBaseProp('tiktok_followers'),
+      youtube_followers: getBaseProp('youtube_followers'),
+      audience_age_range: getBaseProp('audience_age_range'),
+      audience_location_main: getBaseProp('audience_location_main'),
+      audience_gender_female: getBaseProp('audience_gender_female'),
+      avg_video_views: getBaseProp('avg_video_views'),
+      avg_ig_reach: getBaseProp('avg_ig_reach'),
+      ig_engagement_rate: getBaseProp('ig_engagement_rate'),
+      showcase_images: getBaseProp('showcase_images') || [],
+      past_brands_text: getBaseProp('past_brands_text'),
+      past_brands_image_url: getBaseProp('past_brands_image_url'),
+      next_steps_text: getBaseProp('next_steps_text'),
+      contact_phone: getBaseProp('contact_phone'),
+
+      media_kit_data: null, 
+    } as EditorPreviewData;
+  }, [profile, formData, videoLinks, sectionVisibility, selectedTemplateId, stats, TEMPLATES]); 
+
+  if (profileLoading || mediaKitLoading) { return <div>Loading...</div>; }
+  
   if (profileError || mediaKitError) {
-     // ... error message ...
+    let errorMessage = 'An unknown error occurred.';
+    const errorToProcess = profileError || mediaKitError;
+
+    if (typeof errorToProcess === 'string') {
+      errorMessage = errorToProcess;
+    } else if (errorToProcess && typeof errorToProcess === 'object' && 'message' in errorToProcess && typeof (errorToProcess as { message: unknown }).message === 'string') {
+      // Now we know errorToProcess is an object and has a message property.
+      // We still need to check if message is a string.
+      errorMessage = (errorToProcess as { message: string }).message;
+    }
+    // If errorToProcess is an object without a string message, or some other type, it defaults to 'An unknown error occurred.'
+    return <div>Error loading data: {errorMessage}</div>;
   }
 
   // --- Main Render --- 
@@ -1222,150 +987,22 @@ export default function MediaKitEditor() {
       
       <div className="container mx-auto p-4 md:p-8">
         {/* --- Template Library Trigger --- */} 
-        <Dialog 
-           open={isLibraryOpen} 
-           onOpenChange={(open) => {
-             setIsLibraryOpen(open);
-             if (!open) setDetailedPreviewTemplateId(null); // Reset detail view on close
-           }}
-         >
-          <DialogTrigger asChild>
-            <Button variant="outline" className="mb-6 w-full md:w-auto">
-               Choose Template
-             </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[80vw] h-[90vh] flex flex-col bg-white">
-            <DialogHeader>
-              <DialogTitle>Template Library</DialogTitle>
-              <DialogDescription>
-                {detailedPreviewTemplateId ? 'Previewing template. Click Apply to use it.' : 'Select a template for your media kit. Click Preview for details.'}
-              </DialogDescription>
-            </DialogHeader>
-
-            {/* --- Conditional Rendering --- */} 
-            {(() => { // Wrap in IIFE to add log
-              console.log('Rendering DialogContent, detailedPreviewTemplateId:', detailedPreviewTemplateId);
-              return detailedPreviewTemplateId ? (
-                // --- Detailed Preview View --- 
-                <div className="flex-1 flex flex-col overflow-hidden"> 
-                  {/* --- Controls Header --- */} 
-                  <div className="flex justify-between items-center p-4 bg-white"> 
-                    {/* Back Button */} 
-                    <button 
-                      onClick={() => setDetailedPreviewTemplateId(null)} 
-                      className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
-                    >
-                      <ArrowLeftIcon className="w-4 h-4" />
-                      Back to Library
-                    </button>
-                    
-                    {/* Apply Button */} 
-                    <Button 
-                      size="sm" 
-                      className="bg-charcoal hover:bg-charcoal/90 text-white rounded-md"
-                      onClick={() => {
-                        setSelectedTemplateId(detailedPreviewTemplateId);
-                        setDetailedPreviewTemplateId(null);
-                        setIsLibraryOpen(false);
-                      }}
-                    >
-                      Apply Template
-                    </Button>
-                  </div>
-
-                  {/* --- Template Rendering Area --- */} 
-                  <div className="flex-1 overflow-y-auto p-4 bg-gray-100"> 
-                    {React.createElement(getTemplateComponent(detailedPreviewTemplateId), {
-                      data: PLACEHOLDER_PREVIEW_DATA, // REMOVED 'as any'
-                      theme: getPlaceholderTheme(detailedPreviewTemplateId)
-                    })}
-                  </div>
-                </div>
-              ) : (
-                // --- Grid View --- 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 p-4 overflow-y-auto flex-1">
-                  {/* Template 1: Default */}
-                  <div 
-                    className="relative border rounded-lg shadow-md hover:shadow-lg transition-shadow h-80 cursor-pointer overflow-hidden hover:[box-shadow:0_0_0_2px_rgba(126,105,171,0.3),0_0_20px_2px_rgba(126,105,171,0.3),0_0_40px_2px_rgba(126,105,171,0.2)] duration-300 ease-in-out"
-                    onClick={() => setDetailedPreviewTemplateId('default')}
-                  >
-                    <TemplateThumbnail 
-                      templateId="default" 
-                      data={PLACEHOLDER_PREVIEW_DATA} // REMOVED 'as any'
-                      theme={getPlaceholderTheme('default')} 
-                    />
-                    <div className="absolute inset-0 flex flex-col justify-end p-4 bg-gradient-to-t from-black/70 via-black/50 to-transparent text-center">
-                      <h3 className="font-semibold text-xl text-white mb-4">Classic Minimal</h3>
-                      {/* Layered Pill Button Group - Centered */}
-                      <div className="relative flex justify-center items-center h-10">
-                         {/* Select Button (Back Layer - Wider) */}
-                         <Button 
-                           size="sm" 
-                           className="absolute bg-rose hover:bg-rose/90 text-white font-semibold pl-6 pr-14 py-2 rounded-full shadow-md z-0 transform -translate-x-8"
-                           onClick={(e) => { 
-                             e.stopPropagation();
-                             setSelectedTemplateId('default');
-                             setIsLibraryOpen(false);
-                           }}
-                          >
-                             Select
-                           </Button>
-                         {/* Preview Button (Front Layer - Standard Oval) */}
-                         <Button 
-                           size="sm" 
-                           className="absolute bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-6 py-2 rounded-full shadow-md z-10 transform translate-x-10"
-                           onClick={(e) => { e.stopPropagation(); setDetailedPreviewTemplateId('default'); }} 
-                          >
-                             Preview
-                           </Button>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Template 2: Aesthetic */}
-                  <div 
-                    className="relative border rounded-lg shadow-md hover:shadow-lg transition-shadow h-80 cursor-pointer overflow-hidden hover:[box-shadow:0_0_0_2px_rgba(126,105,171,0.3),0_0_20px_2px_rgba(126,105,171,0.3),0_0_40px_2px_rgba(126,105,171,0.2)] duration-300 ease-in-out"
-                    onClick={() => setDetailedPreviewTemplateId('aesthetic')}
-                   >
-                     <TemplateThumbnail 
-                       templateId="aesthetic" 
-                       data={PLACEHOLDER_PREVIEW_DATA} // REMOVED 'as any'
-                       theme={getPlaceholderTheme('aesthetic')} 
-                     />
-                     <div className="absolute inset-0 flex flex-col justify-end p-4 bg-gradient-to-t from-black/70 via-black/50 to-transparent text-center">
-                       <h3 className="font-semibold text-xl text-white mb-4">Modern Aesthetic</h3>
-                       {/* Layered Pill Button Group - Centered */}
-                       <div className="relative flex justify-center items-center h-10">
-                         {/* Select Button (Back Layer - Wider) */}
-                         <Button 
-                           size="sm" 
-                           className="absolute bg-rose hover:bg-rose/90 text-white font-semibold pl-6 pr-14 py-2 rounded-full shadow-md z-0 transform -translate-x-8"
-                           onClick={(e) => { 
-                             e.stopPropagation();
-                             setSelectedTemplateId('aesthetic');
-                             setIsLibraryOpen(false);
-                           }}
-                          >
-                             Select
-                           </Button>
-                           {/* Preview Button (Front Layer - Standard Oval) */}
-                         <Button 
-                           size="sm" 
-                           className="absolute bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-6 py-2 rounded-full shadow-md z-10 transform translate-x-10"
-                           onClick={(e) => { e.stopPropagation(); setDetailedPreviewTemplateId('aesthetic'); }}
-                          >
-                             Preview
-                           </Button>
-                       </div>
-                    </div>
-                  </div>
-                  {/* Add more template entries here */}
-                </div>
-              );
-            })()} 
-          </DialogContent>
-        </Dialog>
-        {/* --- End Template Library --- */}
+        {/* <DialogTrigger asChild> */}
+          <Button 
+            variant="outline" 
+            className="mb-6 w-full md:w-auto"
+            onClick={() => setIsLibraryOpen(true)} // Open the dialog
+          >
+              Choose Template
+            </Button>
+        {/* </DialogTrigger> */}
+        
+        <TemplateLibraryDialog
+          open={isLibraryOpen}
+          onOpenChange={setIsLibraryOpen}
+          templatesRegistry={TEMPLATES}
+          onApplyTemplate={handleApplyTemplateFromDialog}
+        />
 
         {/* Editor Form and Live Preview Pane */} 
         <div className="flex flex-col md:flex-row gap-8">
@@ -1391,605 +1028,134 @@ export default function MediaKitEditor() {
               </TabsList>
 
               <TabsContent value="branding" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Theme Colors</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 gap-3 mb-4"> {/* Add margin bottom */} 
-                      {COLOR_PRESETS.map(preset => (
-                        <button
-                          key={preset.id}
-                          onClick={() => handleColorPresetChange(preset)}
-                          // Add a check: highlight if formData matches this preset
-                          className={`bg-white rounded-lg p-3 border transition-all ${ 
-                            JSON.stringify(formData.colors) === JSON.stringify(preset.colors)
-                              ? 'border-rose shadow-lg scale-[1.02]'
-                              : 'border-blush/20 hover:border-rose/40 hover:scale-[1.02]'
-                          }`}
-                        >
-                          <h3 className="text-sm font-medium text-charcoal mb-2">{preset.name}</h3>
-                          <div className="grid grid-cols-5 gap-2">
-                            {( ['background','text','secondary','accent_light','accent'] as (keyof ColorScheme)[] ).map(key => (
-                              <div
-                                key={key}
-                                className="h-5 rounded"
-                                style={{ backgroundColor: preset.colors[key] }}
-                              />
-                            ))}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Custom Colors Trigger + Dialog */}
-                    <Dialog open={isColorPickerOpen} onOpenChange={setIsColorPickerOpen}>
-                      <DialogTrigger asChild>
-                        {/* Original Button/Card to trigger custom color picker */}
-                        {(() => {
-                          const isPresetActive = COLOR_PRESETS.some(p => JSON.stringify(p.colors) === JSON.stringify(formData.colors));
-                          return (
-                            <button
-                              onClick={() => {
-                                // Ensure current colors are loaded into dialog state on open
-                                setCurrentCustomColors(formData.colors);
-                                setIsColorPickerOpen(true);
-                              }}
-                              className={`w-full bg-white rounded-lg p-3 border transition-all ${ 
-                                !isPresetActive // Highlight if custom
-                                  ? 'border-rose shadow-lg scale-[1.02]'
-                                  : 'border-blush/20 hover:border-rose/40 hover:scale-[1.02]'
-                              }`}
-                            >
-                              <h3 className="text-sm font-medium text-charcoal mb-2 text-left">Custom Colors</h3>
-                              <div className="grid grid-cols-5 gap-2">
-                                {(['background', 'text', 'secondary', 'accent_light', 'accent'] as (keyof ColorScheme)[]).map(key => (
-                                  <div
-                                    key={key}
-                                    title={key}
-                                    className="h-5 rounded border border-gray-200"
-                                    style={{ backgroundColor: formData.colors[key] || '#ffffff' }} 
-                                  />
-                                ))}
-                              </div>
-                              <p className="text-xs text-taupe mt-2 text-left">Click to edit</p>
-                            </button>
-                          );
-                        })()}
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-[425px] bg-white">
-                        <DialogHeader>
-                          <DialogTitle>Edit Custom Colors</DialogTitle>
-                          <DialogDescription>
-                             Choose colors or select a swatch for quick suggestions.
-                          </DialogDescription>
-                        </DialogHeader>
-                          
-                        {/* --- Color Inputs with Swatches Below --- */}
-                        <div className="grid gap-4 py-4"> 
-                          {(Object.keys(currentCustomColors) as Array<keyof ColorScheme>).map(key => (
-                            <div key={key} className="space-y-2"> 
-                              {/* Label and Picker Row */} 
-                              <div className="flex items-center justify-between">
-                                <Label htmlFor={key} className="capitalize font-medium">
-                                  {key.replace('_', ' ')}
-                                </Label>
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    id={key}
-                                    name={key}
-                                    type="color"
-                                    value={currentCustomColors[key] || '#ffffff'}
-                                    onChange={handleCustomColorChange}
-                                    className="p-0 h-7 w-7 border-none rounded cursor-pointer"
-                                  />
-                                  <span className="text-sm text-gray-500 font-mono w-16" title={currentCustomColors[key]}>{currentCustomColors[key]}</span>
-                                </div>
-                              </div>
-                              {/* Swatch Row - Reduce gap and size */} 
-                              <div className="grid grid-cols-6 gap-1"> 
-                                {(swatchMap[key] || []).map(swatch => (
-                                  <button
-                                    key={swatch.hex}
-                                    title={`${swatch.name} (${swatch.hex})`}
-                                    onClick={() => handleSwatchClick(key, swatch.hex)} 
-                                    className={`h-6 w-6 rounded-full border border-gray-300 transition-transform hover:scale-110 ${currentCustomColors[key]?.toLowerCase() === swatch.hex.toLowerCase() ? 'ring-2 ring-offset-1 ring-blue-500' : ''}`}
-                                    style={{ backgroundColor: swatch.hex }}
-                                  >
-                                    <span className="sr-only">{swatch.name}</span>
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                        <DialogFooter>
-                           <Button type="button" variant="outline" onClick={() => setIsColorPickerOpen(false)}>Cancel</Button>
-                           <Button type="button" onClick={handleApplyCustomColors} className="border">Apply Colors</Button>
-                         </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-                    {/* --- End Custom Colors Section --- */}
-
-                    {/* --- Saved Themes Section --- */}
-                    <Dialog open={isSavedThemesOpen} onOpenChange={setIsSavedThemesOpen}>
-                      <DialogTrigger asChild>
-                        {/* Similar button style, but not highlighted based on active colors */} 
-                        <Button 
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal mt-3" // Add margin-top
-                        >
-                           <div className="flex items-center justify-between w-full">
-                             <span>Saved Color Themes</span>
-                             {/* Optional: Add icon or indicator */}
-                           </div>
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-[425px] bg-white">
-                        <DialogHeader>
-                          <DialogTitle>Saved Color Themes</DialogTitle>
-                           <DialogDescription>
-                             Select one of your previously saved themes.
-                           </DialogDescription>
-                        </DialogHeader>
-                        {/* Placeholder Content for Saved Themes */} 
-                        <div className="py-10 text-center text-gray-500">
-                          Saved themes library coming soon!
-                        </div>
-                         <DialogFooter>
-                           <Button type="button" variant="outline" onClick={() => setIsSavedThemesOpen(false)}>Close</Button>
-                         </DialogFooter>
-                       </DialogContent>
-                     </Dialog>
-                     {/* --- End Saved Themes Section --- */}
-                  </CardContent>
-                </Card>
+                <ThemeEditorCard 
+                  currentFormDataColors={formData.colors}
+                  onFormDataColorsChange={(newColors) => setFormData(prev => ({ ...prev, colors: newColors }))}
+                  colorPresetsConstant={COLOR_PRESETS} 
+                  swatchMapConstant={swatchMap}
+                />
               </TabsContent>
 
               <TabsContent value="content" className="space-y-4">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between py-4">
-                    <CardTitle>Profile Details</CardTitle>
-                    <Switch
-                      checked={sectionVisibility.profileDetails}
-                      onCheckedChange={checked => handleVisibilityChange("profileDetails", checked)}
-                      className={TRACK}
-                    >
-                      <span
-                        className={THUMB}
-                        style={{ backgroundColor: "white" }}
-                      />
-                    </Switch>
-                  </CardHeader>
-                  {sectionVisibility.profileDetails && (
-                    <CardContent className="space-y-4 pt-4"> {/* Add padding-top if header pb removed */}
-                      <div>
-                        <Label htmlFor="brand_name">Name</Label>
-                        <Input
-                          id="brand_name"
-                          name="brand_name"
-                          value={formData.brand_name}
-                          onChange={handleInputChange}
-                          placeholder="Your name"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="tagline">Tagline</Label>
-                        <Input
-                          id="tagline"
-                          name="tagline"
-                          value={formData.tagline}
-                          onChange={handleInputChange}
-                          placeholder="Your brand tagline"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="personal_intro">About You</Label>
-                        <Textarea
-                          id="personal_intro"
-                          name="personal_intro"
-                          value={formData.personal_intro}
-                          onChange={handleInputChange}
-                          placeholder="Tell your story"
-                          className="h-24"
-                        />
-                      </div>
-                    </CardContent>
-                  )}
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between py-4">
-                    <CardTitle>Brand Experience</CardTitle>
-                    <Switch
-                      checked={sectionVisibility.brandExperience}
-                      onCheckedChange={checked => handleVisibilityChange("brandExperience", checked)}
-                      className={TRACK}
-                    >
-                       <span
-                         className={THUMB}
-                         style={{ backgroundColor: "white" }}
-                       />
-                    </Switch>
-                  </CardHeader>
-                  {sectionVisibility.brandExperience && (
-                    <CardContent className="pt-4">
-                      <Label htmlFor="brand_collaborations_text">Past Collaborations</Label>
-                      <Textarea
-                        id="brand_collaborations_text"
-                        name="brand_collaborations_text"
-                        value={formData.brand_collaborations_text || ''}
-                        onChange={handleBrandCollaborations}
-                        onBlur={() => {
-                          if (profile?.id && formData.brand_collaborations_text) {
-                            const collabsArray = formData.brand_collaborations_text
-                              .split(',')
-                              .map(item => item.trim())
-                              .filter(Boolean);
-                            
-                            updateCollaborations(collabsArray.map(brand => ({ profile_id: profile.id, brand_name: brand })));
-                          }
-                        }}
-                        placeholder="Enter brand names separated by commas"
-                        className="h-24"
-                      />
-                      <p className="text-sm text-taupe mt-2">
-                        Example: Nike, Adidas, Puma
-                      </p>
-                    </CardContent>
-                  )}
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between py-4">
-                    <CardTitle>Services & Skills</CardTitle>
-                     <Switch
-                      checked={sectionVisibility.servicesSkills}
-                      onCheckedChange={checked => handleVisibilityChange("servicesSkills", checked)}
-                      className={TRACK}
-                    >
-                       <span
-                         className={THUMB}
-                         style={{ backgroundColor: "white" }}
-                       />
-                    </Switch>
-                  </CardHeader>
-                  {sectionVisibility.servicesSkills && (
-                    <CardContent className="space-y-4 pt-4">
-                      <div>
-                        <Label htmlFor="services_text">Services Offered</Label>
-                        <Textarea
-                          id="services_text"
-                          name="services_text"
-                          value={formData.services_text || ''}
-                          onChange={handleServicesChange}
-                          onBlur={() => {
-                            if (profile?.id && formData.services_text) {
-                              const servicesArray = formData.services_text
-                                .split(',')
-                                .map(item => item.trim())
-                                .filter(Boolean);
-                              
-                              updateServices(servicesArray.map(service => ({ profile_id: profile.id, service_name: service })));
-                            }
-                          }}
-                          placeholder="Enter services separated by commas"
-                          className="h-24"
-                        />
-                        <p className="text-sm text-taupe mt-2">
-                          Example: Content Creation, Brand Photography, Social Media Management
-                        </p>
-                      </div>
-                      <div>
-                        <Label htmlFor="skills_text">Key Skills</Label>
-                        <Textarea
-                          id="skills_text"
-                          name="skills_text"
-                          value={formData.skills_text || ''}
-                          onChange={handleSkillsChange}
-                          placeholder="Enter skills separated by commas"
-                          className="h-24"
-                        />
-                        <p className="text-sm text-taupe mt-2">
-                          Example: Adobe Photoshop, Video Editing, Copywriting
-                        </p>
-                      </div>
-                    </CardContent>
-                  )}
-                </Card>
+                {SECTIONS.filter(sec => sec.tab === 'content').map(section => {
+                  const FormComponent = formComponentMap[section.formComponentName]; if (!FormComponent) return null;
+                  const formProps: EditorFormProps = {
+                    formData: formData,
+                    profile: profile,
+                    mediaKitData: profile?.media_kit_data || null,
+                    colorPresets: COLOR_PRESETS,
+                    handleInputChange: handleInputChange,
+                    handleSocialChange: handleSocialChange,
+                    handleMetricsChange: handleMetricsChange,
+                    updateCollaborations: updateCollaborations,
+                    updateServices: updateServices,
+                    handleSkillsChange: handleSkillsChange,
+                    onProfilePhotoChange: (url) => setFormData(prev => ({...prev, profile_photo: url})),
+                    userId: profile?.id,
+                    videoLinks: videoLinks,
+                    handleAddVideo: handleAddVideo,
+                    handleRemoveVideo: handleRemoveVideo,
+                    handleVideoUrlChange: handleVideoUrlChange,
+                    stats: stats,
+                    sectionVisibility: sectionVisibility,
+                    onVisibilityChange: handleVisibilityChange,
+                    initialDataLoaded: initialDataLoaded,
+                    handleBrandCollaborations: handleBrandCollaborations,
+                    handleServicesChange: handleServicesChange,
+                    setFormData: setFormData,
+                    supabase: supabase,
+                    toast: toast,
+                    setVideoLinks: setVideoLinks
+                  };
+                  return (
+                    <Card key={section.key}>
+                      <CardHeader className="flex flex-row items-center justify-between py-4">
+                        <div className="flex items-center gap-2"><section.icon className="h-5 w-5 text-gray-500" /><CardTitle>{section.label}</CardTitle></div>
+                        <Switch checked={sectionVisibility[section.key]} onCheckedChange={checked => handleVisibilityChange(section.key, checked)} className={switchTrackClass}><span className={switchThumbClass} style={{ backgroundColor: "white" }} /></Switch>
+                      </CardHeader>
+                      {sectionVisibility[section.key] && <CardContent className="pt-4"><FormComponent {...formProps} /></CardContent>}
+                    </Card>
+                  );
+                })}
               </TabsContent>
 
               <TabsContent value="media" className="space-y-4">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between py-4">
-                    <CardTitle>Social Media</CardTitle>
-                    <Switch
-                      checked={sectionVisibility.socialMedia}
-                      onCheckedChange={checked => handleVisibilityChange("socialMedia", checked)}
-                      className={TRACK}
-                    >
-                      <span
-                        className={THUMB}
-                        style={{ backgroundColor: "white" }}
-                      />
-                    </Switch>
-                  </CardHeader>
-                  {sectionVisibility.socialMedia && (
-                    <CardContent className="space-y-4 pt-4">
-                      <div>
-                        <Label htmlFor="instagram_handle">Instagram</Label>
-                        <Input
-                          id="instagram_handle"
-                          name="instagram_handle"
-                          value={formData.instagram_handle}
-                          onChange={handleSocialChange}
-                          placeholder="@yourusername"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="tiktok_handle">TikTok</Label>
-                        <Input
-                          id="tiktok_handle"
-                          name="tiktok_handle"
-                          value={formData.tiktok_handle}
-                          onChange={handleSocialChange}
-                          placeholder="@yourusername"
-                        />
-                      </div>
-                    </CardContent>
-                  )}
-                </Card>
-                
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between py-4">
-                    <CardTitle>Contact Details</CardTitle>
-                     <Switch
-                      checked={sectionVisibility.contactDetails}
-                      onCheckedChange={checked => handleVisibilityChange("contactDetails", checked)}
-                      className={TRACK}
-                    >
-                      <span
-                        className={THUMB}
-                        style={{ backgroundColor: "white" }}
-                      />
-                    </Switch>
-                  </CardHeader>
-                  {sectionVisibility.contactDetails && (
-                    <CardContent className="space-y-4 pt-4">
-                      <div>
-                        <Label htmlFor="email">Email</Label>
-                        <Input
-                          id="email"
-                          name="email"
-                          type="text"
-                          value={formData.email}
-                          onChange={handleInputChange}
-                          placeholder="you@example.com"
-                        />
-                      </div>
-                    </CardContent>
-                  )}
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between py-4">
-                    <CardTitle>Profile Picture</CardTitle>
-                    <Switch
-                      checked={sectionVisibility.profilePicture}
-                      onCheckedChange={checked => handleVisibilityChange("profilePicture", checked)}
-                      className={TRACK}
-                    >
-                       <span
-                         className={THUMB}
-                         style={{ backgroundColor: "white" }}
-                       />
-                    </Switch>
-                  </CardHeader>
-                  {sectionVisibility.profilePicture && (
-                    <CardContent className="pt-4">
-                      <div className="flex items-center gap-4">
-                        {formData.profile_photo && (
-                          <img
-                            src={formData.profile_photo}
-                            alt="Profile preview"
-                            className="w-16 h-16 rounded-full object-cover border border-blush/20"
-                          />
-                        )}
-                        
-                        <div className="flex flex-col">
-                          <div className="relative">
-                            <Button 
-                              type="button" 
-                              variant="outline" 
-                              className="relative overflow-hidden"
-                              onClick={() => document.getElementById('avatar')?.click()}
-                            >
-                              {formData.profile_photo ? 'Change picture' : 'Upload picture'}
-                            </Button>
-                            <input
-                              id="avatar"
-                              type="file"
-                              accept="image/*"
-                              className="sr-only"
-                              onChange={async e => {
-                                const file = e.target.files?.[0];
-                                if (!file || !profile?.id) return;
-
-                                // Show loading state
-                                toast({ title: 'Uploading...', description: 'Please wait while we process your image.' });
-                                
-                                // 1) Upload to your avatars bucket
-                                const key = makeSafeKey(profile.id, file.name);
-                                const { data, error } = await supabase
-                                  .storage
-                                  .from('avatars')
-                                  .upload(key, file, { upsert: true });
-                                if (error) {
-                                  return toast({ title: 'Upload failed', description: error.message, variant: 'destructive' });
-                                }
-
-                                // 2) Get the public URL
-                                const publicUrl = supabase
-                                  .storage
-                                  .from('avatars')
-                                  .getPublicUrl(data.path)
-                                  .data.publicUrl;
-
-                                // 3) Store in local formData
-                                setFormData(prev => ({ ...prev, profile_photo: publicUrl }));
-
-                                toast({ title: 'Uploaded!', description: 'Profile picture ready.' });
-                              }}
-                            />
-                          </div>
-                          <p className="text-xs text-taupe mt-2">
-                            Recommended: Square image, 500×500px or larger
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  )}
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between py-4">
-                    <CardTitle>TikTok Videos</CardTitle>
-                     <Switch
-                      checked={sectionVisibility.tiktokVideos}
-                      onCheckedChange={checked => handleVisibilityChange("tiktokVideos", checked)}
-                      className={TRACK}
-                    >
-                       <span
-                         className={THUMB}
-                         style={{ backgroundColor: "white" }}
-                       />
-                    </Switch>
-                  </CardHeader>
-                  {sectionVisibility.tiktokVideos && (
-                    <CardContent className="space-y-4 pt-4">
-                      {videoLinks.map((video, idx) => (
-                        <div
-                          key={idx}
-                          className="relative border-2 rounded-lg overflow-hidden"
-                          style={{ borderColor: formData.colors.accent }}
-                        >
-                          {/* url input + remove */}
-                          <div className="flex items-center p-2">
-                            <Input
-                              placeholder="https://www.tiktok.com/…"
-                              value={video.url}
-                              onChange={e => handleVideoUrlChange(idx, e.target.value)}
-                            />
-                            <button
-                              onClick={() => handleRemoveVideo(idx)}
-                              className="ml-2 p-1 text-gray-500 hover:text-red-500"
-                            >
-                              <TrashIcon className="w-5 h-5" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-
-                      {videoLinks.length < 5 && (
-                        <>
-                          <Button variant="outline" onClick={handleAddVideo} className="w-full">
-                            + Add another TikTok
-                          </Button>
-                          <p className="mt-1 text-sm text-gray-500">3+ videos recommended</p>
-                        </>
-                      )}
-                    </CardContent>
-                  )}
-                </Card>
+                {SECTIONS.filter(sec => sec.tab === 'media').map(section => {
+                  const FormComponent = formComponentMap[section.formComponentName]; if (!FormComponent) return null;
+                  const formProps: EditorFormProps = {
+                    formData,
+                    profile,
+                    mediaKitData: profile?.media_kit_data || null,
+                    colorPresets: COLOR_PRESETS,
+                    handleInputChange,
+                    handleSocialChange,
+                    handleMetricsChange,
+                    updateCollaborations,
+                    updateServices,
+                    handleSkillsChange,
+                    onProfilePhotoChange: (url) => setFormData(prev => ({...prev, profile_photo: url})),
+                    userId: profile?.id,
+                    videoLinks,
+                    handleAddVideo,
+                    handleRemoveVideo,
+                    handleVideoUrlChange,
+                    stats,
+                    sectionVisibility,
+                    onVisibilityChange: handleVisibilityChange,
+                    initialDataLoaded,
+                    setFormData,
+                    supabase,
+                    toast,
+                    setVideoLinks
+                  };
+                  return (
+                    <Card key={section.key}>
+                      <CardHeader className="flex flex-row items-center justify-between py-4">
+                        <div className="flex items-center gap-2"><section.icon className="h-5 w-5 text-gray-500" /><CardTitle>{section.label}</CardTitle></div>
+                        <Switch checked={sectionVisibility[section.key]} onCheckedChange={checked => handleVisibilityChange(section.key, checked)} className={switchTrackClass}><span className={switchThumbClass} style={{ backgroundColor: "white" }} /></Switch>
+                      </CardHeader>
+                      {sectionVisibility[section.key] && <CardContent className="pt-4"><FormComponent {...formProps} /></CardContent>}
+                    </Card>
+                  );
+                })}
               </TabsContent>
 
               <TabsContent value="metrics" className="space-y-4">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between py-4">
-                    <CardTitle>Audience Stats</CardTitle>
-                    <Switch
-                      checked={sectionVisibility.audienceStats}
-                      onCheckedChange={checked => handleVisibilityChange("audienceStats", checked)}
-                      className={TRACK}
-                    >
-                      <span
-                        className={THUMB}
-                        style={{ backgroundColor: "white" }}
-                      />
-                    </Switch>
-                  </CardHeader>
-                  {sectionVisibility.audienceStats && (
-                    <CardContent className="space-y-4 pt-4">
-                      <div>
-                        <Label htmlFor="follower_count">Total Followers</Label>
-                        <Input
-                          id="follower_count"
-                          name="follower_count"
-                          type="text"
-                          value={formData.follower_count}
-                          onChange={handleMetricsChange}
-                          placeholder="0"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="engagement_rate">Engagement Rate</Label>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            id="engagement_rate"
-                            name="engagement_rate"
-                            type="text"
-                            value={formData.engagement_rate}
-                            onChange={handleMetricsChange}
-                            placeholder="0.0"
-                          />
-                          <span className="text-sm text-taupe">%</span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  )}
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between py-4">
-                    <CardTitle>Performance</CardTitle>
-                    <Switch
-                      checked={sectionVisibility.performance}
-                      onCheckedChange={checked => handleVisibilityChange("performance", checked)}
-                      className={TRACK}
-                    >
-                      <span
-                        className={THUMB}
-                        style={{ backgroundColor: "white" }}
-                      />
-                    </Switch>
-                  </CardHeader>
-                  {sectionVisibility.performance && (
-                    <CardContent className="space-y-4 pt-4">
-                      <div>
-                        <Label htmlFor="avg_likes">Average Likes</Label>
-                        <Input
-                          id="avg_likes"
-                          name="avg_likes"
-                          type="text"
-                          value={formData.avg_likes}
-                          onChange={handleMetricsChange}
-                          placeholder="0"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="reach">Average Reach</Label>
-                        <Input
-                          id="reach"
-                          name="reach"
-                          type="text"
-                          value={formData.reach}
-                          onChange={handleMetricsChange}
-                          placeholder="0"
-                        />
-                      </div>
-                    </CardContent>
-                  )}
-                </Card>
+                 {SECTIONS.filter(sec => sec.tab === 'metrics').map(section => {
+                  const FormComponent = formComponentMap[section.formComponentName]; if (!FormComponent) return null;
+                  const formProps: EditorFormProps = {
+                    formData,
+                    profile,
+                    mediaKitData: profile?.media_kit_data || null,
+                    colorPresets: COLOR_PRESETS,
+                    handleInputChange,
+                    handleSocialChange,
+                    handleMetricsChange,
+                    updateCollaborations,
+                    updateServices,
+                    handleSkillsChange,
+                    onProfilePhotoChange: (url) => setFormData(prev => ({...prev, profile_photo: url})),
+                    userId: profile?.id,
+                    videoLinks,
+                    handleAddVideo,
+                    handleRemoveVideo,
+                    handleVideoUrlChange,
+                    stats,
+                    sectionVisibility,
+                    onVisibilityChange: handleVisibilityChange,
+                    initialDataLoaded,
+                    toast
+                  };
+                  return (
+                    <Card key={section.key}>
+                      <CardHeader className="flex flex-row items-center justify-between py-4">
+                        <div className="flex items-center gap-2"><section.icon className="h-5 w-5 text-gray-500" /><CardTitle>{section.label}</CardTitle></div>
+                        <Switch checked={sectionVisibility[section.key]} onCheckedChange={checked => handleVisibilityChange(section.key, checked)} className={switchTrackClass}><span className={switchThumbClass} style={{ backgroundColor: "white" }} /></Switch>
+                      </CardHeader>
+                      {sectionVisibility[section.key] && <CardContent className="pt-4"><FormComponent {...formProps} /></CardContent>}
+                    </Card>
+                  );
+                })}
               </TabsContent>
             </Tabs>
           </div>
@@ -1997,7 +1163,7 @@ export default function MediaKitEditor() {
           {/* Preview - make wider */}
           <div className="w-full md:w-3/5 md:sticky md:top-20 h-fit">
             <MediaKitPreview
-              key={`preview-${selectedTemplateId}-${formData.brand_name}-${formData.profile_photo}-${formData.tagline}`}
+              key={`preview-${selectedTemplateId}-${formData.brand_name}-${formData.profile_photo}-${formData.tagline}-${JSON.stringify(formData.colors)}`} // Added colors to key for re-render
               data={mediaKitPreviewData}
               theme={getPreviewTheme()}
               templateId={selectedTemplateId}

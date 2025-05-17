@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Profile, ColorScheme, MediaKitStats, BrandCollaboration, Service, PortfolioItem, VideoItem, SectionVisibilityState } from '@/lib/types';
+import type { Profile, ColorScheme, MediaKitStats, BrandCollaboration, Service, PortfolioItem, VideoItem, SectionVisibilityState, EditorPreviewData, TemplateTheme as ImportedTemplateTheme } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Example UI import
 import { AtSymbolIcon, PhoneIcon } from '@heroicons/react/24/solid'; // Example icons
 import PreviewLoadingFallback from '@/components/PreviewLoadingFallback'; // Import the loader
@@ -20,48 +20,166 @@ type MediaKitDataObject = {
   portfolio_images?: string[];
 };
 
-// Define a more specific type for the previewData prop, combining Profile with potential nested data
-// This might need further refinement based on how MediaKitEditor actually structures previewData
-type ExtendedProfilePreview = Omit<Profile, 'brand_collaborations' | 'services'> & {
-  brand_name?: string;
-  stats?: MediaKitStats[];
-  brand_collaborations?: BrandCollaboration[];
-  services?: Service[];
-  portfolio_items?: PortfolioItem[]; // Assuming portfolio items might be passed directly
-  videos?: VideoItem[]; // Use the existing VideoItem type
-  profile_photo?: string; // Ensure profile_photo is included if passed separately
-  section_visibility?: SectionVisibilityState;
-  // Include other fields from MediaKitData that might be directly on previewData
+// Define the specific data structure this template expects and its GetPreviewData function will return.
+// This should include all fields used by the template component and returned by AestheticGetPreviewData.
+export interface AestheticSpecificData {
+  id: string;
+  user_id: string;
+  username?: string;
+  avatar_url?: string;
+  website?: string;
+  full_name?: string;
+  niche?: string; // Corrected: was string[], now string as per placeholder
+  media_kit_url?: string;
+  onboarding_complete?: boolean;
+  email?: string; // from Profile, for base info
+  // Fields specific to Aesthetic template or merged from form data
+  brand_name?: string; 
   tagline?: string;
+  personal_intro?: string;
+  profile_photo?: string;
   skills?: string[];
   colors?: ColorScheme;
   font?: string;
-  contact_email?: string;
-  portfolio_images?: string[]; // Keep if images are passed this way too
-};
+  contact_email?: string; // Main contact email for display
+  portfolio_images?: string[];
+  stats?: MediaKitStats[];
+  brand_collaborations?: BrandCollaboration[]; // Re-added explicitly
+  services?: Service[]; // Re-added explicitly
+  videos?: VideoItem[];
+  section_visibility?: SectionVisibilityState;
+  media_kit_data: null; // Placeholder usually has this as null
+}
 
-// Export the props interface
+// Theme type for this specific template component (props.theme)
+export interface AestheticSpecificTheme extends ImportedTemplateTheme {
+  // any Aesthetic-specific theme properties
+}
+
 export interface MediaKitTemplateAestheticProps {
   isPreview?: boolean;
-  data: ExtendedProfilePreview | null;
-  theme: {
-    background: string;
-    foreground: string;
-    primary: string;
-    primaryLight: string;
-    secondary: string;
-    accent: string;
-    neutral: string;
-    border: string;
-  };
-  loading?: boolean; // Add loading prop
+  data: EditorPreviewData | null;
+  theme: AestheticSpecificTheme;
+  loading?: boolean; 
+  section_visibility: SectionVisibilityState;
 }
+
+// --- Renamed Placeholder Data Function to GetPreviewData ---
+export const AestheticGetPreviewData = (): AestheticSpecificData => ({
+  id: 'aesthetic-placeholder-id',
+  user_id: 'aesthetic-placeholder-user-id',
+  username: '@aesthetic_creator',
+  avatar_url: 'https://via.placeholder.com/150/CBD5E0/4A5568?text=A',
+  website: 'www.aestheticvibes.com',
+  full_name: 'Alex Aesthetic',
+  niche: 'Lifestyle, Minimalism, Art', // Kept as string
+  media_kit_url: '',
+  onboarding_complete: true,
+  email: 'hello@alexaesthetic.com', // Base email
+  brand_name: 'Alex Aesthetic',
+  tagline: 'Curating beauty in everyday life.',
+  personal_intro: 'Passionate about minimalist design, modern art, and sustainable living. Join me on a journey of curated aesthetics and mindful moments.',
+  profile_photo: 'https://via.placeholder.com/150/CBD5E0/4A5568?text=A',
+  skills: ['Content Creation', 'Photography', 'Brand Storytelling', 'Visual Design'],
+  colors: { 
+    background: '#FDFBF6', text: '#3C3633', secondary: '#7A736D',
+    accent_light: '#E0D8D0', accent: '#A99985', primary: '#A99985',
+  },
+  font: 'Poppins',
+  contact_email: 'hello@alexaesthetic.com', // Display contact email
+  portfolio_images: [
+    'https://via.placeholder.com/300/E0D8D0/3C3633?text=Portfolio+1',
+    'https://via.placeholder.com/300/A99985/FDFBF6?text=Portfolio+2',
+    'https://via.placeholder.com/300/7A736D/FDFBF6?text=Portfolio+3',
+  ],
+  stats: [{
+    id: 'aesthetic-stats-id-1',
+    profile_id: 'aesthetic-placeholder-id',
+    platform: 'instagram',
+    follower_count: 75000,
+    engagement_rate: 4.2,
+    avg_likes: 1800,
+    avg_comments: 90,
+    weekly_reach: 120000,
+    monthly_impressions: 450000,
+    updated_at: new Date().toISOString(),
+  }],
+  brand_collaborations: [
+    { id: 'collab1', profile_id:'', brand_name: 'Eco Living Co.', collaboration_type: 'Sponsored Post', collaboration_date: '2023-08-15' },
+    { id: 'collab2', profile_id:'', brand_name: 'Artisan Goods', collaboration_type: 'Product Review', collaboration_date: '2023-07-01' },
+  ],
+  services: [
+    { id:'serv1', profile_id:'', service_name: 'Content Packages', description: 'Curated content for brands.', price_range: '$500-$2000' },
+    { id:'serv2', profile_id:'', service_name: 'Visual Storytelling Workshops', description: 'Learn the art of aesthetic branding.', price_range: '$150/person' },
+  ],
+  videos: [
+    { url: 'https://www.tiktok.com/@placeholder/video/1', thumbnail_url: 'https://via.placeholder.com/300/CBD5E0/4A5568?text=Video+1' },
+    { url: 'https://www.tiktok.com/@placeholder/video/2', thumbnail_url: 'https://via.placeholder.com/300/A99985/FDFBF6?text=Video+2' },
+  ],
+  section_visibility: {
+    profileDetails: true, brandExperience: true, servicesSkills: true, socialMedia: true, 
+    contactDetails: true, profilePicture: true, tiktokVideos: true, audienceStats: true, performance: true
+  },
+  media_kit_data: null,
+});
+
+// --- Updated Thumbnail Data Function to return EditorPreviewData ---
+export const AestheticGetThumbnailData = (): EditorPreviewData => ({
+  id: 'thumb-aesthetic-id',
+  user_id: 'thumb-user-id',
+  username: '@aesthetic_thumb',
+  brand_name: 'Modern Aesthetic (Thumb)',
+  tagline: 'Sleek & Stylish Thumbnail',
+  colors: { 
+    background: '#FDFBF6', text: '#3C3633', secondary: '#7A736D',
+    accent_light: '#E0D8D0', accent: '#A99985', primary: '#A99985',
+  },
+  font: 'Poppins',
+  profile_photo: 'https://via.placeholder.com/150/CBD5E0/4A5568?text=A',
+  personal_intro: 'Aesthetic thumbnail intro.',
+  skills: [], 
+  brand_collaborations: [], 
+  services: [], 
+  instagram_handle: '@insta_aesthetic_thumb',
+  tiktok_handle: '@tiktok_aesthetic_thumb',
+  portfolio_images: [], 
+  videos: [], 
+  contact_email: 'aesthetic_thumb@example.com',
+  section_visibility: { profileDetails: true, profilePicture: true, socialMedia: true, audienceStats: true, performance: true, tiktokVideos: true, brandExperience: true, servicesSkills: true, contactDetails: true },
+  follower_count: 200,
+  engagement_rate: 2,
+  avg_likes: 20,
+  reach: 200,
+  stats: [], 
+  avatar_url: 'https://via.placeholder.com/150/CBD5E0/4A5568?text=A', 
+  website: 'aesthetic-thumb.example.com',
+  full_name: 'Aesthetic Thumbnail User',
+  niche: 'Aesthetic Thumbnail Niche',
+  media_kit_url: '',
+  onboarding_complete: true,
+  email: 'aesthetic_email_thumb@example.com',
+  media_kit_data: null, 
+  selected_template_id: 'aesthetic',
+});
+
+// --- Existing Placeholder Theme Function (ensure it uses the specific theme type) ---
+export const AestheticTheme = (): AestheticSpecificTheme => ({
+  background: '#FDFBF6', 
+  foreground: '#3C3633', 
+  primary: '#A99985',
+  primaryLight: '#E0D8D0',
+  secondary: '#7A736D',  
+  accent: '#BFB0A3',
+  neutral: '#CDC6C0',
+  border: '#D6CCC2',
+});
 
 const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
   isPreview = false,
   data,
   theme,
   loading, // Destructure loading prop
+  section_visibility, // Destructured prop
 }) => {
   // console.log("[MediaKitTemplateAesthetic] Props Check. Data:", data, "Theme:", theme, "Loading:", loading); // Reverted
   
@@ -76,18 +194,6 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
   if (!data) {
     return <div className="w-full min-h-[500px] flex items-center justify-center"><p>No data available for this media kit.</p></div>;
   }
-
-  const visibility: SectionVisibilityState = {
-    profileDetails:      data.section_visibility?.profileDetails  ?? true,
-    profilePicture:      data.section_visibility?.profilePicture  ?? true,
-    socialMedia:         data.section_visibility?.socialMedia     ?? true, // Assuming socialMedia might be relevant here too
-    audienceStats:       data.section_visibility?.audienceStats   ?? true,
-    performance:         data.section_visibility?.performance     ?? true,
-    tiktokVideos:        data.section_visibility?.tiktokVideos    ?? true,
-    brandExperience:     data.section_visibility?.brandExperience ?? true,
-    servicesSkills:      data.section_visibility?.servicesSkills  ?? true,
-    contactDetails:      data.section_visibility?.contactDetails  ?? true,
-  };
 
   const profile = data;
   // Explicitly type mediaKitData using `object` instead of `{}`
@@ -120,9 +226,9 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
       style={{ backgroundColor: theme.background, color: theme.foreground }}
     >
       {/* --- Header Section --- */}
-      {(visibility.profileDetails || visibility.profilePicture) && (
+      {(section_visibility.profileDetails || section_visibility.profilePicture) && (
         <header className="flex flex-col md:flex-row items-center justify-between mb-12 gap-8 border-b pb-8" style={{ borderColor: theme.border }}>
-          {visibility.profileDetails && (
+          {section_visibility.profileDetails && (
             <div className="text-center md:text-left">
               <h1 className="text-4xl font-bold mb-2" style={{ color: theme.primary }}>
                 {brandName}
@@ -132,7 +238,7 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
               </p>
             </div>
           )}
-          {visibility.profilePicture && profilePhoto && (
+          {section_visibility.profilePicture && profilePhoto && (
             <img
               src={profilePhoto}
               alt={`${brandName} profile`}
@@ -148,7 +254,7 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
         {/* Left Column (About, Stats, Skills) */}
         <section className="md:col-span-1 space-y-8">
           {/* About Me */}
-          {visibility.profileDetails && (
+          {section_visibility.profileDetails && (
             <div className="p-6 rounded-lg" style={{ backgroundColor: theme.primaryLight + '30' }}>
               <h2 className="text-2xl font-semibold mb-4 border-b pb-2" style={{ borderColor: theme.border, color: theme.primary }}>About Me</h2>
               <p className="text-base leading-relaxed" style={{ color: theme.foreground }}>
@@ -158,11 +264,11 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
           )}
 
           {/* Stats */}
-          {(visibility.audienceStats || visibility.performance) && stats.length > 0 && (
+          {(section_visibility.audienceStats || section_visibility.performance) && stats.length > 0 && (
             <div className="p-6 rounded-lg border" style={{ borderColor: theme.border }}>
               <h2 className="text-2xl font-semibold mb-4" style={{ color: theme.primary }}>Key Stats</h2>
               <div className="space-y-3">
-                {visibility.audienceStats && (
+                {section_visibility.audienceStats && (
                   <>
                     <div className="flex justify-between items-baseline text-sm">
                       <span style={{ color: theme.secondary }}>Followers:</span>
@@ -174,7 +280,7 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
                     </div>
                   </>
                 )}
-                {visibility.performance && (
+                {section_visibility.performance && (
                   <>
                     <div className="flex justify-between items-baseline text-sm">
                       <span style={{ color: theme.secondary }}>Avg Likes:</span>
@@ -191,7 +297,7 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
           )}
 
           {/* Skills */}
-          {visibility.servicesSkills && skills.length > 0 && (
+          {section_visibility.servicesSkills && skills.length > 0 && (
              <div className="p-6 rounded-lg border" style={{ borderColor: theme.border }}>
               <h2 className="text-2xl font-semibold mb-4" style={{ color: theme.primary }}>Skills</h2>
                <div className="flex flex-wrap gap-2">
@@ -208,7 +314,7 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
         {/* Right Column (Portfolio, Videos, Collaborations, Services) */}
         <section className="md:col-span-2 space-y-8">
           {/* Portfolio Images - Show if brandExperience or tiktokVideos is on, and images exist */}
-          {(visibility.brandExperience || visibility.tiktokVideos) && portfolioImages.length > 0 && (
+          {(section_visibility.brandExperience || section_visibility.tiktokVideos) && portfolioImages.length > 0 && (
             <div>
               <h2 className="text-2xl font-semibold mb-4" style={{ color: theme.primary }}>Portfolio</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -225,7 +331,7 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
           )}
 
           {/* TikTok Videos */}
-          {visibility.tiktokVideos && videos.length > 0 && (
+          {section_visibility.tiktokVideos && videos.length > 0 && (
             <div>
               <h2 className="text-2xl font-semibold mb-4" style={{ color: theme.primary }}>Featured Videos</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -243,7 +349,7 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
           )}
 
           {/* Collaborations */}
-          {visibility.brandExperience && collaborations.length > 0 && (
+          {section_visibility.brandExperience && collaborations.length > 0 && (
             <div className="p-6 rounded-lg border" style={{ borderColor: theme.border }}>
               <h2 className="text-2xl font-semibold mb-4" style={{ color: theme.primary }}>Brand Collaborations</h2>
               <ul className="list-disc list-inside space-y-1" style={{ color: theme.secondary }}>
@@ -255,7 +361,7 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
           )}
 
           {/* Services */}
-          {visibility.servicesSkills && services.length > 0 && (
+          {section_visibility.servicesSkills && services.length > 0 && (
             <div className="p-6 rounded-lg border" style={{ borderColor: theme.border }}>
               <h2 className="text-2xl font-semibold mb-4" style={{ color: theme.primary }}>Services Offered</h2>
               <ul className="list-disc list-inside space-y-1" style={{ color: theme.secondary }}>
@@ -269,7 +375,7 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
       </main>
 
       {/* --- Footer / Contact --- */}
-      {visibility.contactDetails && (
+      {section_visibility.contactDetails && (
         <footer className="mt-12 pt-8 border-t text-center" style={{ borderColor: theme.border }}>
           <h2 className="text-2xl font-semibold mb-4" style={{ color: theme.primary }}>Get In Touch</h2>
           {contactEmail && (

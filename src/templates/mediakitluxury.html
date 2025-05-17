@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Influencer Media Kit - Emily</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
+        
+        :root {
+            --primary-color: #2d2d2d;
+            --accent-color: #C9A987;
+            --bg-color: #f9f7f5;
+            --card-bg: #ffffff;
+            --card-shadow: 0 15px 35px rgba(0, 0, 0, 0.08);
+            --hover-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
+            --section-bg: #f8f8f8;
+            --border-light: #f0f0f0;
+            --text-primary: #333333;
+            --text-secondary: #777777;
+            --text-muted: #999999;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+        
+        body {
+            background-color: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 40px;
+            color: var(--text-primary);
+        }
+        
+        .media-kit-container {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            max-width: 1200px;
+            gap: 40px;
+        }
+        
+        .page {
+            background-color: var(--card-bg);
+            width: 550px;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: var(--card-shadow);
+            transition: transform 0.4s ease, box-shadow 0.4s ease;
+        }
+        
+        .page:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--hover-shadow);
+        }
+        
+        /* Page 1 */
+        .profile-section {
+            display: flex;
+            margin-bottom: 40px;
+            align-items: center;
+        }
+        
+        .profile-image-container {
+            position: relative;
+            margin-right: 30px;
+        }
+        
+        .profile-image {
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            object-fit: cover;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            border: 5px solid #fff;
+            transition: transform 0.5s ease;
+        }
+        
+        .profile-image-container:hover .profile-image {
+            transform: scale(1.05);
+        }
+        
+        .profile-image-container::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            border-radius: 50%;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.2);
+            pointer-events: none;
+        }
+        
+        .profile-info {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .username {
+            font-size: 0.9rem;
+            color: var(--accent-color);
+            letter-spacing: 1.5px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        .name {
+            font-size: 3.6rem;
+            font-weight: 800;
+            margin-bottom: 12px;
+            letter-spacing: 1px;
+            color: var(--primary-color);
+            position: relative;
+        }
+        
+        .name::after {
+            content: '.';
+            color: var(--accent-color);
+            position: absolute;
+        }
+        
+        .tagline {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            letter-spacing: 1.5px;
+            border-top: 1px solid var(--border-light);
+            padding-top: 12px;
+            font-weight: 500;
+        }
+        
+        .social-stats {
+            display: flex;
+            justify-content: space-between;
+            margin: 35px 0;
+            padding: 25px 0;
+            border-top: 1px solid var(--border-light);
+            border-bottom: 1px solid var(--border-light);
+        }
+        
+        .social-platform {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: all 0.4s ease;
+            padding: 15px;
+            border-radius: 12px;
+        }
+        
+        .social-platform:hover {
+            transform: translateY(-8px);
+            background-color: var(--section-bg);
+        }
+        
+        .social-icon {
+            width: 60px;
+            height: 60px;
+            background-color: var(--primary-color);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 12px;
+            transition: all 0.4s ease;
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .social-platform:hover .social-icon {
+            background-color: var(--accent-color);
+            transform: scale(1.1) rotate(5deg);
+        }
+        
+        .follower-count {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+            color: var(--primary-color);
+        }
+        
+        .follower-label {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            letter-spacing: 1.5px;
+            font-weight: 600;
+        }
+        
+        .about-section {
+            margin-bottom: 40px;
+            padding: 0 5px;
+        }
+        
+        .section-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 18px;
+            letter-spacing: 1.5px;
+            position: relative;
+            display: inline-block;
+            color: var(--primary-color);
+        }
+        
+        .section-title::after {
+            content: '';
+            position: absolute;
+            width: 40%;
+            height: 3px;
+            background-color: var(--accent-color);
+            bottom: -8px;
+            left: 0;
+        }
+        
+        .about-text {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            line-height: 1.8;
+            padding-left: 0;
+            position: relative;
+        }
+        
+        .audience-section {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 40px;
+            padding: 25px;
+            background-color: var(--section-bg);
+            border-radius: 16px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+        
+        .audience-stat {
+            display: flex;
+            align-items: center;
+            transition: transform 0.4s ease;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        
+        .audience-stat:hover {
+            transform: translateY(-5px);
+            background-color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .audience-icon {
+            width: 40px;
+            height: 40px;
+            margin-right: 15px;
+            transition: transform 0.4s ease;
+        }
+        
+        .audience-stat:hover .audience-icon {
+            transform: scale(1.1);
+        }
+        
+        .audience-numbers {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .audience-value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+        
+        .audience-label {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            letter-spacing: 1.5px;
+            font-weight: 600;
+        }
+        
+        .key-stats-section {
+            margin-bottom: 40px;
+        }
+        
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 25px;
+        }
+        
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px 15px;
+            border-radius: 16px;
+            background-color: var(--section-bg);
+            transition: all 0.4s ease;
+            width: 30%;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+        
+        .stat-item:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 15px 25px rgba(0, 0, 0, 0.1);
+            background-color: #fff;
+        }
+        
+        .stat-item svg {
+            transition: transform 0.4s ease;
+        }
+        
+        .stat-item:hover svg {
+            transform: scale(1.2) rotate(10deg);
+            fill: var(--accent-color);
+        }
+        
+        .stat-value {
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin: 15px 0 5px;
+            color: var(--primary-color);
+        }
+        
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-align: center;
+            letter-spacing: 1.5px;
+            font-weight: 500;
+        }
+        
+        .contact-section {
+            margin-bottom: 40px;
+        }
+        
+        .contact-email {
+            font-size: 1.05rem;
+            color: var(--text-secondary);
+            padding: 15px 20px;
+            background-color: var(--section-bg);
+            border-radius: 10px;
+            display: inline-block;
+            transition: all 0.4s ease;
+            border-left: 4px solid var(--accent-color);
+            font-weight: 500;
+        }
+        
+        .contact-email:hover {
+            background-color: #fff;
+            transform: translateX(8px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+        
+        .portfolio-section {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 40px;
+        }
+        
+        .portfolio-item {
+            position: relative;
+            overflow: hidden;
+            border-radius: 14px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+            transition: all 0.4s ease;
+        }
+        
+        .portfolio-item:hover {
+            transform: scale(1.05);
+            box-shadow: 0 12px 25px rgba(0, 0, 0, 0.18);
+            z-index: 1;
+        }
+        
+        .portfolio-image {
+            width: 100%;
+            height: 230px;
+            object-fit: cover;
+            border-radius: 14px;
+            transition: all 0.6s ease;
+        }
+        
+        .portfolio-item:hover .portfolio-image {
+            transform: scale(1.12);
+        }
+        
+        .portfolio-item::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 30%;
+            background: linear-gradient(to top, rgba(0,0,0,0.4), transparent);
+            opacity: 0;
+            transition: all 0.4s ease;
+            border-radius: 0 0 14px 14px;
+        }
+        
+        .portfolio-item:hover::after {
+            opacity: 1;
+        }
+        
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            padding-top: 20px;
+            border-top: 1px solid var(--border-light);
+        }
+        
+        .footer div {
+            transition: all 0.3s ease;
+        }
+        
+        .footer div:hover {
+            color: var(--accent-color);
+            transform: translateY(-3px);
+        }
+        
+        /* Page 2 */
+        .content-showcase {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 50px;
+            gap: 15px;
+        }
+        
+        .content-phone {
+            width: 120px;
+            border-radius: 18px;
+            box-shadow: 0 12px 25px rgba(0, 0, 0, 0.12);
+            transition: all 0.5s ease;
+        }
+        
+        .content-phone:hover {
+            transform: translateY(-15px) rotate(3deg);
+            box-shadow: 0 20px 35px rgba(0, 0, 0, 0.2);
+        }
+        
+        .content-phone:nth-child(even):hover {
+            transform: translateY(-15px) rotate(-3deg);
+        }
+        
+        .services-section, .brands-section, .next-steps-section {
+            margin-bottom: 50px;
+        }
+        
+        .service-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: var(--primary-color);
+            letter-spacing: 1px;
+            position: relative;
+            display: inline-block;
+        }
+        
+        .service-title::after {
+            content: '';
+            position: absolute;
+            width: 30%;
+            height: 3px;
+            background-color: var(--accent-color);
+            bottom: -5px;
+            left: 0;
+            transition: width 0.3s ease;
+        }
+        
+        .service-item:hover .service-title::after {
+            width: 60%;
+        }
+        
+        .service-description {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            margin-bottom: 25px;
+            line-height: 1.8;
+            padding-left: 15px;
+            border-left: 3px solid var(--border-light);
+            transition: all 0.3s ease;
+        }
+        
+        .service-item:hover .service-description {
+            border-left: 3px solid var(--accent-color);
+            padding-left: 20px;
+        }
+        
+        .service-item {
+            padding: 20px;
+            border-radius: 14px;
+            transition: all 0.4s ease;
+        }
+        
+        .service-item:hover {
+            background-color: var(--section-bg);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+        
+        .brand-images {
+            margin-top: 25px;
+            overflow: hidden;
+            border-radius: 16px;
+            box-shadow: 0 12px 25px rgba(0, 0, 0, 0.12);
+            transition: all 0.4s ease;
+            position: relative;
+        }
+        
+        .brand-images:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 18px 35px rgba(0, 0, 0, 0.18);
+        }
+        
+        .brand-image {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            border-radius: 16px;
+            transition: all 0.6s ease;
+        }
+        
+        .brand-images:hover .brand-image {
+            transform: scale(1.08);
+        }
+        
+        .brand-images::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.15), transparent);
+            opacity: 0;
+            transition: all 0.4s ease;
+            border-radius: 16px;
+        }
+        
+        .brand-images:hover::after {
+            opacity: 1;
+        }
+        
+        .huge-title {
+            font-size: 2.6rem;
+            font-weight: 800;
+            margin-bottom: 25px;
+            position: relative;
+            display: inline-block;
+            letter-spacing: 1.5px;
+            color: var(--primary-color);
+        }
+        
+        .huge-title::after {
+            content: '';
+            position: absolute;
+            width: 40%;
+            height: 5px;
+            background-color: var(--accent-color);
+            bottom: -10px;
+            left: 0;
+            transition: width 0.4s ease;
+        }
+        
+        .huge-title:hover::after {
+            width: 70%;
+        }
+        
+        /* Responsive tweaks */
+        @media (max-width: 1200px) {
+            .page {
+                margin-bottom: 40px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="media-kit-container">
+        <!-- Page 1 -->
+        <div class="page">
+            <div class="profile-section">
+                <div class="profile-image-container">
+                    <img src="/api/placeholder/400/400" alt="Emily profile photo" class="profile-image">
+                </div>
+                <div class="profile-info">
+                    <div class="username">@EMILYSINSTA</div>
+                    <div class="name">EMILY</div>
+                    <div class="tagline">LIFESTYLE | BEAUTY | COPYWRITING</div>
+                </div>
+            </div>
+            
+            <div class="social-stats">
+                <div class="social-platform">
+                    <div class="social-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                            <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                        </svg>
+                    </div>
+                    <div class="follower-count">15K</div>
+                    <div class="follower-label">FOLLOWERS</div>
+                </div>
+                
+                <div class="social-platform">
+                    <div class="social-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                            <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02c.08 1.53.63 3.09 1.75 4.17c1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97c-.57-.26-1.1-.59-1.62-.93c-.01 2.92.01 5.84-.02 8.75c-.08 1.4-.54 2.79-1.35 3.94c-1.31 1.92-3.58 3.17-5.91 3.21c-1.43.08-2.86-.31-4.08-1.03c-2.02-1.19-3.44-3.37-3.65-5.71c-.02-.5-.03-1-.01-1.49c.18-1.9 1.12-3.72 2.58-4.96c1.66-1.44 3.98-2.13 6.15-1.72c.02 1.48-.04 2.96-.04 4.44c-.99-.32-2.15-.23-3.02.37c-.63.41-1.11 1.04-1.36 1.75c-.21.51-.15 1.07-.14 1.61c.24 1.64 1.82 3.02 3.5 2.87c1.12-.01 2.19-.66 2.77-1.61c.19-.33.4-.67.41-1.06c.1-1.79.06-3.57.07-5.36c.01-4.03-.01-8.05.02-12.07z"/>
+                        </svg>
+                    </div>
+                    <div class="follower-count">8K</div>
+                    <div class="follower-label">FOLLOWERS</div>
+                </div>
+                
+                <div class="social-platform">
+                    <div class="social-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                            <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/>
+                        </svg>
+                    </div>
+                    <div class="follower-count">30K</div>
+                    <div class="follower-label">FOLLOWERS</div>
+                </div>
+            </div>
+            
+            <div class="about-section">
+                <h2 class="section-title">ABOUT ME</h2>
+                <p class="about-text">This is a quick paragraph about who you are, what content you create and why you would be a good fit for this brand. This is important to make sure you put forward your value proposition and any high level skills you can provide to the brand. Show your personality and what you're interested in doing.</p>
+            </div>
+            
+            <div class="audience-section">
+                <div class="audience-stat">
+                    <svg class="audience-icon" viewBox="0 0 24 24" fill="#333">
+                        <circle cx="12" cy="7" r="5"/>
+                        <path d="M17 14h.5c3.5 0 6.5 3 6.5 6.5V22H0v-1.5c0-3.5 3-6.5 6.5-6.5H17z"/>
+                    </svg>
+                    <div class="audience-numbers">
+                        <div class="audience-value">25 - 45</div>
+                        <div class="audience-label">AGE RANGE</div>
+                    </div>
+                </div>
+                
+                <div class="audience-stat">
+                    <div class="audience-numbers">
+                        <div class="audience-value">80%</div>
+                        <div class="audience-label">AUSTRALIA</div>
+                    </div>
+                </div>
+                
+                <div class="audience-stat">
+                    <div class="audience-numbers">
+                        <div class="audience-value">65%</div>
+                        <div class="audience-label">FEMALE</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="key-stats-section">
+                <h2 class="section-title">KEY STATS</h2>
+                <div class="stats-row">
+                    <div class="stat-item">
+                        <svg width="30" height="30" viewBox="0 0 24 24" fill="#333">
+                            <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6h-6z"/>
+                        </svg>
+                        <div class="stat-value">10K</div>
+                        <div class="stat-label">AVG. VIDEO VIEWS</div>
+                    </div>
+                    
+                    <div class="stat-item">
+                        <div class="stat-value">20K</div>
+                        <div class="stat-label">AVG. IG REACH</div>
+                    </div>
+                    
+                    <div class="stat-item">
+                        <div class="stat-value">4.2%</div>
+                        <div class="stat-label">IG ENGAGEMENT RATE</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="contact-section">
+                <h2 class="section-title">LET'S CHAT</h2>
+                <div class="contact-email">hello@emilysinsta.com</div>
+            </div>
+            
+            <div class="portfolio-section">
+                <div class="portfolio-item">
+                    <img src="/api/placeholder/400/300" alt="Portfolio 1" class="portfolio-image">
+                </div>
+                <div class="portfolio-item">
+                    <img src="/api/placeholder/400/300" alt="Portfolio 2" class="portfolio-image">
+                </div>
+                <div class="portfolio-item">
+                    <img src="/api/placeholder/400/300" alt="Portfolio 3" class="portfolio-image">
+                </div>
+                <div class="portfolio-item">
+                    <img src="/api/placeholder/400/300" alt="Portfolio 4" class="portfolio-image">
+                </div>
+            </div>
+            
+            <div class="footer">
+                <div>hello@emilysinsta.com</div>
+                <div>www.emilysinsta.com</div>
+                <div>+61 (03) 0444 xxx xxx</div>
+            </div>
+        </div>
+        
+        <!-- Page 2 -->
+        <div class="page">
+            <div class="content-showcase">
+                <img src="/api/placeholder/400/800" alt="Content sample 1" class="content-phone">
+                <img src="/api/placeholder/400/800" alt="Content sample 2" class="content-phone">
+                <img src="/api/placeholder/400/800" alt="Content sample 3" class="content-phone">
+                <img src="/api/placeholder/400/800" alt="Content sample 4" class="content-phone">
+            </div>
+            
+            <div class="services-section">
+                <h2 class="huge-title">SERVICES</h2>
+                
+                <div class="service-item">
+                    <h3 class="service-title">INSTAGRAM POST</h3>
+                    <p class="service-description">Type here what you can create, you could even do dot points of skills i.e. Product photography, reel content</p>
+                </div>
+                
+                <div class="service-item">
+                    <h3 class="service-title">TIKTOK VIDEOS</h3>
+                    <p class="service-description">Type here what you can create, you could even do dot points of skills i.e. Product photography, reel content</p>
+                </div>
+                
+                <div class="service-item">
+                    <h3 class="service-title">YOUTUBE VIDEOS</h3>
+                    <p class="service-description">Type here what you can create, you could even do dot points of skills i.e. Product photography, reel content</p>
+                </div>
+            </div>
+            
+            <div class="brands-section">
+                <h2 class="huge-title">BRANDS I'VE WORKED WITH</h2>
+                <p>List out some brands you've worked with, even if it's a small brand. Feel free to link to the content!</p>
+                
+                <div class="brand-images">
+                    <img src="/api/placeholder/400/200" alt="Brand collaborations" class="brand-image">
+                </div>
+            </div>
+            
+            <div class="next-steps-section">
+                <h2 class="huge-title">NEXT STEPS</h2>
+                <p>Let them know you can be contacted to discuss deliverables and upcoming projects</p>
+                
+                <div class="contact-section" style="margin-top: 15px;">
+                    <h2 class="section-title">LET'S CHAT</h2>
+                    <div class="contact-email">hello@emilysinsta.com</div>
+                </div>
+            </div>
+            
+            <div class="footer">
+                <div>hello@emilysinsta.com</div>
+                <div>www.emilysinsta.com</div>
+                <div>+61 (03) 0444 xxx xxx</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

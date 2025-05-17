@@ -6,19 +6,24 @@ import { supabase } from '@/lib/supabase';
 import { useMediaKitData } from '@/lib/hooks/useMediaKitData';
 import { Button } from '@/components/ui/button';
 import { withPreview } from '@/lib/withPreview';
+import { TEMPLATES } from '@/lib/templateRegistry';
+import type { 
+  Profile as ImportedProfile, 
+  BrandCollaboration, 
+  Service, 
+  MediaKitStats,
+  SectionVisibilityState,
+  EditorPreviewData,
+  BaseTemplateTheme as TemplateThemeType
+} from '@/lib/types';
+import PreviewLoadingFallback from '@/components/PreviewLoadingFallback';
+import {
+  ArrowDownTrayIcon,
+  PencilIcon,
+  ShareIcon
+} from '@heroicons/react/24/outline';
 import MediaKitTemplateDefault from '@/components/media-kit-templates/MediaKitTemplateDefault';
 import MediaKitTemplateAesthetic from '@/components/media-kit-templates/MediaKitTemplateAesthetic';
-import {
-  UserCircleIcon,
-  ChartBarIcon,
-  TagIcon,
-  PencilIcon,
-  ArrowDownTrayIcon,
-  PhotoIcon,
-  ShareIcon,
-} from '@heroicons/react/24/outline';
-import type { Profile as ImportedProfile, BrandCollaboration, Service, MediaKitStats } from '@/lib/types';
-import PreviewLoadingFallback from '@/components/PreviewLoadingFallback';
 
 // Placeholder types based on error message - adjust if actual types exist
 // import type { ColorScheme, VideoItem } from '@/lib/types';
@@ -64,6 +69,19 @@ interface MediaKitProps {
   previewUsername?: string;
 }
 
+// +++ DEFINE defaultSectionVisibility (can be moved to a shared file later)
+const defaultSectionVisibility: SectionVisibilityState = {
+  profileDetails: true,
+  brandExperience: true,
+  servicesSkills: true,
+  socialMedia: true,
+  contactDetails: true,
+  profilePicture: true,
+  tiktokVideos: true,
+  audienceStats: true,
+  performance: true,
+};
+
 export interface ProfileData {
   id: string;
   user_id: string;
@@ -85,6 +103,7 @@ export interface ProfileData {
     personal_intro?: string;
     instagram_handle?: string;
     tiktok_handle?: string;
+    section_visibility?: Partial<SectionVisibilityState>;
   };
   media_kit_url?: string;
   tagline?: string;
@@ -109,17 +128,6 @@ export interface ProfileData {
   updated_at?: string;
   niche?: string;
   media_kit_stats?: MediaKitStats[];
-  section_visibility?: {
-    profileDetails?: boolean;
-    profilePicture?: boolean;
-    socialMedia?: boolean;
-    audienceStats?: boolean;
-    performance?: boolean;
-    tiktokVideos?: boolean;
-    brandExperience?: boolean;
-    servicesSkills?: boolean;
-    contactDetails?: boolean;
-  };
 }
 
 // Define default colorscheme const
@@ -520,11 +528,10 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
         brand_collaborations: collabsData,
         portfolio_images: [],
         profile_photo: profileData.avatar_url || '',
-        video_links: '',
         media_kit_url: profileData.media_kit_url || '',
         contact_email: mediaKitData?.contact_email || profileData.contact_email || profileData.email || '',
         media_kit_data: mediaKitData,
-        selected_template_id: templateId
+        selected_template_id: templateId,
       };
 
       console.log("MediaKit: Setting complete profile");
@@ -704,6 +711,7 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
             personal_intro: mKitDataObj.personal_intro || pData.personal_intro || '',
             instagram_handle: mKitDataObj.instagram_handle || pData.instagram_handle || '',
             tiktok_handle: mKitDataObj.tiktok_handle || pData.tiktok_handle || '',
+            section_visibility: { ...defaultSectionVisibility, ...(mKitDataObj.section_visibility || {}) },
         },
         tagline: mKitDataObj.tagline || pData.tagline || '',
         skills: mKitDataObj.skills || pData.skills || [],
@@ -744,14 +752,59 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
   }, [isPreview, previewData]);
 
   // Ensure realData is declared only once
-  const realData: ProfileData = useMemo(() => {
+  const realData: EditorPreviewData = useMemo(() => {
     let baseProf: ProfileData | null | unknown = null;
     if (isPreview) baseProf = previewData || profile;
     else if (isPublic) baseProf = publicProfile || profile;
     else baseProf = localUpdatedMediaKit || profile;
 
     const p = baseProf as ProfileData | null;
-    if (!p) return { id:'', user_id:'', username:'', full_name:'Media Kit', email:'', media_kit_data: {type:"media_kit_data", brand_name:"", tagline:"", colors:defaultColorScheme, font:"Inter"}, services: [], brand_collaborations: [], portfolio_images: [], videos: [], media_kit_stats: [] } as ProfileData;
+    if (!p) {
+      // Return a minimal EditorPreviewData structure
+      return { 
+        id:'', user_id:'', username:'', full_name:'Media Kit', email:'', 
+        media_kit_data: {type:"media_kit_data", brand_name:"", tagline:"", colors:defaultColorScheme, font:"Inter", section_visibility: defaultSectionVisibility}, 
+        services: [], brand_collaborations: [], portfolio_images: [], videos: [], media_kit_stats: [],
+        section_visibility: defaultSectionVisibility, // Top-level for EditorPreviewData
+        // Ensure all other required fields from Profile / EditorPreviewData are present with defaults
+        avatar_url: '',
+        website: '',
+        niche: '',
+        media_kit_url: '',
+        onboarding_complete: false,
+        brand_name: '',
+        tagline: '',
+        colors: defaultColorScheme,
+        font: 'Inter',
+        personal_intro: '',
+        skills: [],
+        instagram_handle: '',
+        tiktok_handle: '',
+        contact_email: '',
+        profile_photo: '',
+        selected_template_id: 'default',
+        follower_count: 0,
+        engagement_rate: 0,
+        avg_likes: 0,
+        reach: 0,
+        stats: [],
+        // Add any other specific fields from EditorPreviewData that are not in ProfileData with defaults
+        instagram_followers: '',
+        tiktok_followers: '',
+        youtube_followers: '',
+        audience_age_range: '',
+        audience_location_main: '',
+        audience_gender_female: 0,
+        avg_video_views: 0,
+        avg_ig_reach: 0,
+        ig_engagement_rate: 0,
+        showcase_images: [],
+        past_brands_text: '',
+        past_brands_image_url: '',
+        next_steps_text: '',
+        contact_phone: '',
+      } as EditorPreviewData;
+    }
 
     let mKitObjParsed: Partial<Extract<ProfileData['media_kit_data'], object>> = {};
     if (typeof p.media_kit_data === 'string') {
@@ -763,19 +816,20 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
         mKitObjParsed = p.media_kit_data;
     }
     
-    const finalVideos = p.videos || mKitObjParsed.videos || []; // p.videos should take precedence (from join)
+    const finalVideos = p.videos || mKitObjParsed.videos || [];
     const finalPortfolioImages = mKitObjParsed.portfolio_images || p.portfolio_images || [];
 
-    const constructedRealData = {
+    // This is ProfileData like structure
+    const constructedBaseData = {
         ...p, 
-        services: p.services || [],
-        brand_collaborations: p.brand_collaborations || [],
+        services: p.services || initialServices || [], // Use initialServices from hook as further fallback
+        brand_collaborations: p.brand_collaborations || initialCollabs || [], // Use initialCollabs
         videos: finalVideos, 
         portfolio_images: finalPortfolioImages, 
-        follower_count: p.follower_count || 0,
-        engagement_rate: p.engagement_rate || 0,
-        avg_likes: p.avg_likes || 0,
-        reach: p.reach || 0,
+        follower_count: p.follower_count || (initialStats.find(s => s.platform === 'instagram')?.follower_count) || 0,
+        engagement_rate: p.engagement_rate || (initialStats.find(s => s.platform === 'instagram')?.engagement_rate) || 0,
+        avg_likes: p.avg_likes || (initialStats.find(s => s.platform === 'instagram')?.avg_likes) || 0,
+        reach: p.reach || (initialStats.find(s => s.platform === 'instagram')?.weekly_reach) || 0,
         media_kit_data: { 
             type: "media_kit_data",
             brand_name: mKitObjParsed.brand_name || p.brand_name || '',
@@ -790,30 +844,58 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
             personal_intro: mKitObjParsed.personal_intro || p.personal_intro || '',
             instagram_handle: mKitObjParsed.instagram_handle || p.instagram_handle || '',
             tiktok_handle: mKitObjParsed.tiktok_handle || p.tiktok_handle || '',
+            section_visibility: { ...defaultSectionVisibility, ...(mKitObjParsed.section_visibility || {}) },
         },
         full_name: p.full_name || mKitObjParsed.brand_name || p.brand_name || 'Media Kit Name',
         email: p.email || '',
         username: p.username || '',
         tagline: mKitObjParsed.tagline || p.tagline || (!isPreview ? 'Content Creator' : ''),
         selected_template_id: mKitObjParsed.selected_template_id || p.selected_template_id || 'default',
-    } as ProfileData;
-
-    const finalRealData = {
-      ...constructedRealData,
-      section_visibility: constructedRealData.section_visibility ?? {
-        profileDetails:      true,
-        profilePicture:      true,
-        socialMedia:         true,
-        audienceStats:       true,
-        performance:         true,
-        tiktokVideos:        true,
-        brandExperience:     true,
-        servicesSkills:      true,
-        contactDetails:      true,
-      },
+        // Ensure fields from Profile are present
+        avatar_url: p.avatar_url || mKitObjParsed.profile_photo || '',
+        website: p.website || '',
+        niche: p.niche || '',
+        media_kit_url: p.media_kit_url || '',
+        onboarding_complete: p.onboarding_complete ?? false,
+        profile_photo: p.avatar_url || mKitObjParsed.profile_photo || '', // profile_photo for EditorPreviewData
+        // Ensure specific EditorPreviewData fields (often from Profile) are present
+        brand_name: mKitObjParsed.brand_name || p.brand_name || p.full_name || '',
+        colors: mKitObjParsed.colors || defaultColorScheme,
+        font: mKitObjParsed.font || 'Inter',
+        personal_intro: mKitObjParsed.personal_intro || p.personal_intro || '',
+        skills: mKitObjParsed.skills || p.skills || [],
+        stats: initialStats || [], // Use initialStats from hook
+        contact_phone: (p as any).contact_phone || '', // Assuming contact_phone might be on p
     };
-    return finalRealData;
-  }, [profile, previewData, publicProfile, isPreview, isPublic, localUpdatedMediaKit]);
+
+    // Shape into EditorPreviewData
+    const finalEditorData: EditorPreviewData = {
+        ...constructedBaseData,
+        section_visibility: (typeof constructedBaseData.media_kit_data === 'object' && constructedBaseData.media_kit_data.section_visibility)
+            ? { ...defaultSectionVisibility, ...constructedBaseData.media_kit_data.section_visibility }
+            : defaultSectionVisibility,
+        // Provide defaults for EditorPreviewData fields not guaranteed by ProfileData (constructedBaseData)
+        // These were previously accessed with (p as any)
+        contact_phone: (constructedBaseData as any).contact_phone || (mKitObjParsed as any)?.contact_phone || '',
+        audience_age_range: (constructedBaseData as any).audience_age_range || '',
+        audience_location_main: (constructedBaseData as any).audience_location_main || '',
+        audience_gender_female: (constructedBaseData as any).audience_gender_female || 0,
+        avg_video_views: (constructedBaseData as any).avg_video_views || 0,
+        avg_ig_reach: (constructedBaseData as any).avg_ig_reach || 0,
+        ig_engagement_rate: (constructedBaseData as any).ig_engagement_rate || 0,
+        showcase_images: (constructedBaseData as any).showcase_images || [],
+        past_brands_text: (constructedBaseData as any).past_brands_text || '',
+        past_brands_image_url: (constructedBaseData as any).past_brands_image_url || '',
+        next_steps_text: (constructedBaseData as any).next_steps_text || '',
+        instagram_followers: (constructedBaseData as any).instagram_followers || '',
+        tiktok_followers: (constructedBaseData as any).tiktok_followers || '',
+        youtube_followers: (constructedBaseData as any).youtube_followers || '',
+    };
+    
+    // This console log helps verify the structure of finalEditorData
+    // console.log("Final realData for EditorPreviewData:", finalEditorData);
+    return finalEditorData;
+  }, [profile, previewData, publicProfile, isPreview, isPublic, localUpdatedMediaKit, initialStats, initialCollabs, initialServices]);
   
   // Debug log for public profile data flow
   if (isPublic) {
@@ -910,6 +992,19 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
     console.log('Download media kit');
   };
 
+  const handleViewPublic = () => {
+    if (profile?.media_kit_url) {
+      const path = profile.media_kit_url.startsWith('/') ? profile.media_kit_url : `/${profile.media_kit_url}`;
+      navigate(path);
+    } else if (profile?.username) {
+      navigate(`/${profile.username}`);
+    } else {
+      // TODO: Show a toast message from UI components
+      console.warn("Cannot view public page: media_kit_url or username not available on profile.");
+      alert("Media kit URL or username not available. Please ensure your profile is set up correctly.")
+    }
+  };
+
   // Add function to initialize media kit data
   const initializeMediaKitData = useCallback(async () => {
     if (hasFetched && !(isPreview && !profile)) { setLoading(false); return; }
@@ -956,7 +1051,7 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
       const joinedStats: MediaKitStats[] = (fetchedProfileData.media_kit_stats as MediaKitStats[]) || [];
 
       const completeProfile: ProfileData = {
-        ...(fetchedProfileData as Omit<ProfileData, 'media_kit_data' | 'videos' | 'services' | 'brand_collaborations'>), // Spread base, then override
+        ...(fetchedProfileData as Omit<ProfileData, 'media_kit_data' | 'videos' | 'services' | 'brand_collaborations'>), 
         id: fetchedProfileData.id || '',
         user_id: fetchedProfileData.user_id || '',
         username: fetchedProfileData.username || '',
@@ -976,6 +1071,7 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
           personal_intro: parsedMediaKitObject?.personal_intro || fetchedProfileData.personal_intro || '',
           instagram_handle: parsedMediaKitObject?.instagram_handle || fetchedProfileData.instagram_handle || '',
           tiktok_handle: parsedMediaKitObject?.tiktok_handle || fetchedProfileData.tiktok_handle || '',
+          section_visibility: { ...defaultSectionVisibility, ...(parsedMediaKitObject?.section_visibility || {}) },
         },
         services: joinedServices,
         brand_collaborations: joinedCollabs,
@@ -1038,6 +1134,20 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
     isLoading: loading,
     dataSource: isPreview ? 'preview' : isPublic ? 'public' : localUpdatedMediaKit ? 'local' : 'database'
   });
+
+  // User suggested console logs for button visibility debugging
+  if (user && profile) {
+    console.log("BUTTON VISIBILITY DEBUG:", {
+      isPreview,
+      isPublic,
+      userId: user.id,
+      profileId: profile.id,
+      profileUserId: profile.user_id,
+      conditionMet: !isPreview && !isPublic && user && profile && user.id === profile.id
+    });
+  } else {
+    console.log("BUTTON VISIBILITY DEBUG: User or Profile not yet available for check.", { isPreview, isPublic });
+  }
   
   // Add debug logging after kitData is calculated
   console.log("MediaKit DEBUG:", {
@@ -1088,76 +1198,52 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
   // If public or preview, render template directly without extra wrappers/backgrounds
   if (isPreview || isPublic) {
     // Find the correct template component
-    const TemplateComponent = templateIdFromData === 'aesthetic' 
-      ? MediaKitTemplateAesthetic 
-      : MediaKitTemplateDefault;
+    const currentTemplateId = templateIdFromData; // Already derived correctly
+    const TemplateDefinition = TEMPLATES.find(t => t.id === currentTemplateId);
 
-    if (!realData || (typeof realData.media_kit_data === 'string' && !JSON.parse(realData.media_kit_data)) || (typeof realData.media_kit_data === 'object' && !realData.media_kit_data)) {
-        console.warn("⚠️ No realData or empty media_kit_data – this might lead to a blank template!");
+    if (!TemplateDefinition) {
+      console.error(`Template with ID '${currentTemplateId}' not found in registry.`);
+      return <div>Error: Template not found.</div>; // Or some fallback UI
     }
-    const mediaKitObjectPreview = typeof realData.media_kit_data === 'object' ? realData.media_kit_data : null;
-    console.log("📄 Template ID for rendering:", templateIdFromData, " (from realData.selected_template_id:", realData.selected_template_id, ", from realData.media_kit_data.selected_template_id:", mediaKitObjectPreview?.selected_template_id, ")");
-      
-    // Log which component is being rendered
-    console.log(`Rendering ${templateIdFromData === 'aesthetic' ? 'Aesthetic' : 'Default'} template directly for public/preview`);
-      
-    // Render only the template
-    return <TemplateComponent data={realData as any} theme={computedStyles} loading={loading} />;
+    const TemplateComponent = TemplateDefinition.Component;
+    
+    const currentVisibility = realData.section_visibility 
+      ? { ...defaultSectionVisibility, ...realData.section_visibility } 
+      : defaultSectionVisibility;
+
+    console.log(`Rendering ${TemplateDefinition.name} template directly for public/preview`);
+    return <TemplateComponent data={realData as any} theme={computedStyles} loading={loading} section_visibility={currentVisibility as SectionVisibilityState} />;
   }
 
   // --- Default rendering for internal view (/media-kit) ---
+  // Determine ActiveTemplateComponent using the registry
+  const currentTemplateIdInternal = templateIdFromData; // Already derived correctly
+  const ActiveTemplateDefinition = TEMPLATES.find(t => t.id === currentTemplateIdInternal);
+  const ActiveTemplateComponent = ActiveTemplateDefinition ? ActiveTemplateDefinition.Component : null;
+  const internalVisibility = realData.section_visibility 
+    ? { ...defaultSectionVisibility, ...realData.section_visibility } 
+    : defaultSectionVisibility;
+
   return (
     <div className="min-h-screen bg-white"> {/* Keep white bg for internal page */}
       <main className="p-8"> {/* Keep padding for internal page */}
         <div className="mx-auto" style={{ maxWidth: '1000px' }}>
-          {user?.id === realData.id && ( /* Check user ID for buttons */
-            <div className="mb-6 flex justify-end gap-4">
+          {/* Edit/Download/View Public buttons bar - Restored old look from user provided JSX */}
+          {!isPreview && !isPublic && user && profile && user.id === profile.id && (
+            <div className="mb-6 flex justify-end gap-4"> {/* Adjusted gap from user example if needed */}
               <Button
                 variant="outline"
-                onClick={async () => {
-                  try {
-                    // Direct query to Supabase for the most up-to-date profile data
-                    const { data: latestProfile, error } = await supabase
-                      .from('profiles')
-                      .select('username, media_kit_url, id')
-                      .eq('id', user.id)
-                      .single();
-                    
-                    console.log("Button clicked - Supabase direct query result:", latestProfile);
-                    
-                    if (error) {
-                      console.error("Error fetching profile data:", error);
-                      alert("Error accessing your profile data. Please try again.");
-                      return;
-                    }
-                    
-                    // Use media_kit_url if available, otherwise fall back to username
-                    if (latestProfile?.media_kit_url) {
-                      console.log("Opening public profile with media_kit_url:", latestProfile.media_kit_url);
-                      window.open(`/${latestProfile.media_kit_url}`, '_blank');
-                    } else if (latestProfile?.username) {
-                      console.log("Opening public profile with username (fallback):", latestProfile.username);
-                      window.open(`/${latestProfile.username}`, '_blank');
-                    } else {
-                      // Alert if neither is available
-                      alert("Please set up your Media Kit URL in your profile settings to view your public page.");
-                    }
-                  } catch (error) {
-                    console.error("Error in direct Supabase query:", error);
-                    alert("An error occurred. Please try again.");
-                  }
-                }}
+                onClick={handleViewPublic}
                 className="flex items-center gap-2"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                </svg>
+                <ShareIcon className="h-4 w-4" />
                 View Public Page
               </Button>
               <Button
                 variant="outline"
                 onClick={handleDownload}
                 className="flex items-center gap-2"
+                disabled // Kept disabled as it was
               >
                 <ArrowDownTrayIcon className="h-4 w-4" />
                 Download
@@ -1171,26 +1257,19 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
               </Button>
             </div>
           )}
-
-          {/* Template rendering */}
-          {(() => {
-            // Capture exact value for debugging
-            const exactTemplateId = templateIdFromData; 
-            console.log("🔎 RENDER DECISION:", {
-              exactTemplateId,
-              stringComparison: exactTemplateId === 'aesthetic',
-              typeofExactTemplateId: typeof exactTemplateId
-            });
-            
-            // Direct string comparison with explicit values
-            if (exactTemplateId === 'aesthetic') {
-              console.log("✅ RENDERING AESTHETIC TEMPLATE");
-              return <MediaKitTemplateAesthetic data={realData as any} theme={computedStyles} loading={loading} />;
-            } else {
-              console.log("⚠️ RENDERING DEFAULT TEMPLATE (not aesthetic)");
-              return <MediaKitTemplateDefault data={realData as any} theme={computedStyles} loading={loading} />;
-            }
-          })()}
+          {/* Main Content: Template Component */}
+          <div className="template-container">
+            {ActiveTemplateComponent ? (
+              <ActiveTemplateComponent
+                data={realData as any} 
+                theme={computedStyles}
+                loading={loading}
+                section_visibility={internalVisibility as SectionVisibilityState}
+              />
+            ) : (
+              <div>Loading template... (ID: {currentTemplateIdInternal})</div>
+            )}
+          </div>
         </div>
       </main>
     </div>

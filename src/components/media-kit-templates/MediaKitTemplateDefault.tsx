@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Profile, VideoItem, Service, BrandCollaboration, MediaKitStats, ColorScheme, SectionVisibilityState } from '@/lib/types';
+import type { Profile, VideoItem, Service, BrandCollaboration, MediaKitStats, ColorScheme, SectionVisibilityState, EditorPreviewData, TemplateTheme as ImportedTemplateTheme } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import PreviewLoadingFallback from '@/components/PreviewLoadingFallback';
 import {
@@ -14,7 +14,7 @@ import {
 
 // Interface for the data expected by this template
 // Ensure it includes all necessary fields from Profile + extras
-interface TemplateData {
+export interface DefaultSpecificData {
   id: string;
   user_id: string; // Add user_id
   username?: string; // CORRECTED: Was required, now optional to match Profile and EditorPreviewData
@@ -51,24 +51,136 @@ interface TemplateData {
   selected_template_id?: string; // Ensured present
 }
 
-// Interface for the theme styles
-interface TemplateTheme {
-  background: string;
-  foreground: string;
-  primary: string;
-  primaryLight: string;
-  secondary: string;
-  accent: string;
-  neutral: string;
-  border: string;
+// Interface for the theme styles for this specific template component (props.theme)
+// If it's identical to the global TemplateTheme, we can use the imported one.
+// For now, let's assume it might have its own specifics or could be aliased.
+export interface DefaultSpecificTheme extends ImportedTemplateTheme {
+  // any Default-specific theme properties could go here, if different from global TemplateTheme
 }
 
 // Export the props interface
 export interface MediaKitTemplateDefaultProps {
-  data: TemplateData | null;
-  theme: TemplateTheme;
+  data: EditorPreviewData | null;
+  theme: DefaultSpecificTheme;
   loading?: boolean;
+  section_visibility: SectionVisibilityState;
 }
+
+// --- Renamed Placeholder Data Function to GetPreviewData ---
+export const DefaultGetPreviewData = (): DefaultSpecificData => ({
+  id: 'default-placeholder-id',
+  user_id: 'default-placeholder-user-id',
+  username: '@default_user',
+  brand_name: 'Your Brand Name',
+  full_name: 'Default User Name',
+  avatar_url: 'https://via.placeholder.com/150/7E69AB/FFFFFF?text=D',
+  tagline: 'Your Catchy Tagline Here',
+  personal_intro: 'This is a brief introduction about you and your brand. Make it engaging!',
+  instagram_handle: '@your_insta',
+  tiktok_handle: '@your_tiktok',
+  contact_email: 'contact@example.com',
+  email: 'contact@example.com',
+  follower_count: 10000,
+  engagement_rate: 5.0,
+  avg_likes: 500,
+  reach: 20000,
+  videos: [
+    { url: 'https://www.tiktok.com/@placeholder/video/default1', thumbnail_url: 'https://via.placeholder.com/300/7E69AB/FFFFFF?text=Video+1' },
+    { url: 'https://www.tiktok.com/@placeholder/video/default2', thumbnail_url: 'https://via.placeholder.com/300/E5DAF8/1A1F2C?text=Video+2' },
+  ],
+  portfolio_images: [
+    'https://via.placeholder.com/300/7E69AB/FFFFFF?text=Portfolio+1',
+    'https://via.placeholder.com/300/E5DAF8/1A1F2C?text=Portfolio+2',
+    'https://via.placeholder.com/300/8E9196/FFFFFF?text=Portfolio+3',
+  ],
+  brand_collaborations: [
+    { id: 'collab_default_1', profile_id: '', brand_name: 'Default Brand Co.', collaboration_type: 'Sponsored Post', collaboration_date: '2023-01-01' },
+    { id: 'collab_default_2', profile_id: '', brand_name: 'Another Default Inc.', collaboration_type: 'Product Review', collaboration_date: '2023-02-15' },
+  ],
+  services: [
+    { id: 'service_default_1', profile_id: '', service_name: 'Default Service Package', description: 'High-quality default services.', price_range: '$100-$500' },
+    { id: 'service_default_2', profile_id: '', service_name: 'Consultation Hour', description: 'One hour of expert advice.', price_range: '$50' },
+  ],
+  section_visibility: {
+    profileDetails: true, brandExperience: true, servicesSkills: true, socialMedia: true,
+    contactDetails: true, profilePicture: true, tiktokVideos: true, audienceStats: true, performance: true,
+  },
+  media_kit_data: null,
+  stats: [{
+    id: 'default-stats-id-1',
+    profile_id: 'default-placeholder-id',
+    platform: 'instagram',
+    follower_count: 10000,
+    engagement_rate: 5.0,
+    avg_likes: 500,
+    avg_comments: 50,
+    weekly_reach: 20000,
+    monthly_impressions: 80000,
+    updated_at: new Date().toISOString(),
+  }],
+  skills: ['Content Creation', 'Social Media Management', 'Videography'],
+  colors: { 
+    background: "#F5F5F5", text: "#1A1F2C", secondary: "#8E9196", 
+    accent_light: "#E5DAF8", accent: "#7E69AB", primary: "#7E69AB",
+  },
+  font: 'Inter',
+  profile_photo: 'https://via.placeholder.com/150/7E69AB/FFFFFF?text=D',
+  website: 'www.yourwebsite.com',
+  niche: 'General Content Creator',
+  onboarding_complete: true,
+  selected_template_id: 'default',
+});
+
+// --- Updated Thumbnail Data Function to return EditorPreviewData ---
+export const DefaultGetThumbnailData = (): EditorPreviewData => ({
+  id: 'thumb-default-id',
+  user_id: 'thumb-user-id',
+  username: '@default_user_thumb',
+  brand_name: 'Classic Minimal (Thumb)',
+  tagline: 'Clean & Professional Thumbnail',
+  colors: { 
+    background: "#F5F5F5", text: "#1A1F2C", secondary: "#8E9196", 
+    accent_light: "#E5DAF8", accent: "#7E69AB", primary: "#7E69AB",
+  },
+  font: 'Inter',
+  profile_photo: 'https://via.placeholder.com/150/7E69AB/FFFFFF?text=D',
+  personal_intro: 'Short intro for thumbnail.',
+  skills: [],
+  brand_collaborations: [],
+  services: [],
+  instagram_handle: '@insta_thumb',
+  tiktok_handle: '@tiktok_thumb',
+  portfolio_images: [],
+  videos: [],
+  contact_email: 'thumb@example.com',
+  section_visibility: { profileDetails: true, profilePicture: true, socialMedia: true, audienceStats: true, performance: true, tiktokVideos: true, brandExperience: true, servicesSkills: true, contactDetails: true },
+  follower_count: 100,
+  engagement_rate: 1,
+  avg_likes: 10,
+  reach: 100,
+  stats: [],
+  avatar_url: 'https://via.placeholder.com/150/7E69AB/FFFFFF?text=D',
+  website: 'thumb.example.com',
+  full_name: 'Default Thumbnail User',
+  niche: 'Thumbnail Niche',
+  media_kit_url: '',
+  onboarding_complete: true,
+  email: 'thumb_email@example.com',
+  media_kit_data: null,
+  selected_template_id: 'default',
+});
+
+// --- Existing Placeholder Theme Function (ensure it uses the specific theme type) ---
+export const DefaultTheme = (): DefaultSpecificTheme => ({
+  background: "#F5F5F5",
+  foreground: "#1A1F2C",
+  primary: "#7E69AB", 
+  primaryLight: "#E5DAF8",
+  secondary: "#8E9196",
+  accent: "#7E69AB",
+  neutral: "#8E9196", 
+  border: "#7E69AB33", 
+});
 
 // Utility function copied from MediaKit.tsx
 const formatNumber = (num: number | string | undefined): string => {
@@ -116,6 +228,7 @@ const MediaKitTemplateDefault: React.FC<MediaKitTemplateDefaultProps> = ({
   data,
   theme,
   loading,
+  section_visibility,
 }) => {
   if (loading) {
     return (
@@ -129,32 +242,16 @@ const MediaKitTemplateDefault: React.FC<MediaKitTemplateDefaultProps> = ({
     return <div className="w-full min-h-[300px] flex items-center justify-center"><p>No data available for this media kit.</p></div>;
   }
 
-  const visibility: SectionVisibilityState = {
-    profileDetails:      data.section_visibility?.profileDetails  ?? true,
-    profilePicture:      data.section_visibility?.profilePicture  ?? true,
-    socialMedia:         data.section_visibility?.socialMedia     ?? true,
-    audienceStats:       data.section_visibility?.audienceStats   ?? true,
-    performance:         data.section_visibility?.performance     ?? true,
-    tiktokVideos:        data.section_visibility?.tiktokVideos    ?? true,
-    brandExperience:     data.section_visibility?.brandExperience ?? true,
-    servicesSkills:      data.section_visibility?.servicesSkills  ?? true,
-    contactDetails:      data.section_visibility?.contactDetails  ?? true,
-  };
-
-  // Need to handle the case where data.media_kit_data might be a string
   const mediaKitDataObject = typeof data.media_kit_data === 'object' ? data.media_kit_data : null;
 
-  // Safely access potentially nested properties from mediaKitDataObject
   const videos = data.videos?.length
     ? data.videos
     : mediaKitDataObject?.videos || [];
 
-  // Helper to get collaboration name
   const getCollabName = (collab: BrandCollaboration): string => {
     return collab.brand_name || 'Unnamed Brand';
   }
 
-  // Helper to get service name
   const getServiceName = (service: Service): string => {
     return service.service_name || 'Unnamed Service';
   }
@@ -164,9 +261,9 @@ const MediaKitTemplateDefault: React.FC<MediaKitTemplateDefaultProps> = ({
       <style>{responsiveTextStyles}</style>
       
       {/* Hero Section - Conditionally render parts or whole based on visibility */}
-      {(visibility.profileDetails || visibility.profilePicture || visibility.socialMedia) && (
+      {(section_visibility.profileDetails || section_visibility.profilePicture || section_visibility.socialMedia) && (
         <div className="hero bg-white rounded-[0.75rem] p-8 shadow-sm border grid grid-cols-1 md:grid-cols-[200px,1fr] gap-8" style={{ borderColor: theme.border }}>
-          {visibility.profilePicture && (
+          {section_visibility.profilePicture && (
             <div className="photo w-[200px] h-[200px] mx-auto md:mx-0 rounded-full overflow-hidden border-4" style={{ borderColor: theme.primaryLight }}>
               {data.avatar_url ? (
                 <img src={data.avatar_url} alt={data.brand_name || data.full_name || 'Profile'} className="w-full h-full object-cover" />
@@ -176,9 +273,9 @@ const MediaKitTemplateDefault: React.FC<MediaKitTemplateDefaultProps> = ({
             </div>
           )}
           
-          {(visibility.profileDetails || visibility.socialMedia) && (
+          {(section_visibility.profileDetails || section_visibility.socialMedia) && (
             <div className="info text-center md:text-left">
-              {visibility.profileDetails && (
+              {section_visibility.profileDetails && (
                 <>
                   <h1 className="font-['Playfair_Display'] text-[2.5rem] mb-2" style={{ color: theme.foreground }}>
                     {data.brand_name || data.full_name || 'Your Default Name'}
@@ -187,12 +284,12 @@ const MediaKitTemplateDefault: React.FC<MediaKitTemplateDefaultProps> = ({
                     {data.tagline}
                   </p>
                   <p className="text-base mb-6" style={{ color: theme.neutral }}>
-                    {data.personal_intro || data.intro || ''}
+                    {data.personal_intro || ''}
                   </p>
                 </>
               )}
               
-              {visibility.socialMedia && (
+              {section_visibility.socialMedia && (
                 <div className="social-links flex flex-wrap gap-4 justify-center md:justify-start">
                   {data.instagram_handle && (
                     <a
@@ -243,7 +340,7 @@ const MediaKitTemplateDefault: React.FC<MediaKitTemplateDefaultProps> = ({
       )}
 
       {/* Analytics Overview - Restore bg-white */}
-      {(visibility.audienceStats || visibility.performance) && (
+      {(section_visibility.audienceStats || section_visibility.performance) && (
         <div className="section bg-white rounded-[0.75rem] p-6 shadow-sm border" style={{ borderColor: theme.border }}>
           <h2 className="font-['Playfair_Display'] text-[1.5rem] mb-6 flex items-center gap-2" style={{ color: theme.foreground }}>
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6" style={{ color: theme.primary }}>
@@ -252,7 +349,7 @@ const MediaKitTemplateDefault: React.FC<MediaKitTemplateDefaultProps> = ({
             Analytics Overview
           </h2>
           <div className="stats-grid grid grid-cols-2 md:grid-cols-4 gap-6">
-            {visibility.audienceStats && (
+            {section_visibility.audienceStats && (
               <>
                 <div className="stats-item p-6 rounded-[0.75rem] text-center" style={{ background: theme.primaryLight }}>
                   <h3 className="stats-number font-semibold mb-1" style={{ color: theme.primary }}>
@@ -268,7 +365,7 @@ const MediaKitTemplateDefault: React.FC<MediaKitTemplateDefaultProps> = ({
                 </div>
               </>
             )}
-            {visibility.performance && (
+            {section_visibility.performance && (
               <>
                 <div className="stats-item p-6 rounded-[0.75rem] text-center" style={{ background: theme.primaryLight }}>
                   <h3 className="stats-number font-semibold mb-1" style={{ color: theme.primary }}>
@@ -290,7 +387,7 @@ const MediaKitTemplateDefault: React.FC<MediaKitTemplateDefaultProps> = ({
 
       {/* Portfolio Showcase - Restore bg-white */}
       {/* For now, tie portfolio to tiktokVideos visibility or brandExperience. Could be its own toggle later. */}
-      {(visibility.tiktokVideos || visibility.brandExperience) && (
+      {(section_visibility.tiktokVideos || section_visibility.brandExperience) && (
         <div className="section bg-white rounded-[0.75rem] p-6 shadow-sm border" style={{ borderColor: theme.border }}>
           <h2 className="font-['Playfair_Display'] text-[1.5rem] mb-6 flex items-center gap-2" style={{ color: theme.foreground }}>
             <PhotoIcon className="w-6 h-6" style={{ color: theme.primary }} />
@@ -298,8 +395,8 @@ const MediaKitTemplateDefault: React.FC<MediaKitTemplateDefaultProps> = ({
           </h2>
           
           {(() => {
-            const showVideos = visibility.tiktokVideos && data.videos && data.videos.length > 0;
-            const showImages = !showVideos && visibility.brandExperience && data.portfolio_images && data.portfolio_images.length > 0; // Show images if videos are off AND brandExperience is on
+            const showVideos = section_visibility.tiktokVideos && data.videos && data.videos.length > 0;
+            const showImages = !showVideos && section_visibility.brandExperience && data.portfolio_images && data.portfolio_images.length > 0; // Show images if videos are off AND brandExperience is on
 
             if (showVideos) {
               return (
@@ -362,7 +459,7 @@ const MediaKitTemplateDefault: React.FC<MediaKitTemplateDefaultProps> = ({
       )}
 
       {/* Brand Collaborations - Restore bg-white */}
-      {visibility.brandExperience && (
+      {section_visibility.brandExperience && (
         <div className="section bg-white rounded-[0.75rem] p-6 shadow-sm border" style={{ borderColor: theme.border }}>
           <h2 className="font-['Playfair_Display'] text-[1.5rem] mb-6 flex items-center gap-2" style={{ color: theme.foreground }}>
             <ShareIcon className="w-6 h-6" style={{ color: theme.primary }} />
@@ -390,7 +487,7 @@ const MediaKitTemplateDefault: React.FC<MediaKitTemplateDefaultProps> = ({
       )}
 
       {/* Services - Restore bg-white */}
-      {visibility.servicesSkills && (
+      {section_visibility.servicesSkills && (
         <div className="section bg-white rounded-[0.75rem] p-6 shadow-sm border" style={{ borderColor: theme.border }}>
           <h2 className="font-['Playfair_Display'] text-[1.5rem] mb-6 flex items-center gap-2" style={{ color: theme.foreground }}>
             <TagIcon className="w-6 h-6" style={{ color: theme.primary }} />
@@ -422,7 +519,7 @@ const MediaKitTemplateDefault: React.FC<MediaKitTemplateDefaultProps> = ({
       )}
 
       {/* Contact Information - Restore bg-white */}
-      {visibility.contactDetails && (
+      {section_visibility.contactDetails && (
         <div className="section bg-white rounded-[0.75rem] p-6 shadow-sm border" style={{ borderColor: theme.border }}>
           <h2 className="font-['Playfair_Display'] text-[1.5rem] mb-6 flex items-center gap-2" style={{ color: theme.foreground }}>
             <ShareIcon className="w-6 h-6" style={{ color: theme.primary }} />

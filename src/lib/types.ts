@@ -90,6 +90,22 @@ export interface MediaKitData {
   contact_email?: string;
   section_visibility?: Partial<SectionVisibilityState>;
   last_updated?: string;
+
+  // Fields for Luxury Template
+  instagram_followers?: string | number;
+  tiktok_followers?: string | number;
+  youtube_followers?: string | number;
+  audience_age_range?: string;
+  audience_location_main?: string;
+  audience_gender_female?: string;
+  avg_video_views?: string | number;
+  avg_ig_reach?: string | number;
+  ig_engagement_rate?: string | number;
+  showcase_images?: string[];
+  past_brands_text?: string;
+  past_brands_image_url?: string;
+  next_steps_text?: string;
+  contact_phone?: string;
 }
 
 export interface Profile {
@@ -110,4 +126,63 @@ export interface Profile {
   onboarding_complete?: boolean;
   personal_intro?: string;
   selected_template_id?: string;
-} 
+}
+
+// General Theme structure for templates
+export interface TemplateTheme {
+  background: string;
+  foreground: string;
+  primary: string;
+  primaryLight: string;
+  secondary: string;
+  accent: string;
+  neutral: string;
+  border: string;
+  cardBackground?: string;
+}
+
+// Data structure for the live preview in the editor and for template thumbnails
+// It combines Profile data with live form data and template-specific placeholder fields.
+export type EditorPreviewData = Omit<Profile, 'created_at' | 'updated_at' | 'services' | 'brand_collaborations'> & {
+  // Directly include fields derived from formData for live preview
+  brand_name: string;
+  tagline: string;
+  colors: ColorScheme;
+  font: string;
+  personal_intro: string;
+  skills: string[];
+  brand_collaborations: BrandCollaboration[];
+  services: Service[];
+  instagram_handle: string;
+  tiktok_handle: string;
+  portfolio_images: string[];
+  videos: VideoItem[];
+  contact_email: string;
+  section_visibility: SectionVisibilityState;
+  // Metrics
+  follower_count: number; 
+  engagement_rate: number; 
+  avg_likes: number; 
+  reach: number; 
+  stats: MediaKitStats[];
+  profile_photo?: string;
+  selected_template_id?: string;
+
+  // Luxury Template Specific Fields (for comprehensive preview)
+  instagram_followers?: string | number;
+  tiktok_followers?: string | number;
+  youtube_followers?: string | number;
+  audience_age_range?: string;
+  audience_location_main?: string;
+  audience_gender_female?: string;
+  avg_video_views?: string | number;
+  avg_ig_reach?: string | number;
+  ig_engagement_rate?: string | number;
+  showcase_images?: string[];
+  past_brands_text?: string;
+  past_brands_image_url?: string;
+  next_steps_text?: string;
+  contact_phone?: string;
+
+  media_kit_data: MediaKitData | null; 
+}; 

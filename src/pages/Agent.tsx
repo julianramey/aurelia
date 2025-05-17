@@ -265,10 +265,24 @@ const AgentComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
   
   // Scroll to bottom when messages update
   useEffect(() => {
-    if (!isPreview && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (!isPreview && messagesEndRef.current && messages.length > 0) {
+      if (!initialScrollDoneForChat.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: 'auto', block: 'end' });
+        initialScrollDoneForChat.current = true;
+      } else {
+        // Only smooth scroll if it's not the very first message being set after a chat switch/load
+        // This typically means a new message was actually sent or received.
+        if (messages.length > 1 || (messages.length === 1 && !messages[0].id.startsWith('init-asst-'))) {
+          messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+      }
     }
   }, [messages, isPreview]);
+  
+  // Reset initial scroll flag when chat context changes
+  useEffect(() => {
+    initialScrollDoneForChat.current = false;
+  }, [currentChatId]);
   
   // Check API configuration on component mount
   useEffect(() => {
@@ -631,8 +645,10 @@ const AgentComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
     return getCurrentPersonality().name; // Use preset personality name if not custom
   };
   
+  const initialScrollDoneForChat = useRef(false);
+  
   return (
-    <div className="min-h-screen bg-cream">
+    <div className="min-h-screen bg-muted dark:bg-charcoal">
       {/* <DashboardNav /> */}{/* Removed: Handled by withPreview HOC */}
       <main className="relative h-[calc(100vh-4rem)] pt-4 px-4 overflow-hidden">
         <div className="max-w-6xl mx-auto h-full flex flex-col">
@@ -647,20 +663,20 @@ const AgentComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
             </button>
           </div>
           
-          <div className="flex flex-1 h-full overflow-hidden gap-4">
+          <div className="flex flex-1 h-full overflow-hidden gap-4 pb-4">
             {/* Sidebar - Chat History */}
             {(showSidebar || window.innerWidth >= 768) && (
               <motion.div 
-                className="w-full md:w-64 lg:w-80 flex-shrink-0 bg-white rounded-xl shadow-sm border border-blush/20 flex flex-col overflow-hidden md:relative absolute z-10 inset-0 md:inset-auto"
+                className="w-full md:w-64 lg:w-80 flex-shrink-0 bg-background dark:bg-slate-800 rounded-xl shadow-md flex flex-col overflow-hidden md:relative absolute z-10 inset-0 md:inset-auto"
                 initial={{ x: -20, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 transition={{ duration: 0.3 }}
               >
-                <div className="p-4 border-b border-blush/10 flex items-center justify-between">
-                  <h2 className="font-medium text-charcoal">Chat History</h2>
+                <div className="p-4 flex items-center justify-between">
+                  <h2 className="font-semibold text-rose dark:text-lavender">Chat History</h2>
                   <button 
                     onClick={handleNewChat}
-                    className="p-2 text-taupe hover:text-rose rounded-lg hover:bg-rose/5 transition-colors"
+                    className="p-2 text-charcoal dark:text-slate-300 hover:text-rose dark:hover:text-lavender rounded-lg hover:bg-rose/5 dark:hover:bg-lavender/10 transition-colors"
                   >
                     <span className="sr-only">New Chat</span>
                     <PaperAirplaneIcon className="h-5 w-5" />
@@ -674,11 +690,12 @@ const AgentComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
                       {sortedChatHistory.map((chat) => (
                         <div key={chat.id} className="relative">
                           <button
-                            className={`w-full text-left p-3 rounded-lg transition-colors flex justify-between items-center ${
+                            className={cn(
+                              "w-full text-left p-3 rounded-lg transition-colors flex justify-between items-center",
                               currentChatId === chat.id 
-                                ? 'bg-rose/10 text-rose' 
-                                : 'hover:bg-blush/10 text-taupe'
-                            }`}
+                                ? 'bg-rose/10 text-rose dark:bg-rose/20 dark:text-rose' // Active
+                                : 'hover:bg-lavender/20 text-charcoal dark:hover:bg-lavender/30 dark:text-slate-300' // Hover
+                            )}
                             onClick={() => setCurrentChatId(chat.id)}
                           >
                             <div className="flex-1 min-w-0 pr-8">
@@ -732,10 +749,10 @@ const AgentComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
                 </div>
                 
                 {/* Sidebar Footer */}
-                <div className="p-3 border-t border-blush/10">
+                <div className="p-3">
                   <button 
                     onClick={() => setIsSettingsModalOpen(true)}
-                    className="w-full flex items-center justify-center gap-2 p-2 text-sm text-taupe hover:text-rose rounded-lg hover:bg-rose/5 transition-colors"
+                    className="w-full flex items-center justify-center gap-2 p-2 text-sm text-charcoal dark:text-slate-300 hover:text-rose dark:hover:text-lavender rounded-lg hover:bg-rose/5 dark:hover:bg-lavender/10 transition-colors"
                   >
                     <Cog6ToothIcon className="h-4 w-4" /> 
                     <span>Settings</span>
@@ -755,15 +772,15 @@ const AgentComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
             )}
             
             {/* Main Chat Area */}
-            <div className="flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-blush/20 overflow-hidden">
+            <div className="flex-1 flex flex-col bg-background dark:bg-slate-850 rounded-xl shadow-md overflow-hidden">
               {/* Chat Header */}
-              <div className="p-4 border-b border-blush/10 flex items-center justify-between">
+              <div className="p-4 flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <div className="bg-rose/10 rounded-full p-2">
-                    <SparklesIcon className="h-5 w-5 text-rose" />
+                  <div className="bg-rose/10 dark:bg-lavender/10 rounded-full p-2">
+                    <SparklesIcon className="h-5 w-5 text-rose dark:text-lavender" />
                   </div>
                   <motion.h2 
-                    className="font-display font-medium text-lg text-charcoal"
+                    className="font-display font-semibold text-lg text-rose dark:text-lavender"
                     style={{ textShadow }}
                   >
                     <motion.span
@@ -797,16 +814,17 @@ const AgentComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
                     animate="visible"
                   >
                     <div 
-                      className={`max-w-[80%] rounded-2xl p-4 ${
+                      className={cn(
+                        "max-w-[80%] rounded-2xl p-4 shadow-sm", // Added shadow-sm for a little pop
                         msg.role === 'user' 
-                          ? 'bg-rose text-white rounded-tr-none'
-                          : 'bg-cream text-charcoal rounded-tl-none'
-                      }`}
+                          ? 'bg-rose text-white rounded-tr-none dark:bg-rose dark:text-white' // User (original)
+                          : 'bg-cream text-charcoal rounded-tl-none dark:bg-slate-700 dark:text-slate-100' // Assistant (original, with dark mode)
+                      )}
                     >
                       <div className="flex items-start gap-3">
                         {msg.role === 'assistant' && (
                           <div className="flex-shrink-0 mt-1">
-                            <SparklesSolidIcon className="h-5 w-5 text-rose" />
+                            <SparklesSolidIcon className="h-5 w-5 text-rose dark:text-lavender" />
                           </div>
                         )}
                         <div className="flex-1">
@@ -867,7 +885,7 @@ const AgentComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
               </div>
               
               {/* Input Area */}
-              <div className="p-4 border-t border-blush/10">
+              <div className="px-4 py-6 bg-gradient-to-b from-background to-lavender dark:from-slate-850 dark:to-lavender">
                 <div className="relative">
                   <input
                     type="text"
@@ -880,18 +898,19 @@ const AgentComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
                       }
                     }}
                     placeholder="Ask anything about influencer marketing..."
-                    className="w-full p-4 pr-14 border border-blush/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose/40 bg-cream/50"
+                    className="w-full p-3 pr-14 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose dark:focus:ring-lavender text-charcoal dark:text-slate-100 bg-background/80 dark:bg-slate-700/80 border border-slate-400/60 dark:border-slate-500/60"
                   />
                   <button
                     onClick={handleSendMessage}
                     disabled={!input.trim() || isTyping}
-                    className={`absolute right-2 top-1/2 transform -translate-y-1/2 p-2 rounded-lg transition-colors ${
+                    className={cn(
+                      "absolute right-2 top-1/2 transform -translate-y-1/2 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-rose/50 dark:focus:ring-lavender/50 transition-colors",
                       !input.trim() || isTyping
-                        ? 'text-taupe/50 cursor-not-allowed'
-                        : 'text-rose hover:bg-rose/10'
-                    }`}
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-600 dark:text-gray-400' // Disabled state
+                        : 'bg-rose hover:bg-rose/90 text-white dark:bg-lavender dark:hover:bg-lavender/90 dark:text-charcoal' // Enabled state
+                    )}
                   >
-                    <PaperAirplaneIcon className="h-6 w-6" />
+                    <PaperAirplaneIcon className="h-5 w-5" />
                   </button>
                 </div>
                 <div className="mt-2 text-xs text-taupe/70 text-center">
