@@ -45,6 +45,7 @@ interface TemplateTheme {
   accent: string;
   neutral: string;
   border: string;
+  font: string;
 }
 
 const defaultThemeColors: LibColorScheme = {
@@ -56,6 +57,8 @@ const defaultThemeColors: LibColorScheme = {
   primary: '#7E69AB', 
 };
 
+const defaultThemeFont = 'Inter'; // Define default font separately
+
 const defaultTheme: TemplateTheme = {
   background: defaultThemeColors.background,
   foreground: defaultThemeColors.text,
@@ -64,7 +67,8 @@ const defaultTheme: TemplateTheme = {
   secondary: defaultThemeColors.secondary,
   accent: defaultThemeColors.accent,
   neutral: defaultThemeColors.secondary, 
-  border: `${defaultThemeColors.primary}33` 
+  border: `${defaultThemeColors.primary}33`,
+  font: defaultThemeFont,
 };
 
 const defaultSectionVisibility: SectionVisibilityState = {
@@ -77,27 +81,31 @@ const defaultSectionVisibility: SectionVisibilityState = {
   tiktokVideos: true,
   audienceStats: true,
   performance: true,
+  audienceDemographics: true,
 };
 
 const computeTheme = (profileData: PublicProfileViewData | null): TemplateTheme => {
   const mediaKitObject = profileData?.media_kit_data;
-  const colors: LibColorScheme | null = mediaKitObject?.colors || null;
+  const colorsFromMKData: LibColorScheme | null = mediaKitObject?.colors || null;
+  const fontFromMKData: string | undefined = mediaKitObject?.font;
     
-  if (!colors) return defaultTheme;
+  if (!colorsFromMKData) return { ...defaultTheme, font: fontFromMKData || defaultThemeFont };
   
-  const mergedColors = { ...defaultThemeColors, ...colors };
-  const primary = mergedColors.primary || mergedColors.accent;
-  const primaryLight = mergedColors.accent_light;
+  const mergedColors = { ...defaultThemeColors, ...colorsFromMKData };
+  // primary and accent are based on the logic from the user's request for PublicMediaKit
+  // The user explicitly wanted primary to be driven by accent from the picker
+  const accentColor = mergedColors.accent;
   
   return {
-    background: mergedColors.background,
-    foreground: mergedColors.text,
-    primary: primary,
-    primaryLight: primaryLight,
-    secondary: mergedColors.secondary,
-    accent: mergedColors.accent,
-    neutral: mergedColors.secondary,
-    border: `${primary}33` 
+    background:   mergedColors.background,
+    foreground:   mergedColors.text,
+    primary:      accentColor,        // Use the picker's accent
+    primaryLight: mergedColors.accent_light,
+    secondary:    mergedColors.secondary,
+    accent:       accentColor,        // Actual accent color from scheme
+    neutral:      mergedColors.secondary, // Use cs.secondary for neutral slot
+    border:       `${accentColor}33`,   // Border based on accent
+    font:         fontFromMKData || defaultThemeFont
   };
 };
 
@@ -238,7 +246,10 @@ export default function PublicMediaKit() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F5F5F5] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-purple-500"></div>
+        <div 
+          className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2"
+          style={{ borderColor: defaultTheme.primary }}
+        ></div>
         <p className="ml-3 text-gray-700">Loading Media Kit...</p>
       </div>
     );

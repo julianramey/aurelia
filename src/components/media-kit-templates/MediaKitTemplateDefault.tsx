@@ -1,15 +1,23 @@
 import React from 'react';
 import type { Profile, VideoItem, Service, BrandCollaboration, MediaKitStats, ColorScheme, SectionVisibilityState, EditorPreviewData, TemplateTheme as ImportedTemplateTheme } from '@/lib/types';
-import { Button } from '@/components/ui/button';
+import type { SocialLinkItem } from '@/components/media-kit-blocks/SocialLinksBlock';
 import PreviewLoadingFallback from '@/components/PreviewLoadingFallback';
+import { SectionTitle } from '@/components/media-kit-blocks/SectionTitle';
+import PersonalIntroBlock from '@/components/media-kit-blocks/PersonalIntroBlock';
+import StatsGridBlock from '@/components/media-kit-blocks/StatsGridBlock';
+import AudienceDemographicsBlock from '@/components/media-kit-blocks/AudienceDemographicsBlock';
+import PortfolioGridBlock from '@/components/media-kit-blocks/PortfolioGridBlock';
+import VideoShowcaseBlock from '@/components/media-kit-blocks/VideoShowcaseBlock';
+import BrandCollaborationBlock from '@/components/media-kit-blocks/BrandCollaborationBlock';
+import ServiceListBlock from '@/components/media-kit-blocks/ServiceListBlock';
+import ContactInfoBlock from '@/components/media-kit-blocks/ContactInfoBlock';
+import ProfileHeaderBlock from '@/components/media-kit-blocks/ProfileHeaderBlock';
+import { formatNumber } from '@/lib/utils'; // Import the shared formatNumber
 import {
-  UserCircleIcon,
-  ChartBarIcon,
   TagIcon,
-  PencilIcon,
-  ArrowDownTrayIcon,
   PhotoIcon,
   ShareIcon,
+  UsersIcon,
 } from '@heroicons/react/24/outline';
 
 // Interface for the data expected by this template
@@ -54,14 +62,14 @@ export interface DefaultSpecificData {
 // Interface for the theme styles for this specific template component (props.theme)
 // If it's identical to the global TemplateTheme, we can use the imported one.
 // For now, let's assume it might have its own specifics or could be aliased.
-export interface DefaultSpecificTheme extends ImportedTemplateTheme {
-  // any Default-specific theme properties could go here, if different from global TemplateTheme
-}
+// export interface DefaultSpecificTheme extends ImportedTemplateTheme { // Removed as it's redundant for now
+//   // any Default-specific theme properties could go here, if different from global TemplateTheme
+// }
 
 // Export the props interface
 export interface MediaKitTemplateDefaultProps {
   data: EditorPreviewData | null;
-  theme: DefaultSpecificTheme;
+  theme: ImportedTemplateTheme; // Changed from DefaultSpecificTheme to ImportedTemplateTheme
   loading?: boolean;
   section_visibility: SectionVisibilityState;
 }
@@ -104,6 +112,7 @@ export const DefaultGetPreviewData = (): DefaultSpecificData => ({
   section_visibility: {
     profileDetails: true, brandExperience: true, servicesSkills: true, socialMedia: true,
     contactDetails: true, profilePicture: true, tiktokVideos: true, audienceStats: true, performance: true,
+    audienceDemographics: true,
   },
   media_kit_data: null,
   stats: [{
@@ -153,7 +162,7 @@ export const DefaultGetThumbnailData = (): EditorPreviewData => ({
   portfolio_images: [],
   videos: [],
   contact_email: 'thumb@example.com',
-  section_visibility: { profileDetails: true, profilePicture: true, socialMedia: true, audienceStats: true, performance: true, tiktokVideos: true, brandExperience: true, servicesSkills: true, contactDetails: true },
+  section_visibility: { profileDetails: true, profilePicture: true, socialMedia: true, audienceStats: true, performance: true, tiktokVideos: true, brandExperience: true, servicesSkills: true, contactDetails: true, audienceDemographics: true },
   follower_count: 100,
   engagement_rate: 1,
   avg_likes: 10,
@@ -168,10 +177,13 @@ export const DefaultGetThumbnailData = (): EditorPreviewData => ({
   email: 'thumb_email@example.com',
   media_kit_data: null,
   selected_template_id: 'default',
+  audience_age_range: '25-35',
+  audience_location_main: 'New York',
+  audience_gender_female: '50%',
 });
 
 // --- Existing Placeholder Theme Function (ensure it uses the specific theme type) ---
-export const DefaultTheme = (): DefaultSpecificTheme => ({
+export const DefaultTheme = (): ImportedTemplateTheme => ({ // Changed return type to ImportedTemplateTheme
   background: "#F5F5F5",
   foreground: "#1A1F2C",
   primary: "#7E69AB", 
@@ -182,19 +194,35 @@ export const DefaultTheme = (): DefaultSpecificTheme => ({
   border: "#7E69AB33", 
 });
 
-// Utility function copied from MediaKit.tsx
-const formatNumber = (num: number | string | undefined): string => {
-  if (num === undefined) return '0';
-  const value = typeof num === 'string' ? parseFloat(num) : num;
-  if (isNaN(value)) return '0';
-  if (value >= 1000000000) return (value / 1000000000).toFixed(1).replace(/\.0$/, '') + 'B';
-  if (value >= 1000000) return (value / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
-  if (value >= 1000) return (value / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
-  return value.toString();
-};
+// AUGMENTED: Added theme-based CSS rules using CSS Variables
+const themedCssRules = `
+  .media-kit {
+    background-color: var(--theme-bg);
+    color: var(--theme-fg); /* Default text: blackish */
+  }
+  .media-kit .section { /* Sections in Default have bg-white via Tailwind */
+    border-color: var(--theme-border);
+  }
+  /* ProfileHeaderBlock, SectionTitle, StatsGridBlock, ContactInfoBlock, etc., handle their own theming. */
 
-// Responsive styles copied from MediaKit.tsx
+  /* Styles for blocks that don't theme themselves or for Default-specific tweaks */
+  .media-kit .brand-tag, .media-kit .service-tag {
+    background-color: var(--theme-light); /* Default's accent-light */
+    color: var(--theme-fg); /* Black text */
+  }
+  .media-kit .service-tag svg {
+    color: var(--theme-fg); /* Black icon */
+  }
+  
+  /* Fallback text in Default template structure (not in blocks) */
+  .media-kit .text-gray-400 { /* Used for "No portfolio/collaborations/services" */
+    color: var(--theme-fg); /* Change from gray to black */
+    font-style: normal; /* Remove italic */
+  }
+`;
+
 const responsiveTextStyles = `
+  ${themedCssRules} /* Injecting the new theme rules */
   .stats-number {
     font-size: clamp(0.9rem, 4vw, 1.5rem);
     line-height: 1.2;
@@ -218,7 +246,7 @@ const responsiveTextStyles = `
     word-break: break-word;
     width: 100%;
   }
-  .text-container {
+  .text-container { /* Used in service tags */
     display: flex;
     align-items: center;
   }
@@ -256,203 +284,111 @@ const MediaKitTemplateDefault: React.FC<MediaKitTemplateDefaultProps> = ({
     return service.service_name || 'Unnamed Service';
   }
 
+  // Inject CSS Variables at the root
+  const rootStyleProps = {
+    '--theme-bg': theme.background,
+    '--theme-fg': theme.foreground,
+    '--theme-primary': theme.primary,
+    '--theme-light': theme.primaryLight,
+    '--theme-secondary': theme.secondary,
+    '--theme-accent': theme.accent,
+    '--theme-neutral': theme.neutral,
+    '--theme-border': theme.border,
+    fontFamily: data.font || theme.font || 'Inter, sans-serif', // Apply font directly here too
+  } as React.CSSProperties;
+
+  // Construct social links for ContactInfoBlock
+  const defaultContactSocialLinks: SocialLinkItem[] = [];
+  if (data.instagram_handle) {
+    defaultContactSocialLinks.push({ type: 'instagram', url: data.instagram_handle, label: 'Instagram' });
+  }
+  if (data.tiktok_handle) {
+    defaultContactSocialLinks.push({ type: 'tiktok', url: data.tiktok_handle, label: 'TikTok' });
+  }
+  // Email and Website are handled by dedicated props in ContactInfoBlock if needed by this template's design
+
   return (
-    <div className="media-kit space-y-6 p-4 rounded-lg" style={{ backgroundColor: theme.background }}>
+    <div className="media-kit space-y-6 p-4 rounded-lg" style={rootStyleProps}>
       <style>{responsiveTextStyles}</style>
       
-      {/* Hero Section - Conditionally render parts or whole based on visibility */}
+      {/* Hero Section - Now uses ProfileHeaderBlock with a dedicated wrapper */}
       {(section_visibility.profileDetails || section_visibility.profilePicture || section_visibility.socialMedia) && (
-        <div className="hero bg-white rounded-[0.75rem] p-8 shadow-sm border grid grid-cols-1 md:grid-cols-[200px,1fr] gap-8" style={{ borderColor: theme.border }}>
-          {section_visibility.profilePicture && (
-            <div className="photo w-[200px] h-[200px] mx-auto md:mx-0 rounded-full overflow-hidden border-4" style={{ borderColor: theme.primaryLight }}>
-              {data.avatar_url ? (
-                <img src={data.avatar_url} alt={data.brand_name || data.full_name || 'Profile'} className="w-full h-full object-cover" />
-              ) : (
-                <img src="https://placehold.co/400x400" alt="Profile Photo" className="w-full h-full object-cover" /> // Placeholder
-              )}
-            </div>
-          )}
-          
-          {(section_visibility.profileDetails || section_visibility.socialMedia) && (
-            <div className="info text-center md:text-left">
-              {section_visibility.profileDetails && (
-                <>
-                  <h1 className="font-['Playfair_Display'] text-[2.5rem] mb-2" style={{ color: theme.foreground }}>
-                    {data.brand_name || data.full_name || 'Your Default Name'}
-                  </h1>
-                  <p className="text-[1.1rem] italic mb-4" style={{ color: theme.primary }}>
-                    {data.tagline}
-                  </p>
-                  <p className="text-base mb-6" style={{ color: theme.neutral }}>
-                    {data.personal_intro || ''}
-                  </p>
-                </>
-              )}
-              
-              {section_visibility.socialMedia && (
-                <div className="social-links flex flex-wrap gap-4 justify-center md:justify-start">
-                  {data.instagram_handle && (
-                    <a
-                      href={`https://instagram.com/${data.instagram_handle.replace(/^@/, '')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[0.9rem] font-medium px-4 py-2 rounded-lg transition-all hover:bg-primary hover:text-white"
-                      style={{ 
-                        background: theme.primaryLight,
-                        color: theme.foreground
-                      }}
-                    >
-                      Instagram
-                    </a>
-                  )}
-                  {data.tiktok_handle && (
-                    <a
-                      href={`https://tiktok.com/@${data.tiktok_handle.replace(/^@/, '')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[0.9rem] font-medium px-4 py-2 rounded-lg transition-all hover:bg-primary hover:text-white"
-                      style={{ 
-                        background: theme.primaryLight,
-                        color: theme.foreground
-                      }}
-                    >
-                      TikTok
-                    </a>
-                  )}
-                  {(data.contact_email || data.email) && (
-                    // Note: Contact button in social links, also a dedicated contact section later
-                    <a
-                      href={`mailto:${data.contact_email || data.email}`}
-                      className="text-[0.9rem] font-medium px-4 py-2 rounded-lg transition-all hover:bg-primary hover:text-white"
-                      style={{ 
-                        background: theme.primaryLight,
-                        color: theme.foreground
-                      }}
-                    >
-                      Contact
-                    </a>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+        <div className="hero-wrapper bg-white rounded-[0.75rem] shadow-sm">
+          <ProfileHeaderBlock
+            variant="default"
+            avatarUrl={data.avatar_url}
+            name={data.brand_name || data.full_name || 'Your Default Name'}
+            subheading={data.tagline}
+            socialLinks={[
+              ...(data.instagram_handle ? [{
+                type: 'instagram' as const,
+                url: `https://instagram.com/${data.instagram_handle.replace(/^@/, '')}`,
+                label: 'Instagram',
+              }] : []),
+              ...(data.tiktok_handle ? [{
+                type: 'tiktok' as const,
+                url: `https://tiktok.com/@${data.tiktok_handle.replace(/^@/, '')}`,
+                label: 'TikTok',
+              }] : []),
+              ...(data.contact_email || data.email ? [{
+                type: 'email' as const,
+                url: `mailto:${data.contact_email || data.email}`,
+                label: 'Contact',
+              }] : []),
+            ]}
+            sectionVisibility={section_visibility}
+          />
         </div>
       )}
 
-      {/* Analytics Overview - Restore bg-white */}
+      {/* Analytics Overview - Now with a dedicated wrapper */}
       {(section_visibility.audienceStats || section_visibility.performance) && (
-        <div className="section bg-white rounded-[0.75rem] p-6 shadow-sm border" style={{ borderColor: theme.border }}>
-          <h2 className="font-['Playfair_Display'] text-[1.5rem] mb-6 flex items-center gap-2" style={{ color: theme.foreground }}>
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6" style={{ color: theme.primary }}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
-            </svg>
-            Analytics Overview
-          </h2>
-          <div className="stats-grid grid grid-cols-2 md:grid-cols-4 gap-6">
-            {section_visibility.audienceStats && (
-              <>
-                <div className="stats-item p-6 rounded-[0.75rem] text-center" style={{ background: theme.primaryLight }}>
-                  <h3 className="stats-number font-semibold mb-1" style={{ color: theme.primary }}>
-                    {formatNumber(data.follower_count) || '0'}
-                  </h3>
-                  <p className="text-[0.9rem]" style={{ color: theme.neutral }}>Total Followers</p>
+        <div className="analytics-overview-wrapper section bg-white rounded-[0.75rem] p-6 shadow-sm border">
+          <SectionTitle>Analytics Overview</SectionTitle>
+          <StatsGridBlock 
+            stats={[
+              // Pass ALL potential stats; filtering is now done inside StatsGridBlock
+              { label: 'Total Followers', value: data.follower_count }, 
+              { label: 'Engagement Rate', value: data.engagement_rate },
+              { label: 'Average Likes', value: data.avg_likes },
+              { label: 'Weekly Reach', value: data.reach },
+            ]}
+            sectionVisibility={section_visibility} // Pass sectionVisibility for internal filtering
+          />
                 </div>
-                <div className="stats-item p-6 rounded-[0.75rem] text-center" style={{ background: theme.primaryLight }}>
-                  <h3 className="stats-number font-semibold mb-1" style={{ color: theme.primary }}>
-                    {data.engagement_rate || '0'}%
-                  </h3>
-                  <p className="text-[0.9rem]" style={{ color: theme.neutral }}>Engagement Rate</p>
-                </div>
-              </>
             )}
-            {section_visibility.performance && (
-              <>
-                <div className="stats-item p-6 rounded-[0.75rem] text-center" style={{ background: theme.primaryLight }}>
-                  <h3 className="stats-number font-semibold mb-1" style={{ color: theme.primary }}>
-                    {formatNumber(data.avg_likes) || '0'}
-                  </h3>
-                  <p className="text-[0.9rem]" style={{ color: theme.neutral }}>Average Likes</p>
-                </div>
-                <div className="stats-item p-6 rounded-[0.75rem] text-center" style={{ background: theme.primaryLight }}>
-                  <h3 className="stats-number font-semibold mb-1" style={{ color: theme.primary }}>
-                    {formatNumber(data.reach) || '0'}
-                  </h3>
-                  <p className="text-[0.9rem]" style={{ color: theme.neutral }}>Weekly Reach</p>
-                </div>
-              </>
-            )}
-          </div>
+
+      {/* Audience Demographics Section - NEW */}
+      {section_visibility.audienceDemographics && (data.audience_age_range || data.audience_location_main || data.audience_gender_female) && (
+        <div className="section bg-white p-6 rounded-lg shadow">
+          <SectionTitle>Audience Demographics</SectionTitle>
+          <AudienceDemographicsBlock
+            ageRange={data.audience_age_range}
+            location={data.audience_location_main}
+            femalePct={data.audience_gender_female} // Pass raw value; block handles formatting and '%'
+            sectionVisibility={section_visibility}
+          />
         </div>
       )}
 
       {/* Portfolio Showcase - Restore bg-white */}
       {/* For now, tie portfolio to tiktokVideos visibility or brandExperience. Could be its own toggle later. */}
       {(section_visibility.tiktokVideos || section_visibility.brandExperience) && (
-        <div className="section bg-white rounded-[0.75rem] p-6 shadow-sm border" style={{ borderColor: theme.border }}>
-          <h2 className="font-['Playfair_Display'] text-[1.5rem] mb-6 flex items-center gap-2" style={{ color: theme.foreground }}>
-            <PhotoIcon className="w-6 h-6" style={{ color: theme.primary }} />
-            Recent Content
-          </h2>
+        <div className="section bg-white rounded-[0.75rem] p-6 shadow-sm border">
+          <SectionTitle>Recent Content</SectionTitle>
           
           {(() => {
             const showVideos = section_visibility.tiktokVideos && data.videos && data.videos.length > 0;
-            const showImages = !showVideos && section_visibility.brandExperience && data.portfolio_images && data.portfolio_images.length > 0; // Show images if videos are off AND brandExperience is on
+            // const showImages = !showVideos && section_visibility.brandExperience && data.portfolio_images && data.portfolio_images.length > 0;
 
             if (showVideos) {
-              return (
-                <div className="flex justify-center px-1" 
-                     style={{ 
-                       gap: videos.length >= 3 && videos.length <= 4 ? '1.5rem' : '1rem',
-                     }}>
-                  {videos.map((v, i) => (
-                    <a
-                      key={i}
-                      href={v.url}
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="block rounded-lg overflow-hidden flex-1"
-                      style={{ 
-                        border: `2px solid ${theme.primary}`,
-                        maxWidth: videos.length <= 3 ? '26%' : '19.8%',
-                      }}
-                    >
-                      <div className="relative">
-                        <img
-                          src={v.thumbnail_url}
-                          alt={`Video ${i+1}`}
-                          className="w-full object-cover aspect-[3/4]"
-                        />
-                        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-25">
-                          <svg 
-                            xmlns="http://www.w3.org/2000/svg" 
-                            fill="white" 
-                            viewBox="0 0 24 24" 
-                            className={`${videos.length >= 4 ? 'w-9 h-9' : 'w-10 h-10'}`}
-                          >
-                            <path d="M8 5v14l11-7L8 5z"/>
-                          </svg>
-                        </div>
-                      </div>
-                    </a>
-                  ))}
-                </div>
-              );
-            } else if (showImages) {
-              return (
-                <div className="grid grid-cols-3 gap-4">
-                  {data.portfolio_images?.map((image, index) => (
-                    <img 
-                      key={index}
-                      src={image}
-                      alt={`Portfolio ${index + 1}`}
-                      className="w-full h-[200px] object-cover rounded-[0.75rem] border-2 transition-transform hover:scale-[1.02]"
-                      style={{ borderColor: theme.border }}
-                    />
-                  ))}
-                </div>
-              );
-            } else {
-              return <div className="text-[0.9rem] italic text-gray-400">No portfolio content to display based on current visibility settings.</div>;
+              return <VideoShowcaseBlock videos={data.videos || []} sectionVisibility={section_visibility} />;
+            } /* else if (showImages) {
+              return <PortfolioGridBlock images={data.portfolio_images || []} sectionVisibility={section_visibility} />;
+            } */ else {
+              // If not showing videos (either section off or no videos), show fallback.
+              // If brandExperience is also off, this might feel odd, but it's tied to the parent visibility check.
+              return <div className="text-[0.9rem]">No video content to display.</div>; // Updated fallback text
             }
           })()}
         </div>
@@ -460,113 +396,39 @@ const MediaKitTemplateDefault: React.FC<MediaKitTemplateDefaultProps> = ({
 
       {/* Brand Collaborations - Restore bg-white */}
       {section_visibility.brandExperience && (
-        <div className="section bg-white rounded-[0.75rem] p-6 shadow-sm border" style={{ borderColor: theme.border }}>
-          <h2 className="font-['Playfair_Display'] text-[1.5rem] mb-6 flex items-center gap-2" style={{ color: theme.foreground }}>
-            <ShareIcon className="w-6 h-6" style={{ color: theme.primary }} />
-            Brand Experience
-          </h2>
-          <div className="brands-grid flex flex-wrap gap-4">
-            {(Array.isArray(data.brand_collaborations) && data.brand_collaborations.length > 0) 
-              ? data.brand_collaborations.map((brand, index) => (
-                  <div
-                    key={brand.id || index} 
-                    className="brand-tag font-medium px-5 py-3 rounded-lg"
-                    style={{ background: theme.primaryLight, color: theme.primary }}
-                  >
-                    {getCollabName(brand)}
-                  </div>
-                ))
-              : (
-                <div className="text-[0.9rem] italic text-gray-400">
-                  No brand collaborations to display
-                </div>
-              )
-            }
-          </div>
+        <div className="section bg-white rounded-[0.75rem] p-6 shadow-sm border">
+          <SectionTitle>Brand Experience</SectionTitle>
+          {(Array.isArray(data.brand_collaborations) && data.brand_collaborations.length > 0) ? (
+            <BrandCollaborationBlock brands={data.brand_collaborations} sectionVisibility={section_visibility} />
+          ) : (
+            <div className="text-[0.9rem]">No brand collaborations to display</div>
+          )}
         </div>
       )}
 
       {/* Services - Restore bg-white */}
       {section_visibility.servicesSkills && (
-        <div className="section bg-white rounded-[0.75rem] p-6 shadow-sm border" style={{ borderColor: theme.border }}>
-          <h2 className="font-['Playfair_Display'] text-[1.5rem] mb-6 flex items-center gap-2" style={{ color: theme.foreground }}>
-            <TagIcon className="w-6 h-6" style={{ color: theme.primary }} />
-            Services Offered
-          </h2>
-          
-          <ul className="services-list grid grid-cols-1 md:grid-cols-3 gap-4">
-            {(Array.isArray(data.services) && data.services.length > 0)
-              ? data.services.map((service, index) => (
-                  <li
-                    key={service.id || index} 
-                    className="service-tag font-medium p-4 rounded-[0.75rem] flex items-center gap-2"
-                    style={{ background: theme.primaryLight, color: theme.primary }}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 flex-shrink-0">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span className="text-container">{getServiceName(service)}</span>
-                  </li>
-                ))
-              : (
-                <li className="text-[0.9rem] italic text-gray-400 col-span-3">
-                  No services to display
-                </li>
-              )
-            }
-          </ul>
+        <div className="section bg-white rounded-[0.75rem] p-6 shadow-sm border">
+          <SectionTitle>Services Offered</SectionTitle>
+          {(Array.isArray(data.services) && data.services.length > 0) ? (
+            <ServiceListBlock services={data.services} sectionVisibility={section_visibility} />
+          ) : (
+            <div className="text-[0.9rem]">No services to display</div>
+          )}
         </div>
       )}
 
       {/* Contact Information - Restore bg-white */}
       {section_visibility.contactDetails && (
-        <div className="section bg-white rounded-[0.75rem] p-6 shadow-sm border" style={{ borderColor: theme.border }}>
-          <h2 className="font-['Playfair_Display'] text-[1.5rem] mb-6 flex items-center gap-2" style={{ color: theme.foreground }}>
-            <ShareIcon className="w-6 h-6" style={{ color: theme.primary }} />
-            Contact Information
-          </h2>
-          <div className="contact-info grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white p-4 rounded-[0.75rem] border" style={{ borderColor: theme.border }}>
-              <h4 className="text-[0.9rem] mb-2" style={{ color: theme.neutral }}>Email</h4>
-              <p>
-                <a 
-                  href={`mailto:${data.contact_email || data.email || 'contact@example.com'}`} 
-                  className="contact-info-text font-medium hover:underline block" 
-                  style={{ color: theme.primary }}
-                >
-                  {data.contact_email || data.email || 'contact@example.com'}
-                </a>
-              </p>
-            </div>
-            <div className="bg-white p-4 rounded-[0.75rem] border" style={{ borderColor: theme.border }}>
-              <h4 className="text-[0.9rem] mb-2" style={{ color: theme.neutral }}>Instagram</h4>
-              <p>
-                <a 
-                  href={`https://instagram.com/${data.instagram_handle ? data.instagram_handle.replace(/^@/, '') : 'username'}`} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="contact-info-text font-medium hover:underline block"
-                  style={{ color: theme.primary }}
-                >
-                  {'@' + (data.instagram_handle ? data.instagram_handle.replace(/^@/, '') : 'username')}
-                </a>
-              </p>
-            </div>
-            <div className="bg-white p-4 rounded-[0.75rem] border" style={{ borderColor: theme.border }}>
-              <h4 className="text-[0.9rem] mb-2" style={{ color: theme.neutral }}>TikTok</h4>
-              <p>
-                <a 
-                  href={`https://tiktok.com/@${data.tiktok_handle ? data.tiktok_handle.replace(/^@/, '') : 'username'}`} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="contact-info-text font-medium hover:underline block"
-                  style={{ color: theme.primary }}
-                >
-                  {'@' + (data.tiktok_handle ? data.tiktok_handle.replace(/^@/, '') : 'username')}
-                </a>
-              </p>
-            </div>
-          </div>
+        <div className="section bg-white rounded-[0.75rem] p-6 shadow-sm border">
+          <SectionTitle>Contact Information</SectionTitle>
+          <ContactInfoBlock 
+            email={data.contact_email || data.email}
+            website={data.website} // Add website if you want it here for Default template
+            // phone={data.contact_phone} // Add phone if you want it here
+            socialLinks={defaultContactSocialLinks} // Pass the constructed social links
+            sectionVisibility={section_visibility} 
+          />
         </div>
       )}
     </div>

@@ -1,7 +1,7 @@
 // src/lib/sections.ts
 import React from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { SectionVisibilityState, Profile, MediaKitData, ColorScheme, BrandCollaboration, Service, VideoItem, MediaKitStats } from './types';
+import type { SectionVisibilityState, Profile, MediaKitData, ColorScheme, BrandCollaboration, Service, VideoItem, MediaKitStats, EditorFormData } from './types';
 import {
   UserIcon,
   TagIcon,
@@ -17,19 +17,20 @@ import {
   SparklesIcon,
   ChatBubbleLeftRightIcon,
   PhotoIcon,
-  VideoCameraIcon
+  VideoCameraIcon,
+  UsersIcon,
 } from '@heroicons/react/24/outline';
 
 // Define EditorFormData here or import from types.ts if moved
 // For now, using 'any' as a placeholder to match existing formData prop type.
 // Ideally: import { EditorFormData } from './types'; (if moved there)
-type EditorFormDataPlaceholder = any;
+// type EditorFormDataPlaceholder = any;
 
 // Corrected ToastFunction type for variant
 type ToastFunction = (options: { title: string; description: string; variant?: 'default' | 'destructive' }) => void;
 
 export interface EditorFormProps {
-  formData: EditorFormDataPlaceholder;
+  formData: EditorFormData;
   profile?: Profile | null;
   mediaKitData?: MediaKitData | null;
   colorPresets: Array<{ id: string; label: string; name: string; colors: ColorScheme }>;
@@ -48,7 +49,7 @@ export interface EditorFormProps {
   // onSkillsChange is already present for ServicesSkillsForm
 
   // For ProfilePictureForm
-  setFormData?: React.Dispatch<React.SetStateAction<EditorFormDataPlaceholder>>;
+  setFormData?: React.Dispatch<React.SetStateAction<EditorFormData>>;
   supabase?: SupabaseClient;
   toast?: ToastFunction;
 
@@ -136,5 +137,12 @@ export const SECTIONS: SectionDefinition[] = [
     icon: ArrowTrendingUpIcon,
     formComponentName: 'PerformanceForm',
     tab: 'metrics',
+  },
+  {
+    key: 'audienceDemographics',
+    label: 'Audience Demographics',
+    icon: UsersIcon,
+    tab: 'metrics',
+    formComponentName: 'AudienceDemographicsForm',
   },
 ]; 

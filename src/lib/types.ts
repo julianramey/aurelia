@@ -54,11 +54,13 @@ export interface ColorScheme {
   accent_light: string;
   accent: string;
   primary?: string;
+  font?: string;
 }
 
 export interface VideoItem {
   url: string;
   thumbnail_url: string;
+  last_updated?: string;
 }
 
 export type EditableSection = 
@@ -70,7 +72,8 @@ export type EditableSection =
   | 'profilePicture' 
   | 'tiktokVideos' 
   | 'audienceStats' 
-  | 'performance';
+  | 'performance'
+  | 'audienceDemographics';
 export type SectionVisibilityState = Record<EditableSection, boolean>;
 
 export interface MediaKitData {
@@ -92,20 +95,26 @@ export interface MediaKitData {
   last_updated?: string;
 
   // Fields for Luxury Template
-  instagram_followers?: string | number;
-  tiktok_followers?: string | number;
-  youtube_followers?: string | number;
-  audience_age_range?: string;
-  audience_location_main?: string;
-  audience_gender_female?: string;
-  avg_video_views?: string | number;
-  avg_ig_reach?: string | number;
-  ig_engagement_rate?: string | number;
-  showcase_images?: string[];
+  website?: string;
+  contact_phone?: string;
   past_brands_text?: string;
   past_brands_image_url?: string;
   next_steps_text?: string;
-  contact_phone?: string;
+  showcase_images?: string[];
+  audience_age_range?: string;
+  audience_location_main?: string;
+  audience_gender_female?: string;
+  avg_video_views?: number;
+  avg_ig_reach?: number;
+  ig_engagement_rate?: number;
+  instagram_followers?: number;
+  tiktok_followers?: number;
+  youtube_followers?: number;
+
+  // Added based on usage in MediaKitEditor.tsx and MediaKit.tsx for data persistence
+  stats?: MediaKitStats[];
+  services?: Service[];
+  brand_collaborations?: BrandCollaboration[];
 }
 
 export interface Profile {
@@ -139,6 +148,7 @@ export interface TemplateTheme {
   neutral: string;
   border: string;
   cardBackground?: string;
+  font?: string;
 }
 
 // Data structure for the live preview in the editor and for template thumbnails
@@ -169,20 +179,63 @@ export type EditorPreviewData = Omit<Profile, 'created_at' | 'updated_at' | 'ser
   selected_template_id?: string;
 
   // Luxury Template Specific Fields (for comprehensive preview)
-  instagram_followers?: string | number;
-  tiktok_followers?: string | number;
-  youtube_followers?: string | number;
-  audience_age_range?: string;
-  audience_location_main?: string;
-  audience_gender_female?: string;
-  avg_video_views?: string | number;
-  avg_ig_reach?: string | number;
-  ig_engagement_rate?: string | number;
-  showcase_images?: string[];
+  website?: string;
+  contact_phone?: string;
   past_brands_text?: string;
   past_brands_image_url?: string;
   next_steps_text?: string;
-  contact_phone?: string;
+  showcase_images?: string[];
+  audience_age_range?: string;
+  audience_location_main?: string;
+  audience_gender_female?: string;
+  avg_video_views?: number;
+  avg_ig_reach?: number;
+  ig_engagement_rate?: number;
+  instagram_followers?: number;
+  tiktok_followers?: number;
+  youtube_followers?: number;
 
   media_kit_data: MediaKitData | null; 
 }; 
+
+// Moved from MediaKitEditor.tsx to avoid circular dependencies
+export interface EditorFormData {
+  brand_name: string;
+  tagline: string;
+  colors: ColorScheme;
+  font: string;
+  personal_intro: string;
+  instagram_handle: string;
+  tiktok_handle: string;
+  portfolio_images: string[];
+  brand_collaborations_text: string; // Raw text
+  services_text: string; // Raw text
+  skills_text: string; // Raw text
+  follower_count: string | number;
+  engagement_rate: string | number;
+  avg_likes: string | number;
+  reach: string | number;
+  email: string; // Contact email
+  profile_photo: string; // URL
+
+  // New fields for luxury template / other specific data
+  past_brands_text: string;
+  past_brands_image_url: string;
+  next_steps_text: string;
+  showcase_images: string[];
+  contact_phone: string;
+  website: string;
+
+  // Audience Demographics
+  audience_age_range: string;
+  audience_location_main: string;
+  audience_gender_female: string;
+
+  // Platform-specific and detailed metrics (ensure these are string | number for form input flexibility)
+  instagram_followers?: string | number;
+  tiktok_followers?: string | number;
+  youtube_followers?: string | number;
+  avg_video_views?: string | number;
+  avg_ig_reach?: string | number;
+  ig_engagement_rate?: string | number;
+} 

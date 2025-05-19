@@ -146,6 +146,7 @@ const emailTemplatesData: ModalEmailTemplate[] = [
   {
     id: 'template1',
     name: 'Warm Initial Introduction',
+    category: 'Initial Outreach',
     subject: 'Collaboration Inquiry: {{brandName}} x [Your Name/Brand]',
     body: `Hi {{brandName}} Team,\n\nMy name is [Your Name] and I'm a [Your Title/Niche] with a passion for [mention something relevant to the brand]. I've been a long-time admirer of {{brandName}} and how you [mention specific positive aspect].\n\nI believe my audience of [mention audience size/demographics] would resonate strongly with your products/message. I'd love to discuss potential collaboration opportunities.\n\nAre you available for a quick chat next week?\n\nBest,\n[Your Name]\n[Your Website/Social Link]`,
     icon: SparklesIcon,
@@ -153,6 +154,7 @@ const emailTemplatesData: ModalEmailTemplate[] = [
   {
     id: 'template6',
     name: 'Quick Intro: Shared Passion',
+    category: 'Initial Outreach',
     subject: 'Question re: {{brandName}} & [Shared Interest/Your Niche]',
     body: `Hi {{brandName}} Team,\n\nBig fan of your work, especially [mention something specific if possible]!\n\nAs a [Your Title/Niche] also passionate about [Shared Interest/Your Niche], I had a quick idea for how we might create something valuable together for both our audiences.\n\nWould you be open to a very brief chat sometime this week or next?\n\nCheers,\n[Your Name]\n[Your Website/Portfolio Link]`,
     icon: BoltIcon,
@@ -160,6 +162,7 @@ const emailTemplatesData: ModalEmailTemplate[] = [
   {
     id: 'template2',
     name: 'Gentle Follow-Up (No Response)',
+    category: 'Follow-Up',
     subject: 'Following Up: Collaboration Inquiry with {{brandName}}',
     body: `Hi {{brandName}} Team,\n\nI hope this email finds you well.\n\nI recently reached out regarding a potential collaboration between {{brandName}} and myself. I understand you're busy, so I wanted to gently follow up on my previous email.\n\nI'm still very enthusiastic about the possibility of working together and believe it could be a great fit. You can see more of my work here: [Your Portfolio/Media Kit Link].\n\nWould you be open to a brief discussion?\n\nThanks,\n[Your Name]`,
     icon: ArrowPathRoundedSquareIcon,
@@ -167,6 +170,7 @@ const emailTemplatesData: ModalEmailTemplate[] = [
   {
     id: 'template3',
     name: 'Creative Product Pitch Idea',
+    category: 'Initial Outreach',
     subject: 'Idea for {{brandName}}: Featuring [Specific Product]',
     body: `Hi {{brandName}} Team,\n\nI'm particularly excited about your new [Specific Product Name] and I have a creative idea for how I could feature it to my audience. [Briefly explain your content idea].\n\nI think this would genuinely engage my followers and showcase {{brandName}}'s [Specific Product] in a unique light.\n\nLet me know if this sounds interesting!\n\nCheers,\n[Your Name]`,
     icon: LightBulbIcon,
@@ -174,6 +178,7 @@ const emailTemplatesData: ModalEmailTemplate[] = [
   {
     id: 'template4',
     name: 'Campaign / Event Tie-In Idea',
+    category: 'Initial Outreach',
     subject: '{{brandName}} x [Your Name] for your [Event/Campaign Name]?',
     body: `Hi {{brandName}} Team,\n\nI saw you're currently running the [Event/Campaign Name] and it looks fantastic! I had an idea for how I could contribute to its success by [Your Idea related to the campaign].\n\nMy audience aligns well with [mention target of campaign], and I'd be thrilled to help amplify {{brandName}}'s message.\n\nBest regards,\n[Your Name]`,
     icon: MegaphoneIcon,
@@ -181,6 +186,7 @@ const emailTemplatesData: ModalEmailTemplate[] = [
   {
     id: 'template5',
     name: 'Casual Check-In / Fan Note',
+    category: 'Follow-Up',
     subject: 'Quick hello from a {{brandName}} fan!',
     body: `Hey {{brandName}} Team,\n\nJust wanted to send a quick note to say I continue to be impressed by {{brandName}}'s work in [Brand's Industry/Niche].\n\nIf you ever explore collaborations with creators like me, I'd love to be considered!\n\nKeep up the great work,\n[Your Name]`,
     icon: HandThumbUpIcon,
@@ -588,62 +594,78 @@ const OutreachTrackerComponent = ({ isPreview = false }: { isPreview?: boolean }
            {/* Updated Email Templates Section */}
            <div className="mt-12">
               <h2 className="text-2xl font-display font-medium text-charcoal mb-6">Available Email Templates</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {emailTemplates.map(template => {
-                  const IconComponent = template.icon;
-                  return (
-                    <div 
-                        key={template.id} 
-                        className="group bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 ease-in-out transform hover:-translate-y-1 cursor-pointer overflow-hidden border border-blush/30 flex flex-col"
-                        onClick={() => openEditTemplateModal(template)}    
-                    >
-                        {/* Animated Top Bar */}
-                        <div className="h-1.5 bg-[rgb(229,218,248)] relative overflow-hidden"> {/* Specific lavender purple */}
-                            <div className="absolute top-0 left-0 w-full h-full 
-                                        bg-gradient-to-r from-transparent via-white/80 to-transparent 
-                                        transform -translate-x-full group-hover:translate-x-full 
-                                        transition-transform duration-700 ease-out">
+              {Object.entries(
+                emailTemplates.reduce((acc, template) => {
+                  const category = template.category || 'Uncategorized';
+                  if (!acc[category]) {
+                    acc[category] = [];
+                  }
+                  acc[category].push(template);
+                  return acc;
+                }, {} as Record<string, ModalEmailTemplate[]>)
+              ).map(([category, templatesInCategory]) => (
+                <div key={category} className="mb-10">
+                  <h3 className="text-xl font-display font-medium text-charcoal mb-5 border-b border-blush/30 pb-2">
+                    {category}
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {templatesInCategory.map(template => {
+                      const IconComponent = template.icon;
+                      return (
+                        <div 
+                            key={template.id} 
+                            className="group bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 ease-in-out transform hover:-translate-y-1 cursor-pointer overflow-hidden border border-blush/30 flex flex-col"
+                            onClick={() => openEditTemplateModal(template)}    
+                        >
+                            {/* Animated Top Bar */}
+                            <div className="h-1.5 bg-[rgb(229,218,248)] relative overflow-hidden"> {/* Specific lavender purple */}
+                                <div className="absolute top-0 left-0 w-full h-full 
+                                            bg-gradient-to-r from-transparent via-white/80 to-transparent 
+                                            transform -translate-x-full group-hover:translate-x-full 
+                                            transition-transform duration-700 ease-out">
+                                </div>
                             </div>
-                        </div>
 
-                        <div className="p-5 flex-grow flex flex-col justify-between">
-                            {/* Top Section: Icon and Name */}
-                            <div className="flex items-center space-x-4 mb-4">
-                                {IconComponent && (
-                                    <div className="p-3 rounded-full bg-[rgb(229,218,248)] flex-shrink-0"> {/* Specific lavender purple */}
-                                        <IconComponent 
-                                            className="h-8 w-8 text-purple-800" /* Darker purple for icon on lavender */
-                                            aria-hidden="true" 
-                                        />
+                            <div className="p-5 flex-grow flex flex-col justify-between">
+                                {/* Top Section: Icon and Name */}
+                                <div className="flex items-center space-x-4 mb-4">
+                                    {IconComponent && (
+                                        <div className="p-3 rounded-full bg-[rgb(229,218,248)] flex-shrink-0"> {/* Specific lavender purple */}
+                                            <IconComponent 
+                                                className="h-8 w-8 text-purple-800" /* Darker purple for icon on lavender */
+                                                aria-hidden="true" 
+                                            />
+                                        </div>
+                                    )}
+                                    <h3 className="font-semibold text-charcoal text-lg truncate flex-grow" title={template.name}>
+                                        {template.name}
+                                    </h3>
+                                </div>
+                                
+                                {/* Middle Section: Subject Preview */}
+                                <div className="mb-4">
+                                    <p 
+                                        className="text-sm text-taupe line-clamp-3" 
+                                        title={template.subject.replace(/{{brandName}}/g, "[Brand Name]")}
+                                    >
+                                       <span className="font-medium text-charcoal/80">Subject:</span> <span className="italic">{template.subject.replace(/{{brandName}}/g, "[Brand Name]")}</span>
+                                    </p>
+                                </div>
+                                
+                                {/* Bottom Section: Edit Hint */}
+                                <div className="mt-auto pt-4 border-t border-blush/20 flex justify-end items-center">
+                                    <div className="flex items-center text-sm text-charcoal group-hover:font-semibold transition-all">
+                                        <span>Edit Template</span>
+                                        <PencilSquareIcon className="ml-2 h-5 w-5" />
                                     </div>
-                                )}
-                                <h3 className="font-semibold text-charcoal text-lg truncate flex-grow" title={template.name}>
-                                    {template.name}
-                                </h3>
-                            </div>
-                            
-                            {/* Middle Section: Subject Preview */}
-                            <div className="mb-4">
-                                <p 
-                                    className="text-sm text-taupe line-clamp-3" 
-                                    title={template.subject.replace(/{{brandName}}/g, "[Brand Name]")}
-                                >
-                                   <span className="font-medium text-charcoal/80">Subject:</span> <span className="italic">{template.subject.replace(/{{brandName}}/g, "[Brand Name]")}</span>
-                                </p>
-                            </div>
-                            
-                            {/* Bottom Section: Edit Hint */}
-                            <div className="mt-auto pt-4 border-t border-blush/20 flex justify-end items-center">
-                                <div className="flex items-center text-sm text-charcoal group-hover:font-semibold transition-all">
-                                    <span>Edit Template</span>
-                                    <PencilSquareIcon className="ml-2 h-5 w-5" />
                                 </div>
                             </div>
                         </div>
-                    </div>
-                  );
-                })}
-              </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
         </div>
       </main>

@@ -1,8 +1,22 @@
 import React from 'react';
 import type { Profile, ColorScheme, MediaKitStats, BrandCollaboration, Service, PortfolioItem, VideoItem, SectionVisibilityState, EditorPreviewData, TemplateTheme as ImportedTemplateTheme } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Example UI import
+import type { SocialLinkItem } from '@/components/media-kit-blocks/SocialLinksBlock';
 import { AtSymbolIcon, PhoneIcon } from '@heroicons/react/24/solid'; // Example icons
 import PreviewLoadingFallback from '@/components/PreviewLoadingFallback'; // Import the loader
+import { formatNumber } from '@/lib/utils'; // Import the shared formatNumber
+
+// Import Blocks
+import { SectionTitle } from '@/components/media-kit-blocks/SectionTitle';
+import ProfileHeaderBlock from '@/components/media-kit-blocks/ProfileHeaderBlock';
+import PersonalIntroBlock from '@/components/media-kit-blocks/PersonalIntroBlock';
+import StatsGridBlock from '@/components/media-kit-blocks/StatsGridBlock';
+import AudienceDemographicsBlock from '@/components/media-kit-blocks/AudienceDemographicsBlock';
+import SkillsListBlock from '@/components/media-kit-blocks/SkillsListBlock';
+import PortfolioGridBlock from '@/components/media-kit-blocks/PortfolioGridBlock';
+import VideoShowcaseBlock from '@/components/media-kit-blocks/VideoShowcaseBlock';
+import BrandCollaborationBlock from '@/components/media-kit-blocks/BrandCollaborationBlock';
+import ServiceListBlock from '@/components/media-kit-blocks/ServiceListBlock';
+import ContactInfoBlock from '@/components/media-kit-blocks/ContactInfoBlock';
 
 // Define the structure of the nested media_kit_data if it's an object
 type MediaKitDataObject = {
@@ -51,15 +65,10 @@ export interface AestheticSpecificData {
   media_kit_data: null; // Placeholder usually has this as null
 }
 
-// Theme type for this specific template component (props.theme)
-export interface AestheticSpecificTheme extends ImportedTemplateTheme {
-  // any Aesthetic-specific theme properties
-}
-
 export interface MediaKitTemplateAestheticProps {
   isPreview?: boolean;
   data: EditorPreviewData | null;
-  theme: AestheticSpecificTheme;
+  theme: ImportedTemplateTheme;
   loading?: boolean; 
   section_visibility: SectionVisibilityState;
 }
@@ -118,7 +127,8 @@ export const AestheticGetPreviewData = (): AestheticSpecificData => ({
   ],
   section_visibility: {
     profileDetails: true, brandExperience: true, servicesSkills: true, socialMedia: true, 
-    contactDetails: true, profilePicture: true, tiktokVideos: true, audienceStats: true, performance: true
+    contactDetails: true, profilePicture: true, tiktokVideos: true, audienceStats: true, performance: true,
+    audienceDemographics: true,
   },
   media_kit_data: null,
 });
@@ -145,7 +155,7 @@ export const AestheticGetThumbnailData = (): EditorPreviewData => ({
   portfolio_images: [], 
   videos: [], 
   contact_email: 'aesthetic_thumb@example.com',
-  section_visibility: { profileDetails: true, profilePicture: true, socialMedia: true, audienceStats: true, performance: true, tiktokVideos: true, brandExperience: true, servicesSkills: true, contactDetails: true },
+  section_visibility: { profileDetails: true, profilePicture: true, socialMedia: true, audienceStats: true, performance: true, tiktokVideos: true, brandExperience: true, servicesSkills: true, contactDetails: true, audienceDemographics: true },
   follower_count: 200,
   engagement_rate: 2,
   avg_likes: 20,
@@ -163,7 +173,7 @@ export const AestheticGetThumbnailData = (): EditorPreviewData => ({
 });
 
 // --- Existing Placeholder Theme Function (ensure it uses the specific theme type) ---
-export const AestheticTheme = (): AestheticSpecificTheme => ({
+export const AestheticTheme = (): ImportedTemplateTheme => ({
   background: '#FDFBF6', 
   foreground: '#3C3633', 
   primary: '#A99985',
@@ -217,158 +227,140 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
   const videos: VideoItem[] = (mediaKitData as MediaKitDataObject)?.videos ?? profile?.videos ?? [];
   const skills: string[] = (mediaKitData as MediaKitDataObject)?.skills ?? profile?.skills ?? [];
 
-  // --- Component Structure ---
-  // This is a starting point. We will refine layout, styling, and add more aesthetic elements.
+  const aestheticSocialLinks: SocialLinkItem[] = [];
+  if (profile.instagram_handle) {
+    aestheticSocialLinks.push({ type: 'instagram', url: `https://instagram.com/${profile.instagram_handle.replace(/^@/, '')}`, label: 'Instagram' });
+  }
+  if (profile.tiktok_handle) {
+    aestheticSocialLinks.push({ type: 'tiktok', url: `https://tiktok.com/@${profile.tiktok_handle.replace(/^@/, '')}`, label: 'TikTok' });
+  }
+  if (contactEmail) { // Add email to social links if present
+    aestheticSocialLinks.push({ type: 'email', url: `mailto:${contactEmail}`, label: 'Email' });
+  }
+  if (profile.website) { // Add website if present
+    aestheticSocialLinks.push({ type: 'website', url: profile.website, label: 'Website' });
+  }
 
+  // --- Component Structure ---
   return (
     <div
-      className="font-sans max-w-4xl mx-auto p-8 shadow-xl rounded-lg transition-colors duration-300"
-      style={{ backgroundColor: theme.background, color: theme.foreground }}
+      className="font-sans max-w-4xl mx-auto p-4 md:p-8 shadow-xl rounded-lg transition-colors duration-300"
+      style={{ backgroundColor: theme.background, color: theme.foreground, fontFamily: data.font || theme.font || 'Poppins, sans-serif' }}
     >
       {/* --- Header Section --- */}
-      {(section_visibility.profileDetails || section_visibility.profilePicture) && (
-        <header className="flex flex-col md:flex-row items-center justify-between mb-12 gap-8 border-b pb-8" style={{ borderColor: theme.border }}>
-          {section_visibility.profileDetails && (
-            <div className="text-center md:text-left">
-              <h1 className="text-4xl font-bold mb-2" style={{ color: theme.primary }}>
-                {brandName}
-              </h1>
-              <p className="text-lg italic" style={{ color: theme.secondary }}>
-                {tagline}
-              </p>
-            </div>
-          )}
-          {section_visibility.profilePicture && profilePhoto && (
-            <img
-              src={profilePhoto}
-              alt={`${brandName} profile`}
-              className="w-32 h-32 rounded-full object-cover border-4 shadow-md"
-              style={{ borderColor: theme.accent }}
-            />
-          )}
-        </header>
+      {section_visibility.profileDetails && (
+        <ProfileHeaderBlock
+          avatarUrl={profilePhoto}
+          name={brandName}
+          subheading={tagline}
+          socialLinks={aestheticSocialLinks}
+          sectionVisibility={section_visibility}
+        />
       )}
 
       {/* --- Main Content Grid --- */}
-      <main className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {/* Left Column (About, Stats, Skills) */}
-        <section className="md:col-span-1 space-y-8">
+      <main className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 mt-10 md:mt-12">
+        {/* Left Column (About, Stats, Audience Insights, Skills) */}
+        <section className="md:col-span-1 space-y-6 md:space-y-8">
           {/* About Me */}
-          {section_visibility.profileDetails && (
-            <div className="p-6 rounded-lg" style={{ backgroundColor: theme.primaryLight + '30' }}>
-              <h2 className="text-2xl font-semibold mb-4 border-b pb-2" style={{ borderColor: theme.border, color: theme.primary }}>About Me</h2>
-              <p className="text-base leading-relaxed" style={{ color: theme.foreground }}>
-                {personalIntro || 'Introduce yourself here. Talk about your journey, your passion, and what makes your content unique.'}
-              </p>
+          {section_visibility.profileDetails && personalIntro && (
+            <div className="p-4 md:p-6 rounded-lg" style={{ backgroundColor: 'var(--accent-light)', color: '#000000' }}>
+              <SectionTitle>About Me</SectionTitle>
+              <PersonalIntroBlock text={personalIntro} sectionVisibility={section_visibility} />
             </div>
           )}
 
           {/* Stats */}
-          {(section_visibility.audienceStats || section_visibility.performance) && stats.length > 0 && (
-            <div className="p-6 rounded-lg border" style={{ borderColor: theme.border }}>
-              <h2 className="text-2xl font-semibold mb-4" style={{ color: theme.primary }}>Key Stats</h2>
-              <div className="space-y-3">
-                {section_visibility.audienceStats && (
-                  <>
-                    <div className="flex justify-between items-baseline text-sm">
-                      <span style={{ color: theme.secondary }}>Followers:</span>
-                      <span className="font-medium text-base" style={{ color: theme.foreground }}>{formatNumber(stats[0]?.follower_count) || 'N/A'}</span>
-                    </div>
-                    <div className="flex justify-between items-baseline text-sm">
-                      <span style={{ color: theme.secondary }}>Engagement:</span>
-                      <span className="font-medium text-base" style={{ color: theme.foreground }}>{stats[0]?.engagement_rate ? `${stats[0]?.engagement_rate}%` : 'N/A'}</span>
-                    </div>
-                  </>
-                )}
-                {section_visibility.performance && (
-                  <>
-                    <div className="flex justify-between items-baseline text-sm">
-                      <span style={{ color: theme.secondary }}>Avg Likes:</span>
-                      <span className="font-medium text-base" style={{ color: theme.foreground }}>{formatNumber(stats[0]?.avg_likes) || 'N/A'}</span>
-                    </div>
-                    <div className="flex justify-between items-baseline text-sm">
-                      <span style={{ color: theme.secondary }}>Reach:</span>
-                      <span className="font-medium text-base" style={{ color: theme.foreground }}>{formatNumber(stats[0]?.weekly_reach) || 'N/A'}</span>
-                    </div>
-                  </>
-                )}
-              </div>
+          {(section_visibility.audienceStats || section_visibility.performance) && (
+            <div className="p-4 md:p-6 rounded-lg overflow-hidden" style={{ backgroundColor: 'var(--accent-light)', color: '#000000' }}>
+              <h3 className="text-xl md:text-2xl font-semibold mb-4 text-center" style={{ color: 'var(--accent)', fontFamily: "'Playfair Display', serif" }}>Key Stats</h3>
+              <StatsGridBlock
+                stats={(() => {
+                  const displayStats = [];
+                  if (profile.follower_count != null && String(profile.follower_count).trim() !== '') {
+                    displayStats.push({ label: 'Followers', value: profile.follower_count });
+                  }
+                  if (profile.avg_likes != null && String(profile.avg_likes).trim() !== '') {
+                    displayStats.push({ label: 'Avg Likes', value: profile.avg_likes });
+                  }
+                  if (profile.engagement_rate != null && String(profile.engagement_rate).trim() !== '') {
+                    // Ensure % is appended if not already present and value is numeric
+                    const erValue = String(profile.engagement_rate);
+                    const displayER = /%$/.test(erValue) || isNaN(parseFloat(erValue)) ? erValue : `${parseFloat(erValue)}%`;
+                    displayStats.push({ label: 'Engagement Rate', value: displayER });
+                  }
+                  if (profile.reach != null && String(profile.reach).trim() !== '') {
+                    displayStats.push({ label: 'Weekly Reach', value: profile.reach });
+                  }
+                  
+                  // Optionally, if you still want to show platform-specific stats from profile.stats
+                  // WHEN NOT IN EDITOR PREVIEW (i.e., on the actual live media kit page),
+                  // you might add a condition here. For now, this focuses on editor preview accuracy.
+
+                  // Example of how you might re-introduce profile.stats if needed,
+                  // perhaps by checking a prop that indicates if it's a live view vs editor.
+                  // For now, sticking to the user's Option 2 for clarity.
+                  /*
+                  if (profile.stats && profile.stats.length > 0) {
+                    profile.stats.forEach(s => {
+                      // ... (add logic to push stats from profile.stats, avoiding duplicates)
+                    });
+                  }
+                  */
+                  return displayStats;
+                })()}
+                sectionVisibility={section_visibility} // Pass section_visibility if StatsGridBlock uses it
+              />
             </div>
           )}
 
+          {/* Audience Demographics Section */}
+          {section_visibility.audienceDemographics && (profile.audience_age_range || profile.audience_location_main || profile.audience_gender_female) && (
+            <div className="p-4 md:p-6 rounded-lg overflow-hidden" style={{ backgroundColor: 'var(--accent-light)', color: '#000000' }}>
+              <h3 className="text-2xl md:text-3xl font-semibold mb-4 text-center" style={{ color: 'var(--accent)', fontFamily: "'Playfair Display', serif" }}>Audience Insights</h3>
+              <AudienceDemographicsBlock 
+                ageRange={profile.audience_age_range}
+                location={profile.audience_location_main}
+                femalePct={profile.audience_gender_female}
+                sectionVisibility={section_visibility}
+              />
+            </div>
+          )}
+      
           {/* Skills */}
           {section_visibility.servicesSkills && skills.length > 0 && (
-             <div className="p-6 rounded-lg border" style={{ borderColor: theme.border }}>
-              <h2 className="text-2xl font-semibold mb-4" style={{ color: theme.primary }}>Skills</h2>
-               <div className="flex flex-wrap gap-2">
-                 {skills.map((skill, index) => (
-                   <span key={index} className="px-3 py-1 rounded-full text-xs font-medium" style={{ backgroundColor: theme.accent + '20', color: theme.accent }}>
-                     {skill}
-                   </span>
-                 ))}
-               </div>
+             <div className="p-4 md:p-6 rounded-lg shadow-md" style={{ backgroundColor: 'var(--accent-light)', borderColor: 'var(--border)', color: '#000000' }}>
+              <SectionTitle>Skills</SectionTitle>
+               <SkillsListBlock skills={skills} sectionVisibility={section_visibility} />
             </div>
           )}
         </section>
 
-        {/* Right Column (Portfolio, Videos, Collaborations, Services) */}
-        <section className="md:col-span-2 space-y-8">
-          {/* Portfolio Images - Show if brandExperience or tiktokVideos is on, and images exist */}
-          {(section_visibility.brandExperience || section_visibility.tiktokVideos) && portfolioImages.length > 0 && (
-            <div>
-              <h2 className="text-2xl font-semibold mb-4" style={{ color: theme.primary }}>Portfolio</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {portfolioImages.map((imgUrl, index) => (
-                  <img
-                    key={index}
-                    src={imgUrl}
-                    alt={`Portfolio image ${index + 1}`}
-                    className="rounded-lg object-cover aspect-square transition-transform hover:scale-105"
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
+        {/* Right Column (Videos, Collaborations, Services) */}
+        <section className="md:col-span-2 space-y-6 md:space-y-8">
+          {/* Portfolio Images Section REMOVED */}
+          
           {/* TikTok Videos */}
           {section_visibility.tiktokVideos && videos.length > 0 && (
-            <div>
-              <h2 className="text-2xl font-semibold mb-4" style={{ color: theme.primary }}>Featured Videos</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {videos.map((video, index) => (
-                  <a key={index} href={video.url} target="_blank" rel="noopener noreferrer" className="block rounded-lg overflow-hidden group transition-shadow hover:shadow-lg">
-                    <img
-                      src={video.thumbnail_url || '/placeholder-video.png'} 
-                      alt={`Video thumbnail ${index + 1}`}
-                      className="object-cover w-full h-full aspect-video group-hover:opacity-80"
-                    />
-                  </a>
-                ))}
-              </div>
+            <div className="p-4 md:p-6 rounded-lg shadow-md" style={{ backgroundColor: 'var(--accent-light)', borderColor: 'var(--border)', color: '#000000' }}>
+              <SectionTitle>Featured Videos</SectionTitle>
+              <VideoShowcaseBlock videos={videos} sectionVisibility={section_visibility} />
             </div>
           )}
 
           {/* Collaborations */}
           {section_visibility.brandExperience && collaborations.length > 0 && (
-            <div className="p-6 rounded-lg border" style={{ borderColor: theme.border }}>
-              <h2 className="text-2xl font-semibold mb-4" style={{ color: theme.primary }}>Brand Collaborations</h2>
-              <ul className="list-disc list-inside space-y-1" style={{ color: theme.secondary }}>
-                {collaborations.map((collab, index) => (
-                  <li key={collab.id || index}><span style={{ color: theme.foreground }}>{collab.brand_name}</span></li>
-                ))}
-              </ul>
+            <div className="p-4 md:p-6 rounded-lg shadow-md" style={{ backgroundColor: 'var(--accent-light)', borderColor: 'var(--border)', color: '#000000' }}>
+              <SectionTitle>Brand Collaborations</SectionTitle>
+              <BrandCollaborationBlock brands={collaborations} sectionVisibility={section_visibility} />
             </div>
           )}
 
           {/* Services */}
           {section_visibility.servicesSkills && services.length > 0 && (
-            <div className="p-6 rounded-lg border" style={{ borderColor: theme.border }}>
-              <h2 className="text-2xl font-semibold mb-4" style={{ color: theme.primary }}>Services Offered</h2>
-              <ul className="list-disc list-inside space-y-1" style={{ color: theme.secondary }}>
-                {services.map((service, index) => (
-                  <li key={service.id || index}><span style={{ color: theme.foreground }}>{service.service_name}</span></li>
-                ))}
-              </ul>
+            <div className="p-4 md:p-6 rounded-lg shadow-md" style={{ backgroundColor: 'var(--accent-light)', borderColor: 'var(--border)', color: '#000000' }}>
+              <SectionTitle>Services Offered</SectionTitle>
+              <ServiceListBlock services={services} sectionVisibility={section_visibility} />
             </div>
           )}
         </section>
@@ -376,18 +368,15 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
 
       {/* --- Footer / Contact --- */}
       {section_visibility.contactDetails && (
-        <footer className="mt-12 pt-8 border-t text-center" style={{ borderColor: theme.border }}>
-          <h2 className="text-2xl font-semibold mb-4" style={{ color: theme.primary }}>Get In Touch</h2>
-          {contactEmail && (
-            <a
-              href={`mailto:${contactEmail}`}
-              className="inline-flex items-center gap-2 px-6 py-2 rounded-full transition-colors duration-200 hover:text-white"
-              style={{ backgroundColor: theme.accent, color: getContrast(theme.accent) }}
-            >
-              <AtSymbolIcon className="w-5 h-5" />
-              Contact Me
-            </a>
-          )}
+        <footer className="mt-10 md:mt-12 pt-6 md:pt-8 border-t text-center" style={{ borderColor: theme.border }}>
+          <SectionTitle>Get In Touch</SectionTitle>
+          <ContactInfoBlock
+            email={contactEmail}
+            phone={profile.contact_phone} 
+            website={profile.website}
+            socialLinks={aestheticSocialLinks.filter(link => link.type !== 'website' && link.type !== 'email')}
+            sectionVisibility={section_visibility}
+          />
         </footer>
       )}
     </div>
@@ -409,18 +398,6 @@ const getContrast = (hex: string): string => {
     console.error("Error parsing hex color for contrast:", hex, e);
     return '#000000'; // Fallback on error
   }
-};
-
-// Utility function to format large numbers (copied from Default template)
-const formatNumber = (num: number | string | undefined): string => {
-  if (num === undefined || num === null) return '0';
-  const value = typeof num === 'string' ? parseFloat(num) : num;
-  if (isNaN(value)) return '0';
-  if (value >= 1000000000) return (value / 1000000000).toFixed(1).replace(/\.0$/, '') + 'B';
-  if (value >= 1000000) return (value / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
-  if (value >= 1000) return (value / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
-  // Use toLocaleString for numbers less than 1000 to get commas
-  return value.toLocaleString(); 
 };
 
 export default MediaKitTemplateAesthetic; 

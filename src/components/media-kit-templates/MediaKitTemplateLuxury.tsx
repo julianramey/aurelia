@@ -1,6 +1,27 @@
 import React from 'react';
 import type { Profile, VideoItem, Service, BrandCollaboration, MediaKitStats, ColorScheme, SectionVisibilityState, EditorPreviewData, TemplateTheme as BaseTemplateTheme } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import type { SocialLinkItem } from '@/components/media-kit-blocks/SocialLinksBlock';
+import { cn, formatNumber } from '@/lib/utils';
+import PreviewLoadingFallback from '@/components/PreviewLoadingFallback';
+
+// Import Blocks
+import { SectionTitle } from '@/components/media-kit-blocks/SectionTitle';
+import ProfileHeaderBlock from '@/components/media-kit-blocks/ProfileHeaderBlock';
+import PersonalIntroBlock from '@/components/media-kit-blocks/PersonalIntroBlock';
+import StatsGridBlock from '@/components/media-kit-blocks/StatsGridBlock';
+import AudienceDemographicsBlock from '@/components/media-kit-blocks/AudienceDemographicsBlock';
+import SkillsListBlock from '@/components/media-kit-blocks/SkillsListBlock';
+import PortfolioGridBlock from '@/components/media-kit-blocks/PortfolioGridBlock';
+import VideoShowcaseBlock from '@/components/media-kit-blocks/VideoShowcaseBlock';
+import ShowcaseImagesBlock from '@/components/media-kit-blocks/ShowcaseImagesBlock';
+import BrandCollaborationBlock from '@/components/media-kit-blocks/BrandCollaborationBlock';
+import ServiceListBlock from '@/components/media-kit-blocks/ServiceListBlock';
+import ContactInfoBlock from '@/components/media-kit-blocks/ContactInfoBlock';
+
+// Icons - Minimal necessary icons if any are used directly in this template after block refactoring.
+// Most icons should now be encapsulated within their respective blocks.
+// Specific icons for createPlatformStat if they are not passed as components:
+import { VideoCameraIcon, UsersIcon, HeartIcon, PlayCircleIcon } from '@heroicons/react/24/outline';
 
 // Data structure for the Luxury Media Kit Template
 // This should align with TemplateData from Default and include specifics from mediakitluxury.html
@@ -52,6 +73,8 @@ export interface LuxurySpecificData {
   section_visibility?: SectionVisibilityState;
   videos?: VideoItem[]; // Added for consistency
   brand_collaborations?: BrandCollaboration[]; // Added for consistency
+  instagram_handle?: string; // Added for social links
+  tiktok_handle?: string;    // Added for social links
 }
 
 // Theme for the Luxury template, mapping to its specific color needs
@@ -124,6 +147,7 @@ export const LuxuryGetPreviewData = (): LuxurySpecificData => ({
   section_visibility: {
     profileDetails: true, brandExperience: true, servicesSkills: true, socialMedia: true,
     contactDetails: true, profilePicture: true, tiktokVideos: true, audienceStats: true, performance: true,
+    audienceDemographics: true,
   },
   videos: [
     { url: '#', thumbnail_url: 'https://placehold.co/300x400/EEEEEE/757575?text=Video+1' },
@@ -135,6 +159,8 @@ export const LuxuryGetPreviewData = (): LuxurySpecificData => ({
       { id: 'collab2', profile_id: '', brand_name: 'Four Seasons' },
       { id: 'collab3', profile_id: '', brand_name: 'Rolex' },
   ],
+  instagram_handle: '@luxe_style_official',
+  tiktok_handle: '@luxe_style_official_tok',
 });
 
 // --- New Thumbnail Data Function ---
@@ -173,6 +199,7 @@ export const LuxuryGetThumbnailData = (): EditorPreviewData => ({
   section_visibility: { /* provide a default SectionVisibilityState */
     profileDetails: true, brandExperience: true, servicesSkills: true, socialMedia: true,
     contactDetails: true, profilePicture: true, tiktokVideos: false, audienceStats: true, performance: true,
+    audienceDemographics: true,
   },
   follower_count: 1200000,
   engagement_rate: 3.5,
@@ -182,15 +209,15 @@ export const LuxuryGetThumbnailData = (): EditorPreviewData => ({
   media_kit_data: null, // Placeholder for MediaKitData | null
 
   // Luxury Specific Fields (if they are part of EditorPreviewData)
-  instagram_followers: '1.2M',
-  tiktok_followers: '500K',
-  youtube_followers: '250K',
+  instagram_followers: 1200000,
+  tiktok_followers: 500000,
+  youtube_followers: 250000,
   audience_age_range: '28 - 55',
   audience_location_main: '75% USA & EUROPE',
   audience_gender_female: '70% FEMALE',
-  avg_video_views: '150K',
-  avg_ig_reach: '300K',
-  ig_engagement_rate: '3.5%',
+  avg_video_views: 150000,
+  avg_ig_reach: 300000,
+  ig_engagement_rate: 3.5,
   showcase_images: [],
   past_brands_text: '',
   past_brands_image_url: '',
@@ -218,389 +245,312 @@ export const LuxuryTheme = (): LuxurySpecificTheme => ({
   borderLight: '#F0F0F0', 
 });
 
-const formatStat = (value?: string | number) => {
-  if (value === undefined || value === null || String(value).trim() === '') return '-';
-  return String(value);
+// Helper for converting platform specific followers to a generic stat item
+const createPlatformStat = (label: string, value?: string | number, icon?: React.ReactNode) => {
+  if (value === undefined || value === null || String(value).trim() === '') return null;
+  return { label, value, icon }; // formatStat will be applied by StatsGridBlock
 };
 
-// Helper component for Stat items
-const StatItem: React.FC<{ value?: string | number; label: string; icon?: React.ReactNode; className?: string }> = ({ value, label, icon, className }) => (
-  <div 
-    className={cn(
-        "text-center p-6 md:p-8 rounded-xl group transition-all duration-300 ease-in-out hover:shadow-2xl hover:-translate-y-1",
-        className
-    )}
-    style={{ 
-      backgroundColor: 'var(--card-bg)', 
-      boxShadow: '0 8px 25px rgba(0,0,0,0.07)' // Softer shadow as per previous iteration
-    }}
-  >
-    {icon && (
-      <div 
-        className="mb-3 text-4xl mx-auto w-16 h-16 flex items-center justify-center rounded-full transition-transform duration-300 ease-in-out group-hover:rotate-[5deg]" 
-        style={{ backgroundColor: 'color-mix(in srgb, var(--accent) 20%, transparent)', color: 'var(--accent)' }}
-      >
-        {icon}
-      </div>
-    )}
-    <div className="text-3xl md:text-5xl font-bold" style={{ color: 'var(--primary)', fontFamily: "'Poppins', sans-serif" }}>{formatStat(value)}</div>
-    <div className="text-md md:text-lg font-light tracking-wider uppercase" style={{ color: 'var(--text-secondary)', fontFamily: "'Poppins', sans-serif" }}>{label}</div>
-  </div>
-);
+// ADD this default visibility object
+const defaultSectionVisibility: SectionVisibilityState = {
+  profileDetails: true,
+  profilePicture: true,
+  socialMedia: true,
+  audienceStats: true,
+  performance: true,
+  audienceDemographics: true,
+  tiktokVideos: true,
+  brandExperience: true,
+  servicesSkills: true,
+  contactDetails: true,
+};
 
 export function MediaKitTemplateLuxury({ 
   data, 
   theme, 
   loading,
-  section_visibility,
-}: LuxuryProps) {
+  section_visibility = defaultSectionVisibility
+}: LuxuryProps): React.ReactElement | null {
+
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center"><p>Loading Luxury Media Kit...</p></div>;
+    return (
+      <div className="w-full min-h-[700px] flex items-center justify-center rounded-lg" style={{ backgroundColor: theme.background }}>
+        <PreviewLoadingFallback />
+      </div>
+    );
   }
 
   if (!data) {
-    return <div className="min-h-screen flex items-center justify-center"><p>No data available for this media kit.</p></div>;
+    return (
+      <div className="w-full min-h-[700px] flex items-center justify-center p-8" style={{ backgroundColor: theme.background }}>
+        <p style={{ color: theme.foreground }}>No data available for this media kit.</p>
+      </div>
+    );
   }
-  
-  const templateTheme = theme as LuxurySpecificTheme; // Cast for specific luxury theme properties
 
-  const cssVars = {
-    '--primary': templateTheme.primary,
-    '--accent': templateTheme.accent,
-    '--bg': templateTheme.background,
-    '--card-bg': templateTheme.cardBackground || templateTheme.background,
-    '--text-primary': templateTheme.foreground,
-    '--text-secondary': templateTheme.secondary,
-    '--text-muted': templateTheme.neutral,
-    '--border': templateTheme.border,
-  } as React.CSSProperties;
+  const {
+    username,
+    brand_name,
+    full_name,
+    avatar_url,
+    tagline,
+    personal_intro,
+    instagram_followers,
+    tiktok_followers,
+    youtube_followers,
+    audience_age_range,
+    audience_location_main,
+    audience_gender_female,
+    avg_video_views,
+    avg_ig_reach,
+    ig_engagement_rate,
+    contact_email,
+    website,
+    contact_phone,
+    portfolio_images = [],
+    showcase_images = [],
+    services = [],
+    past_brands_text,
+    past_brands_image_url,
+    next_steps_text,
+    skills = [],
+    videos = [],
+    brand_collaborations = [],
+    profile_photo,
+    follower_count,
+    engagement_rate,
+    avg_likes,
+    reach,
+  } = data;
 
-  const s = section_visibility || defaultSectionVisibility; // Fallback if not provided
+  const vis = section_visibility || defaultSectionVisibility;
 
-  // Section title component for consistency
-  const SectionTitle = ({ children }: { children: React.ReactNode }) => (
-    <>
-      <h2 
-        className="text-4xl md:text-5xl font-bold tracking-tight mb-6 text-center" 
-        style={{ fontFamily: "'Playfair Display', serif", color: 'var(--primary)' }}
-      >
-        {children}
-      </h2>
-      <div className="w-20 h-1 mx-auto mb-12" style={{backgroundColor: 'var(--accent)'}}></div>
-    </>
-  );
+  const templateFont = theme.font || data.font || 'Poppins, sans-serif';
+  const displayName = brand_name || full_name || 'Luxury Creator';
+  const displayAvatar = profile_photo || avatar_url;
+
+  const socialLinks: SocialLinkItem[] = [];
+  if (data.instagram_handle) socialLinks.push({ type: 'instagram', url: `https://instagram.com/${data.instagram_handle.replace(/^@/, '')}`, label: 'Instagram' });
+  if (data.tiktok_handle) socialLinks.push({ type: 'tiktok', url: `https://tiktok.com/@${data.tiktok_handle.replace(/^@/, '')}`, label: 'TikTok' });
+  if (website) socialLinks.push({ type: 'website', url: website, label: 'Website' });
+  if (contact_email) socialLinks.push({ type: 'email', url: `mailto:${contact_email}`, label: 'Email' });
+
+  // Prepare Performance Metrics
+  const performanceMetrics = [];
+  if (avg_likes) performanceMetrics.push({ label: 'Avg Likes per Post', value: avg_likes });
+  if (reach) performanceMetrics.push({ label: 'Avg Reach per Post', value: reach });
+  if (avg_video_views) performanceMetrics.push({ label: 'Avg Video Views', value: avg_video_views });
+  if (avg_ig_reach) performanceMetrics.push({ label: 'Avg IG Post Reach', value: avg_ig_reach });
+  if (ig_engagement_rate) performanceMetrics.push({ label: 'IG Engagement Rate', value: ig_engagement_rate });
+  // Add other general engagement if available and distinct from ig_engagement_rate
+  if (engagement_rate && !ig_engagement_rate) { // Avoid duplicating if ig_engagement_rate is the primary one
+    performanceMetrics.push({ label: 'Overall Engagement Rate', value: engagement_rate });
+  }
+
+  // Prepare Platform Follower Stats
+  const platformFollowerStats = [];
+  if (instagram_followers) platformFollowerStats.push({ label: 'Instagram Followers', value: instagram_followers, icon: <UsersIcon className="w-5 h-5" /> });
+  if (tiktok_followers) platformFollowerStats.push({ label: 'TikTok Followers', value: tiktok_followers, icon: <UsersIcon className="w-5 h-5" /> });
+  if (youtube_followers) platformFollowerStats.push({ label: 'YouTube Subscribers', value: youtube_followers, icon: <UsersIcon className="w-5 h-5" /> });
+  // Add total followers if it's meaningful and distinct
+  if (follower_count && (!instagram_followers && !tiktok_followers && !youtube_followers)) { // Only if specific ones aren't already shown
+    platformFollowerStats.push({ label: 'Total Followers', value: follower_count });
+  }
+
+  const мягкийТени = '0 5px 25px rgba(0,0,0,0.07)'; // Softer shadow
+  const цветФонаБлока = 'color-mix(in srgb, var(--theme-accent, #C9A987) 10%, var(--theme-background, #F9F7F5) 90%)';
+  const цветГраницыБлока = 'color-mix(in srgb, var(--theme-accent, #C9A987) 25%, var(--theme-background, #F9F7F5) 75%)';
 
   return (
-    <div
-      className="font-['Poppins'] antialiased leading-relaxed selection:bg-opacity-50 min-h-screen p-6 md:p-12 lg:p-16"
-      style={{
-        background: 'var(--bg)',
-        color: 'var(--text-primary)',
-        fontFamily: data.font || 'Poppins, sans-serif',
-        ...cssVars
-      }}
+    <div 
+      className="min-h-screen p-4 sm:p-6 md:p-8 lg:p-12 max-w-6xl mx-auto antialiased" 
+      style={{ backgroundColor: 'var(--theme-background)', color: 'var(--theme-foreground)', fontFamily: templateFont }}
     >
-      <style>{`
-        .font-['Poppins'] ::selection {
-          background-color: var(--accent);
-          color: var(--bg);
-        }
-      `}</style>
-      
-      {/* Header Section */}
-      {s.profilePicture && data.avatar_url && (
-        <div className="text-center mb-20 md:mb-24 lg:mb-32">
-          <div className="relative inline-block mb-10">
-            <div 
-              className="absolute inset-[-10px] rounded-full z-0 opacity-50"
-              style={{
-                background: `radial-gradient(circle, color-mix(in srgb, var(--accent) 30%, transparent) 0%, color-mix(in srgb, var(--accent) 10%, transparent) 70%, transparent 100%)`,
-                filter: 'blur(10px)'
-              }}
-            ></div>
-            <img 
-              src={data.avatar_url} 
-              alt={data.full_name || data.brand_name || 'Profile'} 
-              className="relative z-10 w-40 h-40 md:w-48 md:h-48 lg:w-56 lg:h-56 rounded-full object-cover shadow-2xl"
-              style={{ 
-                boxShadow: `inset 0 0 0 3px rgba(255,255,255,0.2), 0 15px 35px -10px color-mix(in srgb, var(--accent) 30%, black)`
-              }}
-            />
-          </div>
-          {s.profileDetails && data.username && (
-            <p 
-              className="text-base md:text-lg mb-4" 
-              style={{ color: 'var(--accent)', fontFamily: "'Poppins', sans-serif" }}
-            >
-              {data.username}
-            </p>
-          )}
-          {s.profileDetails && data.brand_name && (
-            <h1 
-              className="text-6xl md:text-7xl lg:text-8xl font-black tracking-tight" 
-              style={{ color: 'var(--primary)', fontFamily: "'Playfair Display', serif", textShadow: '1px 1px 3px rgba(0,0,0,0.1)' }}
-            >
-              {data.brand_name.toUpperCase()}
-              <span style={{ color: 'var(--accent)' }}>.</span>
-            </h1>
-          )}
-          {s.profileDetails && data.tagline && (
-            <>
-              <div className="max-w-xs md:max-w-md mx-auto mt-8 mb-6 border-t-2" style={{ borderColor: 'var(--accent)' }}></div>
-              <p 
-                className="text-xl md:text-2xl lg:text-3xl font-light tracking-widest" 
-                style={{ color: 'var(--text-secondary)', fontFamily: "'Poppins', sans-serif" }}
-              >
-                {data.tagline.toUpperCase()}
-              </p>
-            </>
-          )}
-        </div>
-      )}
+      <div className="space-y-16 md:space-y-24"> {/* Increased spacing */}
+        {vis.profileDetails && (
+          <ProfileHeaderBlock
+            name={displayName}
+            subheading={tagline}
+            avatarUrl={displayAvatar}
+            socialLinks={socialLinks}
+            sectionVisibility={vis}
+            // Consider a 'luxury' variant for ProfileHeaderBlock in the future if more distinction is needed
+          />
+        )}
 
-      {/* About Me Section */}
-      {s.profileDetails && data.personal_intro && (
-        <section className="mb-20 md:mb-24 lg:mb-32 text-center max-w-3xl mx-auto">
-          <SectionTitle>ABOUT ME</SectionTitle>
-          <p 
-            className="text-lg md:text-xl leading-loose" 
-            style={{ color: 'var(--text-secondary)', fontFamily: "'Poppins', sans-serif" }}
-          >
-            {data.personal_intro}
-          </p>
-        </section>
-      )}
-
-      {/* Social Stats Grid */}
-      {s.audienceStats && (data.instagram_followers || data.tiktok_followers || data.youtube_followers) && (
-        <section className="mb-20 md:mb-24 lg:mb-32">
-          <SectionTitle>PLATFORM REACH</SectionTitle>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-            {data.instagram_followers && (
-              <StatItem value={formatStat(data.instagram_followers)} label="Instagram Followers" icon={<InstagramIconSVG />} />
-            )}
-            {data.tiktok_followers && (
-              <StatItem value={formatStat(data.tiktok_followers)} label="TikTok Followers" icon={<TikTokIconSVG />} />
-            )}
-            {data.youtube_followers && (
-              <StatItem value={formatStat(data.youtube_followers)} label="YouTube Subscribers" icon={<YouTubeIconSVG />} />
-            )}
-          </div>
-        </section>
-      )}
-
-      {/* Audience Demographics */}
-      {s.audienceStats && (data.audience_age_range || data.audience_location_main || data.audience_gender_female) && (
-        <section className="mb-20 md:mb-24 lg:mb-32">
-          <SectionTitle>AUDIENCE DEMOGRAPHICS</SectionTitle>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-            {data.audience_age_range && <StatItem value={data.audience_age_range} label="Age Range" />}
-            {data.audience_location_main && <StatItem value={data.audience_location_main} label="Primary Location" />}
-            {data.audience_gender_female && <StatItem value={data.audience_gender_female} label="Female Audience" />}
-          </div>
-        </section>
-      )}
-      
-      {/* Key Metrics */}
-      {s.performance && (data.avg_video_views || data.avg_ig_reach || data.ig_engagement_rate) && (
-        <section className="mb-20 md:mb-24 lg:mb-32">
-          <SectionTitle>KEY METRICS</SectionTitle>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-            {data.avg_video_views && <StatItem value={formatStat(data.avg_video_views)} label="Avg. Video Views" />}
-            {data.avg_ig_reach && <StatItem value={formatStat(data.avg_ig_reach)} label="Avg. IG Post Reach" />}
-            {data.ig_engagement_rate && <StatItem value={formatStat(data.ig_engagement_rate)} label="IG Engagement Rate" />}
-          </div>
-        </section>
-      )}
-
-      {/* Video Showcase Section */}
-      {s.tiktokVideos && data.videos && data.videos.length > 0 && (
-        <section className="mb-20 md:mb-24 lg:mb-32">
-          <SectionTitle>VIDEO SHOWCASE</SectionTitle>
+        {vis.profileDetails && personal_intro && (
           <div 
-            className="grid gap-4 md:gap-6 items-start justify-center"
-            style={{
-              gridTemplateColumns: `repeat(auto-fit, minmax(150px, 1fr))`,
-              maxWidth: "1200px",
-              margin: "0 auto"
+            className="p-8 md:p-10 lg:p-12 rounded-xl" // Increased padding
+            style={{ 
+              backgroundColor: цветФонаБлока, 
+              borderColor: цветГраницыБлока, 
+              boxShadow: мягкийТени 
             }}
           >
-            {data.videos.slice(0, 5).map((video, index) => (
-              <div key={video.url || index} className="flex flex-col items-center">
-                <a 
-                  href={video.url && video.url !== '#' ? video.url : undefined}
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className={`block relative mx-auto border-[8px] md:border-[10px] rounded-[28px] md:rounded-[40px] shadow-xl overflow-hidden group transform transition-transform hover:scale-105 duration-300 ${video.url && video.url !== '#' ? 'cursor-pointer' : 'cursor-default'}`}
-                  style={{
-                    borderColor: '#1C1C1E', 
-                    backgroundColor: '#000000',
-                    width: '100%',
-                    aspectRatio: '9/19.5',
-                  }}
-                  title={video.url && video.url !== '#' ? "Watch Video" : undefined}
-                >
-                  <img 
-                    src={video.thumbnail_url || 'https://placehold.co/375x812/000000/FFFFFF?text=Video'} 
-                    alt={`Video thumbnail ${index + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                  <div 
-                    className="absolute top-0 left-1/2 -translate-x-1/2 w-[40%] h-[18px] md:h-[24px] bg-[#1C1C1E] rounded-b-lg md:rounded-b-xl"
-                  ></div>
-                  <div
-                    className="absolute bottom-[8px] md:bottom-[10px] left-1/2 -translate-x-1/2 w-[30%] md:w-[35%] h-[3px] md:h-[4px] bg-gray-400 rounded-full opacity-50 group-hover:opacity-80 transition-opacity"
-                  ></div>
-                </a>
-              </div>
-            ))}
+            <SectionTitle>About Me</SectionTitle>
+            <div className="text-base md:text-lg leading-relaxed" style={{ color: 'var(--theme-foreground)'}}> {/* Enhanced intro text style */}
+              <PersonalIntroBlock text={personal_intro} sectionVisibility={vis} />
+            </div>
           </div>
-        </section>
-      )}
+        )}
 
-      {/* Services Offered */}
-      {s.servicesSkills && data.services && data.services.length > 0 && (
-        <section className="mb-20 md:mb-24 lg:mb-32">
-          <SectionTitle>SERVICES OFFERED</SectionTitle>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 max-w-6xl mx-auto">
-            {data.services.map((service) => (
-              <div 
-                key={service.id} 
-                className="p-6 md:p-8 rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 ease-in-out transform hover:-translate-y-1 flex flex-col"
-                style={{ backgroundColor: 'var(--card-bg)' }}
-              >
-                {/* Placeholder for Icon */}
-                <div className="mb-4 text-3xl w-12 h-12 flex items-center justify-center rounded-full" style={{ backgroundColor: 'var(--accent)', color: 'var(--bg)' }}>
-                  <span>✨</span> 
-                </div>
-                <h3 className="text-xl lg:text-2xl font-semibold mb-3" style={{ color: 'var(--primary)'}}>{service.service_name}</h3>
-                {service.description && <p className="text-sm lg:text-base mb-4 flex-grow" style={{ color: 'var(--text-secondary)'}}>{service.description}</p>}
-                {service.price_range && <p className="text-base lg:text-lg font-medium mt-auto pt-3 border-t" style={{ color: 'var(--accent)', borderColor: 'color-mix(in srgb, var(--accent) 30%, transparent)'}}>{service.price_range}</p>}
-              </div>
-            ))}
+        {(vis.audienceStats || vis.performance) && performanceMetrics.length > 0 && (
+          <div 
+            className="p-8 md:p-10 lg:p-12 rounded-xl" // Increased padding
+            style={{ 
+              backgroundColor: цветФонаБлока, 
+              borderColor: цветГраницыБлока, 
+              boxShadow: мягкийТени 
+            }}
+          >
+            <StatsGridBlock stats={performanceMetrics} sectionVisibility={vis} title="Key Performance Metrics" />
           </div>
-        </section>
+        )}
+        
+        {vis.socialMedia && platformFollowerStats.length > 0 && (
+          <div 
+            className="p-8 md:p-10 lg:p-12 rounded-xl" // Increased padding
+            style={{ 
+              backgroundColor: цветФонаБлока, 
+              borderColor: цветГраницыБлока, 
+              boxShadow: мягкийТени 
+            }}
+          >
+            <StatsGridBlock stats={platformFollowerStats} sectionVisibility={vis} title="Platform Followers" />
+          </div>
+        )}
+
+        {vis.audienceDemographics && (audience_age_range || audience_location_main || audience_gender_female) && (
+          <div 
+            className="p-8 md:p-10 lg:p-12 rounded-xl" // Increased padding
+            style={{ 
+              backgroundColor: цветФонаБлока, 
+              borderColor: цветГраницыБлока, 
+              boxShadow: мягкийТени 
+            }}
+          >
+            <SectionTitle>Audience Insights</SectionTitle>
+            <AudienceDemographicsBlock
+              ageRange={audience_age_range}
+              location={audience_location_main}
+              femalePct={audience_gender_female}
+              sectionVisibility={vis}
+            />
+          </div>
+        )}
+
+        {vis.tiktokVideos && videos && videos.length > 0 && (
+          <div 
+            className="p-8 md:p-10 lg:p-12 rounded-xl" // Increased padding
+            style={{ 
+              backgroundColor: цветФонаБлока, 
+              borderColor: цветГраницыБлока, 
+              boxShadow: мягкийТени 
+            }}
+          >
+            <SectionTitle>Featured Videos</SectionTitle>
+            <VideoShowcaseBlock videos={videos} sectionVisibility={vis} />
+          </div>
+        )}
+
+        {vis.brandExperience && ((brand_collaborations && brand_collaborations.length > 0) || past_brands_text) && (
+          <div 
+            className="p-8 md:p-10 lg:p-12 rounded-xl" // Increased padding
+            style={{ 
+              backgroundColor: цветФонаБлока, 
+              borderColor: цветГраницыБлока, 
+              boxShadow: мягкийТени 
+            }}
+          >
+            <SectionTitle>Brand Collaborations</SectionTitle>
+            {past_brands_text && <p className="mb-4 text-base md:text-lg leading-relaxed" style={{ color: 'var(--theme-foreground)' }}>{past_brands_text}</p>} {/* Enhanced text style */}
+            {past_brands_image_url && (
+              <img src={past_brands_image_url} alt="Past Brands" className="w-full h-auto object-cover rounded-lg mb-6 shadow-md"/>
+            )}
+            {brand_collaborations && brand_collaborations.length > 0 && (
+              <BrandCollaborationBlock brands={brand_collaborations} sectionVisibility={vis} />
+            )}
+          </div>
+        )}
+        
+        {vis.servicesSkills && services && services.length > 0 && (
+          <div 
+            className="p-8 md:p-10 lg:p-12 rounded-xl" // Increased padding
+            style={{ 
+              backgroundColor: цветФонаБлока, 
+              borderColor: цветГраницыБлока, 
+              boxShadow: мягкийТени 
+            }}
+          >
+            <SectionTitle>Services Offered</SectionTitle>
+            <ServiceListBlock services={services} sectionVisibility={vis} />
+          </div>
+        )}
+
+        {vis.servicesSkills && skills && skills.length > 0 && (
+          <div 
+            className="p-8 md:p-10 lg:p-12 rounded-xl" // Increased padding
+            style={{ 
+              backgroundColor: цветФонаБлока, 
+              borderColor: цветГраницыБлока, 
+              boxShadow: мягкийТени 
+            }}
+          >
+            <SectionTitle>Skills</SectionTitle>
+            <SkillsListBlock skills={skills} sectionVisibility={vis} />
+          </div>
+        )}
+      </div>
+
+      {(vis.brandExperience || vis.contactDetails) && (showcase_images && showcase_images.length > 0 || next_steps_text) && (
+        <div className="mt-16 md:mt-24 pt-12 md:pt-16 border-t" style={{ borderColor: цветГраницыБлока }}> {/* Increased spacing and themed border */}
+          <div className="text-center mb-10 md:mb-12">
+            <SectionTitle>
+              Content Showcase &amp; Collaboration
+            </SectionTitle>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 items-start"> {/* Increased gap */}
+            {vis.brandExperience && showcase_images && showcase_images.length > 0 && (
+              <div className="space-y-8"> {/* Increased spacing */}
+                <h3 className="text-2xl md:text-3xl font-semibold" style={{ color: 'var(--theme-accent)', fontFamily: "'Playfair Display', serif" }}>Featured Content</h3>
+                <ShowcaseImagesBlock images={showcase_images} sectionVisibility={vis} />
+              </div>
+            )}
+
+            {vis.contactDetails && next_steps_text && (
+              <div 
+                className="space-y-6 p-8 md:p-10 lg:p-12 rounded-xl" // Increased padding & spacing
+                style={{ 
+                  backgroundColor: цветФонаБлока, 
+                  borderColor: цветГраницыБлока, 
+                  boxShadow: мягкийТени 
+                }}
+              >
+                <h3 className="text-2xl md:text-3xl font-semibold" style={{ color: 'var(--theme-accent)', fontFamily: "'Playfair Display', serif" }}>Next Steps</h3>
+                <p className="text-base md:text-lg leading-relaxed" style={{ color: 'var(--theme-foreground)' }}>{next_steps_text}</p> {/* Enhanced text style */}
+              </div>
+            )}
+          </div>
+        </div>
       )}
       
-      {/* Past Collaborations (using brand_collaborations from EditorPreviewData) */}
-      {s.brandExperience && data.brand_collaborations && data.brand_collaborations.length > 0 && (
-        <section className="mb-20 md:mb-24 lg:mb-32">
-          <SectionTitle>PREVIOUSLY PARTNERED WITH</SectionTitle>
-          <div className="flex flex-wrap justify-center items-center gap-x-8 gap-y-4 mb-12 max-w-4xl mx-auto">
-            {data.brand_collaborations.map((collab, index) => (
-              <span key={collab.id || index} className="text-lg font-medium" style={{ color: 'var(--text-secondary)'}}>
-                {collab.brand_name}
-              </span>
-            ))}
-          </div>
-          {/* Add brand image if available */}
-          {data.past_brands_image_url && (
-            <div className="max-w-3xl mx-auto">
-              <img 
-                src={data.past_brands_image_url} 
-                alt="Brand collaborations" 
-                className="w-full h-auto rounded-lg shadow-lg"
-              />
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* Next Steps Section */}
-      {data.next_steps_text && (
-        <section className="mb-20 md:mb-24 lg:mb-32 text-center max-w-3xl mx-auto">
-          <SectionTitle>NEXT STEPS</SectionTitle>
-          <p 
-            className="text-lg md:text-xl leading-loose" 
-            style={{ color: 'var(--text-secondary)', fontFamily: "'Poppins', sans-serif" }}
-          >
-            {data.next_steps_text}
+      {vis.contactDetails && (
+        <footer className="mt-16 md:mt-24 pt-12 md:pt-16 border-t text-center" style={{ borderColor: цветГраницыБлока }}> {/* Increased spacing and themed border */}
+          <SectionTitle>Get In Touch</SectionTitle>
+          <ContactInfoBlock
+            email={contact_email}
+            phone={contact_phone}
+            website={website}
+            sectionVisibility={vis}
+          />
+          <p className="text-sm mt-10" style={{color: 'var(--theme-foreground)' }}> {/* Increased spacing */}
+            &copy; {new Date().getFullYear()} {displayName}. All rights reserved.
           </p>
-        </section>
+        </footer>
       )}
-
-      {/* Contact Section */}
-      {s.contactDetails && (data.contact_email || data.website || data.contact_phone) && (
-        <section className="text-center py-10 md:py-16 border-t" style={{ borderColor: 'var(--border)'}}>
-          <h2 
-            className="text-3xl md:text-4xl font-bold mb-6 tracking-tight"
-            style={{ fontFamily: "'Playfair Display', serif", color: 'var(--primary)' }}
-          >
-            CONTACT
-          </h2>
-          <div className="space-y-3">
-            {data.contact_email && (
-              <a href={`mailto:${data.contact_email}`} className="block text-lg hover:underline transition-all duration-300" style={{ color: 'var(--text-secondary)'}}>{data.contact_email}</a>
-            )}
-            {data.website && (
-              <a href={data.website.startsWith('http') ? data.website : `https://${data.website}`} target="_blank" rel="noopener noreferrer" className="block text-lg hover:underline transition-all duration-300" style={{ color: 'var(--text-secondary)'}}>{data.website}</a>
-            )}
-            {data.contact_phone && (
-              <a href={`tel:${data.contact_phone}`} className="block text-lg hover:underline transition-all duration-300" style={{ color: 'var(--text-secondary)'}}>{data.contact_phone}</a>
-            )}
-          </div>
-        </section>
-      )}
-
-      {/* Footer with subtle branding */}
-      <footer className="text-center py-6 text-sm opacity-60" style={{ color: 'var(--text-muted)' }}>
-        <p>© {new Date().getFullYear()} {data.brand_name || data.full_name || data.username}</p>
-      </footer>
     </div>
   );
 }
-
-// Helper function to determine contrast color (black or white) for text on a given background
-// This might be better placed in a utils file if used across multiple templates
-const getContrastColor = (hexColor: string): string => {
-  if (!hexColor) return '#000000'; // Default to black if color is undefined
-  const normalizedHex = hexColor.replace('#', '');
-  if (normalizedHex.length !== 6 && normalizedHex.length !== 3) return '#000000'; // Invalid hex
-
-  let r, g, b;
-  if (normalizedHex.length === 3) {
-    r = parseInt(normalizedHex[0] + normalizedHex[0], 16);
-    g = parseInt(normalizedHex[1] + normalizedHex[1], 16);
-    b = parseInt(normalizedHex[2] + normalizedHex[2], 16);
-  } else {
-    r = parseInt(normalizedHex.substring(0, 2), 16);
-    g = parseInt(normalizedHex.substring(2, 4), 16);
-    b = parseInt(normalizedHex.substring(4, 6), 16);
-  }
-  
-  // Formula for luminance
-  const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
-  return (yiq >= 128) ? '#000000' : '#FFFFFF';
-};
-
-// Default visibility (if not passed from editor)
-const defaultSectionVisibility: SectionVisibilityState = {
-  profileDetails: true,
-  brandExperience: true,
-  servicesSkills: true,
-  socialMedia: true,
-  contactDetails: true,
-  profilePicture: true,
-  tiktokVideos: true,
-  audienceStats: true,
-  performance: true,
-};
-
-// --- SVG Icons ---
-const InstagramIconSVG = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
-  </svg>
-);
-const TikTokIconSVG = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02c.08 1.53.63 3.09 1.75 4.17c1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97c-.57-.26-1.1-.59-1.62-.93c-.01 2.92.01 5.84-.02 8.75c-.08 1.4-.54 2.79-1.35 3.94c-1.31 1.92-3.58 3.17-5.91 3.21c-1.43.08-2.86-.31-4.08-1.03c-2.02-1.19-3.44-3.37-3.65-5.71c-.02-.5-.03-1-.01-1.49c.18-1.9 1.12-3.72 2.58-4.96c1.66-1.44 3.98-2.13 6.15-1.72c.02 1.48-.04 2.96-.04 4.44c-.99-.32-2.15-.23-3.02.37c-.63.41-1.11 1.04-1.36 1.75c-.21.51-.15 1.07-.14 1.61c.24 1.64 1.82 3.02 3.5 2.87c1.12-.01 2.19-.66 2.77-1.61c.19-.33.4-.67.41-1.06c.1-1.79.06-3.57.07-5.36c.01-4.03-.01-8.05.02-12.07z"/>
-  </svg>
-);
-const YouTubeIconSVG = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/>
-  </svg>
-);
 
 export default MediaKitTemplateLuxury; 

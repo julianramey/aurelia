@@ -3,7 +3,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { EditorFormProps } from '@/lib/sections';
 
-interface AudienceStatsFormProps extends Pick<EditorFormProps, 'formData' | 'handleMetricsChange'> {}
+// interface AudienceStatsFormProps extends Pick<EditorFormProps, 'formData' | 'handleMetricsChange'> {}
+type AudienceStatsFormProps = Pick<EditorFormProps, 'formData' | 'handleMetricsChange'>;
 
 const AudienceStatsForm: React.FC<AudienceStatsFormProps> = ({ formData, handleMetricsChange }) => {
   return (
@@ -33,6 +34,7 @@ const AudienceStatsForm: React.FC<AudienceStatsFormProps> = ({ formData, handleM
           <span className="text-sm text-taupe">%</span>
         </div>
       </div>
+      {/* Inputs for instagram_followers, tiktok_followers, youtube_followers removed as per user request */}
     </div>
   );
 };

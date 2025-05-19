@@ -14,7 +14,8 @@ import type {
   MediaKitStats,
   SectionVisibilityState,
   EditorPreviewData,
-  BaseTemplateTheme as TemplateThemeType
+  TemplateTheme as TemplateThemeType,
+  MediaKitData
 } from '@/lib/types';
 import PreviewLoadingFallback from '@/components/PreviewLoadingFallback';
 import {
@@ -35,6 +36,7 @@ type ColorScheme = {
   background: string;
   text: string;
   accent_light: string;
+  font?: string; // ADDED: to match lib/types and usage
   // [key: string]: string; // Remove index signature again
 };
 type VideoItem = { url: string; thumbnail_url: string; };
@@ -49,6 +51,7 @@ interface TemplateTheme {
   accent: string;
   neutral: string;
   border: string;
+  font: string;
 }
 
 interface MediaKitProps {
@@ -65,6 +68,7 @@ interface MediaKitProps {
     accent: string;
     neutral: string;
     border: string;
+    font: string;
   };
   previewUsername?: string;
 }
@@ -80,6 +84,7 @@ const defaultSectionVisibility: SectionVisibilityState = {
   tiktokVideos: true,
   audienceStats: true,
   performance: true,
+  audienceDemographics: true,
 };
 
 export interface ProfileData {
@@ -89,32 +94,17 @@ export interface ProfileData {
   full_name: string;
   email: string;
   contact_email?: string;
-  media_kit_data: string | {
-    type: "media_kit_data";
-    brand_name: string;
-    tagline: string;
-    colors: ColorScheme; 
-    font: string;
-    selected_template_id?: string;
-    skills?: string[];
-    contact_email?: string;
-    videos?: VideoItem[]; 
-    portfolio_images?: string[];
-    personal_intro?: string;
-    instagram_handle?: string;
-    tiktok_handle?: string;
-    section_visibility?: Partial<SectionVisibilityState>;
-  };
+  media_kit_data: MediaKitData | null;
   media_kit_url?: string;
   tagline?: string;
   personal_intro?: string;
   brand_name?: string;
-  colors?: Record<string, string>;
+  colors?: ColorScheme;
   videos?: Array<{ url: string; thumbnail_url: string }>;
   portfolio_images?: string[];
   avatar_url?: string;
-  instagram_handle?: string;
-  tiktok_handle?: string;
+  instagram_handle?: string | null;
+  tiktok_handle?: string | null;
   intro?: string;
   follower_count?: number | string;
   engagement_rate?: number | string;
@@ -128,6 +118,9 @@ export interface ProfileData {
   updated_at?: string;
   niche?: string;
   media_kit_stats?: MediaKitStats[];
+  website?: string;
+  onboarding_complete?: boolean;
+  section_visibility?: Partial<SectionVisibilityState>;
 }
 
 // Define default colorscheme const
@@ -138,6 +131,7 @@ export const defaultColorScheme: ColorScheme = {
   background: '#F5F5F5',
   text: '#1A1F2C',
   accent_light: '#E5DAF8',
+  font: 'Inter',
 };
 
 // Create a memoized version of MediaKit to prevent unnecessary rerenders
@@ -145,162 +139,85 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
   const { id: routeIdFromParams } = useParams<{ id?: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { stats: initialStats, collaborations: initialCollabs, services: initialServices, portfolio: initialPortfolio, videos: initialVideos } = useMediaKitData();
+  const { stats: fetchedStats, collaborations: fetchedCollabs, services: fetchedServices } = useMediaKitData();
   const location = useLocation();
   
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTemplateId, setActiveTemplateId] = useState<string>('default');
-  const [styles, setStyles] = useState({
+  const [styles, setStyles] = useState<TemplateTheme>({
     background: '#F5F5F5',
     foreground: '#1A1F2C',
     primary: '#7E69AB',
     primaryLight: '#E5DAF8',
     secondary: '#6E59A5',
     accent: '#1A1F2C',
-    neutral: '#8E9196',
-    border: 'rgba(126, 105, 171, 0.2)'
+    neutral: '#8E9196', // Initial neutral, can be overridden by localStorage or new logic
+    border: 'rgba(126, 105, 171, 0.2)',
+    font: 'Inter',
   });
   const computedStyles = theme || styles;
   const [hasFetched, setHasFetched] = useState(false);
   
-  // IMPORTANT: Load saved styles from localStorage FIRST, before any other effects run
-  // This ensures custom styles take precedence over database-loaded styles
+  // Initial load from localStorage for mediaKitCustomStyles (SHOULD BE THE ONLY ONE LIKE THIS)
   useEffect(() => {
-    try {
-      const savedStyles = localStorage.getItem('mediaKitCustomStyles');
-      if (savedStyles) {
-        const parsedStyles = JSON.parse(savedStyles);
-        console.log("MediaKit: Loading saved styles from localStorage (high priority):", parsedStyles);
-        setStyles(parsedStyles);
+    const saved = localStorage.getItem('mediaKitCustomStyles');
+    if (saved) {
+      try {
+        setStyles(JSON.parse(saved));
+      } catch (e) {
+        console.error("MediaKit: Error parsing mediaKitCustomStyles from localStorage", e);
       }
-    } catch (e) {
-      console.error("MediaKit: Error loading saved styles:", e);
     }
-  }, []);
+  }, []); // Empty dependency array: runs once on mount
 
   const updatedMediaKitFromState = location.state?.updatedMediaKit;
   
-  // 1. Memoize the parsed localStorage value to prevent unnecessary rerenders
   const localUpdatedMediaKit = useMemo(() => {
     try {
       if (updatedMediaKitFromState) {
         return updatedMediaKitFromState;
       }
-      
       const storedData = localStorage.getItem('updatedMediaKit');
       if (!storedData) return null;
-      
       const parsedData = JSON.parse(storedData);
-      console.log("MediaKit: Parsed localUpdatedMediaKit from localStorage:", {
-        full_name: parsedData.full_name,
-        brand_name: parsedData.brand_name,
-        tagline: parsedData.tagline
-      });
-      
-      // Ensure the full_name is explicitly set from brand_name if missing
       if (!parsedData.full_name && parsedData.brand_name) {
         parsedData.full_name = parsedData.brand_name;
       }
-
-      // Update activeTemplateId if selected_template_id is present in localStorage
       if (parsedData.selected_template_id) {
-        console.log("MediaKit: Setting template from localStorage:", parsedData.selected_template_id);
         setActiveTemplateId(parsedData.selected_template_id);
       }
-      
-      // Ensure colors within parsedData conform to ColorScheme type
-      const defaultColors = defaultColorScheme; // Use the const
-
+      const defaultColors = defaultColorScheme;
       if (parsedData.colors && typeof parsedData.colors === 'object') {
-        parsedData.colors = {
-          ...defaultColors, // Start with defaults
-          ...parsedData.colors, // Override with parsed values
-        }; // Restore correct merging logic
+        parsedData.colors = { ...defaultColors, ...parsedData.colors };
       } else {
-        // Assign defaults if colors are missing or invalid
         parsedData.colors = defaultColors;
       }
-
       return parsedData;
     } catch (e) {
       console.error("MediaKit: Error parsing localStorage updatedMediaKit:", e);
       return null;
     }
-  }, [updatedMediaKitFromState]);
+  }, [updatedMediaKitFromState, setActiveTemplateId]); // Added setActiveTemplateId to deps if it's stable
   
   const kitData = isPreview ? profile?.media_kit_data : (localUpdatedMediaKit || profile?.media_kit_data);
 
-  // If updated media kit data exists, force the colors to use a lighter purple for a consistent look
+  // useEffect for persisting raw content edits from updatedMediaKitFromState (NO THEME LOGIC HERE)
   useEffect(() => {
     if (updatedMediaKitFromState) {
-      console.log("MediaKit: Processing updatedMediaKit from state:", {
-        colors: updatedMediaKitFromState.colors,
-        mediaKitDataColors: typeof updatedMediaKitFromState.media_kit_data === 'object' ? 
-          updatedMediaKitFromState.media_kit_data.colors : 'not available',
-        tagline: updatedMediaKitFromState.tagline,
-        personal_intro: updatedMediaKitFromState.personal_intro,
-        brand_name: updatedMediaKitFromState.brand_name,
-        full_name: updatedMediaKitFromState.full_name
-      });
-      
-      // Create a complete profile data object from the updatedMediaKit
-      // This will be used via `kitData` in the realData assignment
+      console.log("MediaKit: Processing updatedMediaKit from state (raw data persistence only)");
       const completeMediaKitData = {
         full_name: updatedMediaKitFromState.full_name || updatedMediaKitFromState.brand_name,
         personal_intro: updatedMediaKitFromState.personal_intro,
         tagline: updatedMediaKitFromState.tagline,
         ...updatedMediaKitFromState
       };
-      
-      // Store this enhanced data structure for persistence
       localStorage.setItem('updatedMediaKit', JSON.stringify(completeMediaKitData));
-      
-      // IMPORTANT: Handle colors from both direct object and media_kit_data
-      let incomingColors;
-      if (typeof updatedMediaKitFromState.media_kit_data === 'object' && 
-          updatedMediaKitFromState.media_kit_data?.colors) {
-        // Prioritize colors from media_kit_data
-        incomingColors = updatedMediaKitFromState.media_kit_data.colors;
-        console.log("MediaKit: Using colors from media_kit_data object:", incomingColors);
-      } else if (updatedMediaKitFromState.colors) {
-        // Fallback to top-level colors
-        incomingColors = updatedMediaKitFromState.colors;
-        console.log("MediaKit: Using colors from top-level object:", incomingColors);
-      }
-      
-      if (incomingColors) {
-        // Ensure the incoming colors conform to ColorScheme
-        const colorScheme = {
-          ...defaultColorScheme, // Start with defaults
-          ...incomingColors, // Override with state values
-        };
-
-        console.log("MediaKit: Final colorScheme:", colorScheme);
-
-        // Map colors correctly from editor format to component format
-        const newStyles = {
-          background: colorScheme.background, 
-          foreground: colorScheme.text,
-          primary: colorScheme.accent, 
-          primaryLight: colorScheme.accent_light, 
-          secondary: colorScheme.secondary, 
-          accent: colorScheme.accent, 
-          neutral: colorScheme.secondary, // Use existing mapping logic
-          border: `${colorScheme.accent}33`
-        };
-
-        // Store in localStorage to persist across page reloads
-        localStorage.setItem('mediaKitCustomStyles', JSON.stringify(colorScheme));
-        
-        // Map colors correctly from editor format to component format
-        setStyles(newStyles);
-      }
     }
   }, [updatedMediaKitFromState]);
   
-  // Debug logging for props
+  // Debug logging for public profile props (KEEP ONE INSTANCE)
   useEffect(() => {
     if (isPublic && publicProfile) {
       console.log("MEDIAKIT: Received public profile:", publicProfile);
@@ -452,7 +369,7 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
           type: "media_kit_data", 
           brand_name: parsedJson?.brand_name || profileData.brand_name || '', 
           tagline: parsedJson?.tagline || profileData.tagline || '', 
-          colors: parsedJson?.colors || { primary: '#7E69AB', secondary: '#6E59A5', accent: '#1A1F2C', background: '#F5F5F5', text: '#1A1F2C', accent_light: '#E5DAF8' }, 
+          colors: parsedJson?.colors || { primary: '#7E69AB', secondary: '#6E59A5', accent: '#1A1F2C', background: '#F5F5F5', text: '#1A1F2C', accent_light: '#E5DAF8', font: 'Inter' }, 
           font: parsedJson?.font || 'Inter', 
           // Spread the rest of the parsed data
           ...parsedJson,
@@ -508,7 +425,8 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
             primaryLight: primaryLight,
             secondary: mediaKitData.colors.secondary || '#6E59A5',
             neutral: '#8E9196',
-            border: `${mediaKitData.colors.primary || '#7E69AB'}33`
+            border: `${mediaKitData.colors.primary || '#7E69AB'}33`,
+            font: mediaKitData.colors.font || 'Inter',
           }));
         }
       } catch (error) {
@@ -640,7 +558,8 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
               secondary: state.updatedMediaKit.colors.secondary || '#6E59A5',
               accent: state.updatedMediaKit.colors.text || '#1A1F2C',
               neutral: state.updatedMediaKit.colors.secondary || '#8E9196',
-              border: `${state.updatedMediaKit.colors.accent || '#7E69AB'}33`
+              border: `${state.updatedMediaKit.colors.accent || '#7E69AB'}33`,
+              font: state.updatedMediaKit.colors.font || 'Inter',
             };
             
             // Save to localStorage for persistence
@@ -698,7 +617,7 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
         videos: videosL,
         portfolio_images: portfolioL,
         media_kit_data: { 
-            type: "media_kit_data",
+            type: "media_kit_data" as const,
             brand_name: mKitDataObj.brand_name || pData.brand_name || '',
             tagline: mKitDataObj.tagline || pData.tagline || '',
             colors: currentPrevColors,
@@ -718,7 +637,6 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
         selected_template_id: mKitDataObj.selected_template_id || pData.selected_template_id || 'default'
       };
       setProfile(processedP);
-      setStyles(finalPrevStyles);
       setActiveTemplateId(processedP.selected_template_id || 'default');
       setLoading(false);
     } catch (err: unknown) { 
@@ -751,6 +669,63 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
     }
   }, [isPreview, previewData]);
 
+  // >>>>>>> CENTRALIZED THEME LOGIC useEffect <<<<<<<<<
+  useEffect(() => {
+    if (!profile) {
+      return;
+    }
+
+    let rawColors: ColorScheme | undefined | null = null;
+    
+    const profileMediaKitData = typeof profile.media_kit_data === 'string' 
+        ? JSON.parse(profile.media_kit_data) as MediaKitData 
+        : profile.media_kit_data as MediaKitData | null;
+
+    const kitDataObject = typeof kitData === 'string' 
+        ? JSON.parse(kitData) as MediaKitData 
+        : kitData as MediaKitData | null;
+
+    // Determine rawColors for theme (background, text, accents etc.)
+    if (profile.colors) { // profile.colors is ColorScheme from local ProfileData type
+        rawColors = profile.colors;
+    } else if (kitDataObject?.colors) {
+        rawColors = { ...defaultColorScheme, ...kitDataObject.colors } as ColorScheme;
+    } else if (profileMediaKitData?.colors) {
+        rawColors = { ...defaultColorScheme, ...profileMediaKitData.colors } as ColorScheme;
+    }
+    
+    const cs = rawColors || defaultColorScheme;
+
+    // Determine finalFont with clearer priority
+    const kitDataTopLevelFont = kitDataObject?.font;
+    const kitDataColorsFont = (kitDataObject?.colors as ColorScheme | undefined)?.font; // Use local ColorScheme for cast
+    // The 'profile.colors.font' could be considered too, but ProfileData's top-level 'colors' is not from DB Profile.
+    // Sticking to kitData which is from media_kit_data (DB or local) or preview makes more sense for font.
+
+    const finalFont = kitDataTopLevelFont ||         // Priority 1: kitData.font (media_kit_data.font or local/preview override)
+                      kitDataColorsFont ||           // Priority 2: kitData.colors.font (media_kit_data.colors.font or local/preview override)
+                      defaultColorScheme.font;     // Priority 3: Default font
+
+    const mapped: TemplateTheme = {
+      background:   cs.background,
+      foreground:   cs.text,
+      primary:      cs.accent,        // User instruction: use accent for primary color slot
+      primaryLight: cs.accent_light,  
+      secondary:    cs.secondary,    
+      accent:       cs.accent,        // Actual accent color from scheme (same as primary due to above)
+      neutral:      cs.secondary,     // User instruction: use cs.secondary for neutral slot
+      border:       `${cs.accent}33`,   // Border based on accent (which is primary)
+      font:         finalFont 
+    };
+
+    setStyles(mapped);
+
+    localStorage.setItem(
+      'mediaKitCustomStyles',
+      JSON.stringify(mapped)
+    );
+  }, [profile, kitData]);
+
   // Ensure realData is declared only once
   const realData: EditorPreviewData = useMemo(() => {
     let baseProf: ProfileData | null | unknown = null;
@@ -762,11 +737,10 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
     if (!p) {
       // Return a minimal EditorPreviewData structure
       return { 
-        id:'', user_id:'', username:'', full_name:'Media Kit', email:'', 
+        id: '', user_id: '', username: '', full_name: 'Media Kit', email: '', 
         media_kit_data: {type:"media_kit_data", brand_name:"", tagline:"", colors:defaultColorScheme, font:"Inter", section_visibility: defaultSectionVisibility}, 
         services: [], brand_collaborations: [], portfolio_images: [], videos: [], media_kit_stats: [],
-        section_visibility: defaultSectionVisibility, // Top-level for EditorPreviewData
-        // Ensure all other required fields from Profile / EditorPreviewData are present with defaults
+        section_visibility: defaultSectionVisibility,
         avatar_url: '',
         website: '',
         niche: '',
@@ -788,13 +762,13 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
         avg_likes: 0,
         reach: 0,
         stats: [],
-        // Add any other specific fields from EditorPreviewData that are not in ProfileData with defaults
-        instagram_followers: '',
-        tiktok_followers: '',
-        youtube_followers: '',
+        // Luxury specific defaults for the empty return
+        instagram_followers: 0,
+        tiktok_followers: 0,
+        youtube_followers: 0,
         audience_age_range: '',
         audience_location_main: '',
-        audience_gender_female: 0,
+        audience_gender_female: '',
         avg_video_views: 0,
         avg_ig_reach: 0,
         ig_engagement_rate: 0,
@@ -806,96 +780,107 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
       } as EditorPreviewData;
     }
 
-    let mKitObjParsed: Partial<Extract<ProfileData['media_kit_data'], object>> = {};
+    // Parse the media_kit_data JSON
+    let mKitObjParsed: Partial<MediaKitData> = {};
     if (typeof p.media_kit_data === 'string') {
-        try { 
-          const parsed = JSON.parse(p.media_kit_data);
-          if (typeof parsed === 'object' && parsed !== null) mKitObjParsed = parsed;
-        } catch { /* use empty object */ }
+      try { 
+        const parsed = JSON.parse(p.media_kit_data);
+        if (typeof parsed === 'object' && parsed !== null) {
+            mKitObjParsed = parsed;
+        }
+      } catch (e) { 
+        console.error("Failed to parse media_kit_data from p.media_kit_data (string)", e); 
+      }
     } else if (typeof p.media_kit_data === 'object' && p.media_kit_data !== null) {
-        mKitObjParsed = p.media_kit_data;
+      mKitObjParsed = p.media_kit_data;
     }
     
     const finalVideos = p.videos || mKitObjParsed.videos || [];
     const finalPortfolioImages = mKitObjParsed.portfolio_images || p.portfolio_images || [];
+    const finalStats = fetchedStats || mKitObjParsed.stats || p.media_kit_stats || [];
+    const finalServices = p.services || mKitObjParsed.services || fetchedServices || [];
+    const finalBrandCollaborations = p.brand_collaborations || mKitObjParsed.brand_collaborations || fetchedCollabs || [];
 
-    // This is ProfileData like structure
-    const constructedBaseData = {
-        ...p, 
-        services: p.services || initialServices || [], // Use initialServices from hook as further fallback
-        brand_collaborations: p.brand_collaborations || initialCollabs || [], // Use initialCollabs
-        videos: finalVideos, 
-        portfolio_images: finalPortfolioImages, 
-        follower_count: p.follower_count || (initialStats.find(s => s.platform === 'instagram')?.follower_count) || 0,
-        engagement_rate: p.engagement_rate || (initialStats.find(s => s.platform === 'instagram')?.engagement_rate) || 0,
-        avg_likes: p.avg_likes || (initialStats.find(s => s.platform === 'instagram')?.avg_likes) || 0,
-        reach: p.reach || (initialStats.find(s => s.platform === 'instagram')?.weekly_reach) || 0,
-        media_kit_data: { 
-            type: "media_kit_data",
-            brand_name: mKitObjParsed.brand_name || p.brand_name || '',
-            tagline: mKitObjParsed.tagline || p.tagline || '',
-            colors: mKitObjParsed.colors || defaultColorScheme,
-            font: mKitObjParsed.font || 'Inter',
-            selected_template_id: mKitObjParsed.selected_template_id || p.selected_template_id || 'default',
-            skills: mKitObjParsed.skills || p.skills || [],
-            contact_email: mKitObjParsed.contact_email || p.contact_email || p.email || '',
-            videos: finalVideos, 
-            portfolio_images: finalPortfolioImages,
-            personal_intro: mKitObjParsed.personal_intro || p.personal_intro || '',
-            instagram_handle: mKitObjParsed.instagram_handle || p.instagram_handle || '',
-            tiktok_handle: mKitObjParsed.tiktok_handle || p.tiktok_handle || '',
-            section_visibility: { ...defaultSectionVisibility, ...(mKitObjParsed.section_visibility || {}) },
-        },
-        full_name: p.full_name || mKitObjParsed.brand_name || p.brand_name || 'Media Kit Name',
-        email: p.email || '',
+
+    const result: EditorPreviewData = {
+        // Start with base profile fields (p)
+        id: p.id || '',
+        user_id: p.user_id || '',
         username: p.username || '',
-        tagline: mKitObjParsed.tagline || p.tagline || (!isPreview ? 'Content Creator' : ''),
-        selected_template_id: mKitObjParsed.selected_template_id || p.selected_template_id || 'default',
-        // Ensure fields from Profile are present
-        avatar_url: p.avatar_url || mKitObjParsed.profile_photo || '',
-        website: p.website || '',
+        full_name: p.full_name || '',
+        email: p.email || '',
+        avatar_url: p.avatar_url || '',
+        profile_photo: p.avatar_url || '', // Use avatar_url as fallback for profile_photo
         niche: p.niche || '',
         media_kit_url: p.media_kit_url || '',
         onboarding_complete: p.onboarding_complete ?? false,
-        profile_photo: p.avatar_url || mKitObjParsed.profile_photo || '', // profile_photo for EditorPreviewData
-        // Ensure specific EditorPreviewData fields (often from Profile) are present
-        brand_name: mKitObjParsed.brand_name || p.brand_name || p.full_name || '',
-        colors: mKitObjParsed.colors || defaultColorScheme,
-        font: mKitObjParsed.font || 'Inter',
-        personal_intro: mKitObjParsed.personal_intro || p.personal_intro || '',
+        
+        // Fields potentially overridden or supplemented by mKitObjParsed or top-level p
+        brand_name: String(mKitObjParsed.brand_name || p.brand_name || p.full_name || 'Creator Name'),
+        tagline: String(mKitObjParsed.tagline || p.tagline || ''),
+        personal_intro: String(mKitObjParsed.personal_intro || p.personal_intro || ''),
+        contact_email: String(mKitObjParsed.contact_email || p.contact_email || p.email || ''),
+        
+        colors: mKitObjParsed.colors || p.colors || defaultColorScheme,
+        font: String(mKitObjParsed.font || (mKitObjParsed.colors as ColorScheme)?.font || defaultColorScheme.font),
+        
         skills: mKitObjParsed.skills || p.skills || [],
-        stats: initialStats || [], // Use initialStats from hook
-        contact_phone: (p as any).contact_phone || '', // Assuming contact_phone might be on p
-    };
+        instagram_handle: String(mKitObjParsed.instagram_handle || p.instagram_handle || ''),
+        tiktok_handle: String(mKitObjParsed.tiktok_handle || p.tiktok_handle || ''),
+        selected_template_id: String(mKitObjParsed.selected_template_id || p.selected_template_id || 'default'),
 
-    // Shape into EditorPreviewData
-    const finalEditorData: EditorPreviewData = {
-        ...constructedBaseData,
-        section_visibility: (typeof constructedBaseData.media_kit_data === 'object' && constructedBaseData.media_kit_data.section_visibility)
-            ? { ...defaultSectionVisibility, ...constructedBaseData.media_kit_data.section_visibility }
-            : defaultSectionVisibility,
-        // Provide defaults for EditorPreviewData fields not guaranteed by ProfileData (constructedBaseData)
-        // These were previously accessed with (p as any)
-        contact_phone: (constructedBaseData as any).contact_phone || (mKitObjParsed as any)?.contact_phone || '',
-        audience_age_range: (constructedBaseData as any).audience_age_range || '',
-        audience_location_main: (constructedBaseData as any).audience_location_main || '',
-        audience_gender_female: (constructedBaseData as any).audience_gender_female || 0,
-        avg_video_views: (constructedBaseData as any).avg_video_views || 0,
-        avg_ig_reach: (constructedBaseData as any).avg_ig_reach || 0,
-        ig_engagement_rate: (constructedBaseData as any).ig_engagement_rate || 0,
-        showcase_images: (constructedBaseData as any).showcase_images || [],
-        past_brands_text: (constructedBaseData as any).past_brands_text || '',
-        past_brands_image_url: (constructedBaseData as any).past_brands_image_url || '',
-        next_steps_text: (constructedBaseData as any).next_steps_text || '',
-        instagram_followers: (constructedBaseData as any).instagram_followers || '',
-        tiktok_followers: (constructedBaseData as any).tiktok_followers || '',
-        youtube_followers: (constructedBaseData as any).youtube_followers || '',
+        // Aggregated/Fetched data
+        videos: finalVideos,
+        portfolio_images: finalPortfolioImages,
+        stats: finalStats, 
+        services: finalServices,
+        brand_collaborations: finalBrandCollaborations,
+
+        // Top-level stats from 'p' (often from form state or older structure)
+        // These act as fallbacks if not in mKitObjParsed or mKitObjParsed.stats
+        follower_count: Number(p.follower_count || 0),
+        engagement_rate: Number(p.engagement_rate || 0),
+        avg_likes: Number(p.avg_likes || 0),
+        reach: Number(p.reach || 0),
+
+        // Luxury & specific fields primarily from mKitObjParsed
+        // These are defined in EditorPreviewData and MediaKitData types
+        website: String(mKitObjParsed.website || p.website || ''), // p.website as fallback
+        contact_phone: String(mKitObjParsed.contact_phone || ''),
+        
+        past_brands_text: String(mKitObjParsed.past_brands_text || ''),
+        past_brands_image_url: String(mKitObjParsed.past_brands_image_url || ''),
+        next_steps_text: String(mKitObjParsed.next_steps_text || ''),
+        showcase_images: mKitObjParsed.showcase_images || [],
+
+        audience_age_range: String(mKitObjParsed.audience_age_range || ''),
+        audience_location_main: String(mKitObjParsed.audience_location_main || ''),
+        audience_gender_female: String(mKitObjParsed.audience_gender_female || ''),
+
+        // Platform-specific metrics, now expected at top-level of EditorPreviewData
+        // Sourced from mKitObjParsed (where editor saves them)
+        instagram_followers: Number(mKitObjParsed.instagram_followers || 0),
+        tiktok_followers: Number(mKitObjParsed.tiktok_followers || 0),
+        youtube_followers: Number(mKitObjParsed.youtube_followers || 0),
+        avg_video_views: Number(mKitObjParsed.avg_video_views || 0),
+        avg_ig_reach: Number(mKitObjParsed.avg_ig_reach || 0),
+        ig_engagement_rate: Number(mKitObjParsed.ig_engagement_rate || 0),
+
+        section_visibility: {
+            ...defaultSectionVisibility,
+            ...(mKitObjParsed.section_visibility || {}),
+            ...(p.section_visibility || {}),
+        },
+        
+        // The raw media_kit_data object itself
+        // Ensure MediaKitData is attached if it exists (even if partial)
+        media_kit_data: mKitObjParsed && Object.keys(mKitObjParsed).length > 0 ? mKitObjParsed as MediaKitData : null,
+
     };
-    
-    // This console log helps verify the structure of finalEditorData
-    // console.log("Final realData for EditorPreviewData:", finalEditorData);
-    return finalEditorData;
-  }, [profile, previewData, publicProfile, isPreview, isPublic, localUpdatedMediaKit, initialStats, initialCollabs, initialServices]);
+    // console.log("MediaKit.tsx: final realData for template:", JSON.stringify(result, null, 2));
+    return result;
+
+  }, [isPreview, previewData, publicProfile, localUpdatedMediaKit, profile, fetchedStats, fetchedCollabs, fetchedServices]);
   
   // Debug log for public profile data flow
   if (isPublic) {
@@ -1058,7 +1043,7 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
         full_name: fetchedProfileData.full_name || parsedMediaKitObject?.brand_name || '',
         email: fetchedProfileData.email || '',
         media_kit_data: { 
-          type: "media_kit_data",
+          type: "media_kit_data" as const,
           brand_name: parsedMediaKitObject?.brand_name || fetchedProfileData.brand_name || '',
           tagline: parsedMediaKitObject?.tagline || fetchedProfileData.tagline || '',
           colors: parsedMediaKitObject?.colors || defaultColorScheme,
@@ -1087,12 +1072,8 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
         completeProfile.full_name = completeProfile.media_kit_data.brand_name;
       }
       
-      const newStyles = computeStylesFromProfile(completeProfile);
-      const newActiveTemplateId = (typeof completeProfile.media_kit_data === 'object' && completeProfile.media_kit_data.selected_template_id) || completeProfile.selected_template_id || 'default';
-
       setProfile(completeProfile);
-      setStyles(newStyles);
-      setActiveTemplateId(newActiveTemplateId);
+      setActiveTemplateId(parsedMediaKitObject?.selected_template_id || fetchedProfileData.selected_template_id || 'default');
       setLoading(false);
     } catch (e: unknown) { 
       if (e instanceof Error) {
@@ -1102,7 +1083,7 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
       }
       setLoading(false); 
     }
-  }, [ routeIdFromParams, user?.id, isPreview, isPublic, hasFetched, previewUsername, previewData, publicProfile, setActiveTemplateId, setProfile, setStyles, setLoading, setError, setHasFetched ]);
+  }, [ routeIdFromParams, user?.id, isPreview, isPublic, hasFetched, previewUsername, previewData, publicProfile, setActiveTemplateId, setProfile, setLoading, setError, setHasFetched ]);
 
   useEffect(() => {
     if (!hasFetched && (previewUsername || user?.id || routeIdFromParams || (isPublic && publicProfile) || (isPreview && previewData) )) {
@@ -1157,7 +1138,7 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
     hasPublicProfile: !!publicProfile,
     profile: profile ? 'exists' : 'null',
     loading,
-    dataLoading: !!initialStats,
+    dataLoading: !!fetchedStats,
     kitData: kitData ? 'exists' : 'null',
     error
   });
@@ -1212,17 +1193,23 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
       : defaultSectionVisibility;
 
     console.log(`Rendering ${TemplateDefinition.name} template directly for public/preview`);
-    return <TemplateComponent data={realData as any} theme={computedStyles} loading={loading} section_visibility={currentVisibility as SectionVisibilityState} />;
+    return <TemplateComponent data={realData} theme={computedStyles} loading={loading} section_visibility={currentVisibility as SectionVisibilityState} />;
   }
 
   // --- Default rendering for internal view (/media-kit) ---
-  // Determine ActiveTemplateComponent using the registry
-  const currentTemplateIdInternal = templateIdFromData; // Already derived correctly
-  const ActiveTemplateDefinition = TEMPLATES.find(t => t.id === currentTemplateIdInternal);
+  // flatData here is derived from the `profile` state object
+  const internalTemplateId = templateIdFromData; // Already derived correctly
+  const ActiveTemplateDefinition = TEMPLATES.find(t => t.id === internalTemplateId);
   const ActiveTemplateComponent = ActiveTemplateDefinition ? ActiveTemplateDefinition.Component : null;
-  const internalVisibility = realData.section_visibility 
-    ? { ...defaultSectionVisibility, ...realData.section_visibility } 
-    : defaultSectionVisibility;
+  const internalVisibility = realData.section_visibility; // Already processed by transformDataForTemplate
+
+  if (loading && !isPreview && !isPublic) {
+    return (
+      <div className="w-full h-screen flex items-center justify-center bg-white">
+        <PreviewLoadingFallback />
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-white"> {/* Keep white bg for internal page */}
@@ -1258,16 +1245,31 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
             </div>
           )}
           {/* Main Content: Template Component */}
-          <div className="template-container">
+          <div 
+            className="template-container"
+            style={{
+              '--primary': computedStyles.primary,
+              '--secondary': computedStyles.secondary,
+              '--accent': computedStyles.accent,
+              '--accent-light': computedStyles.primaryLight, // map primaryLight to --accent-light
+              '--background': computedStyles.background,
+              '--foreground': computedStyles.foreground,
+              '--border': computedStyles.border,
+              '--neutral': computedStyles.neutral,
+              '--font-family': computedStyles.font,
+            } as React.CSSProperties}
+          >
             {ActiveTemplateComponent ? (
               <ActiveTemplateComponent
-                data={realData as any} 
+                data={realData} 
                 theme={computedStyles}
                 loading={loading}
                 section_visibility={internalVisibility as SectionVisibilityState}
               />
             ) : (
-              <div>Loading template... (ID: {currentTemplateIdInternal})</div>
+              <div className="w-full h-full flex items-center justify-center bg-white">
+                <PreviewLoadingFallback />
+              </div>
             )}
           </div>
         </div>
@@ -1279,37 +1281,72 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
 // Export the HOC-wrapped memoized component
 export default withPreview(MemoizedMediaKitComponent);
 
-// Default theme
+// Default theme (this is a fallback if computeStylesFromProfile receives no profileData)
 const defaultTheme: TemplateTheme = {
   background: '#F5F5F5',
   foreground: '#1A1F2C',
-  primary: '#7E69AB',
+  primary: '#7E69AB', // Default primary (maps to cs.accent in dynamic themes)
   primaryLight: '#E5DAF8',
   secondary: '#6E59A5',
-  accent: '#1A1F2C', // Often same as foreground in default
-  neutral: '#8E9196',
-  border: 'rgba(126, 105, 171, 0.2)' // #7E69AB with 20% opacity
+  accent: '#1A1F2C', 
+  neutral: '#8E9196', 
+  border: 'rgba(126, 105, 171, 0.2)',
+  font: 'Inter', 
 };
 
-// Add a helper function to compute styles from profile data
-function computeStylesFromProfile(profileData: ProfileData | null): TemplateTheme {
+function computeStylesFromProfile(profileData: ProfileData | EditorPreviewData | null): TemplateTheme {
   if (!profileData) return defaultTheme;
 
-  const mediaKitDataObject = typeof profileData.media_kit_data === 'string'
-    ? (JSON.parse(profileData.media_kit_data) as Extract<ProfileData['media_kit_data'], object> | null)
-    : profileData.media_kit_data;
+  let cs: ColorScheme = defaultColorScheme;
+  let rawFont: string = defaultColorScheme.font || 'Inter'; // Ensure default if font is somehow undefined
+
+  // Check if media_kit_data exists and is an object (typical for ProfileData, possible for EditorPreviewData)
+  if ('media_kit_data' in profileData && profileData.media_kit_data && typeof profileData.media_kit_data === 'object') {
+    const mkd = profileData.media_kit_data as MediaKitData; // Cast for easier access
+
+    // Prioritize colors from media_kit_data, then top-level profileData.colors
+    cs = { ...defaultColorScheme, ...(mkd.colors || ('colors' in profileData && profileData.colors) || {}) };
     
-  const colors = mediaKitDataObject?.colors || {};
-  const baseColors = { ...defaultColorScheme, ...colors }; // Merge with defaults
+    // Font priority:
+    // 1. media_kit_data.font
+    // 2. media_kit_data.colors.font
+    // 3. top-level profileData.font (if profileData is EditorPreviewData and has it)
+    // 4. Fallback to font from the derived color scheme 'cs' (if it has one)
+    // 5. Default font
+    rawFont = mkd.font || 
+              (mkd.colors as ColorScheme)?.font || 
+              ('font' in profileData && typeof profileData.font === 'string' && profileData.font) || // Check top-level font
+              (cs as ColorScheme)?.font || 
+              defaultColorScheme.font || 'Inter';
+
+  } else if ('colors' in profileData && profileData.colors) {
+    // This branch handles cases where media_kit_data might not be primary (e.g., a flatter EditorPreviewData)
+    // or if profileData is a simple object with colors and possibly font.
+    cs = { ...defaultColorScheme, ...(profileData.colors || {}) };
+    if ('font' in profileData && typeof profileData.font === 'string' && profileData.font) {
+       rawFont = profileData.font;
+    } else if ((cs as ColorScheme)?.font) {
+       rawFont = (cs as ColorScheme).font!;
+    }
+  }
+  // Ensure cs has all base properties from defaultColorScheme after specific overrides
+  cs = { ...defaultColorScheme, ...cs };
+  
+  // Final check for font if it's still default and cs might have a more specific one
+  if ((rawFont === defaultColorScheme.font || rawFont === 'Inter') && (cs as ColorScheme)?.font) {
+    rawFont = (cs as ColorScheme).font!;
+  }
+
 
   return {
-    background: baseColors.background,
-    foreground: baseColors.text,
-    primary: baseColors.accent, // Map accent to primary
-    primaryLight: baseColors.accent_light,
-    secondary: baseColors.secondary,
-    accent: baseColors.accent, // Keep accent as accent too
-    neutral: baseColors.secondary, // Use secondary for neutral
-    border: `${baseColors.accent}33`,
+    background:   cs.background,
+    foreground:   cs.text,
+    primary:      cs.accent,
+    primaryLight: cs.accent_light,
+    secondary:    cs.secondary,
+    accent:       cs.accent,
+    neutral:      cs.secondary, // As per previous logic, neutral often maps to secondary or another accent
+    border:       `${cs.accent}33`,
+    font:         rawFont 
   };
-} 
+}

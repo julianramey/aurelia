@@ -23,7 +23,8 @@ import type {
   EditableSection,
   SectionVisibilityState,
   TemplateTheme,      // Import from types.ts
-  EditorPreviewData   // Import from types.ts
+  EditorPreviewData,   // Import from types.ts
+  EditorFormData    // ADDED IMPORT
 } from '@/lib/types';
 import type { DefaultSpecificData } from '@/components/media-kit-templates/MediaKitTemplateDefault';
 import type { AestheticSpecificData } from '@/components/media-kit-templates/MediaKitTemplateAesthetic';
@@ -68,6 +69,7 @@ import TikTokVideosForm from '@/components/media-kit-editor-forms/TikTokVideosFo
 import AudienceStatsForm from '@/components/media-kit-editor-forms/AudienceStatsForm';
 import TemplateLibraryDialog from '@/components/media-kit-editor/TemplateLibraryDialog'; // +++ ADD IMPORT
 import ThemeEditorCard from '@/components/media-kit-editor/ThemeEditorCard'; // +++ IMPORT ThemeEditorCard
+import AudienceDemographicsForm from '@/components/media-kit-editor-forms/AudienceDemographicsForm'; // ADDED IMPORT
 
 // TRACK (the pill background)
 const TRACK = [
@@ -94,6 +96,7 @@ const defaultSectionVisibility: SectionVisibilityState = {
   tiktokVideos: true,
   audienceStats: true,
   performance: true,
+  audienceDemographics: true,
 };
 
 // fetch TikTok oEmbed thumbnail URL
@@ -214,26 +217,42 @@ interface MediaKitPreviewProps {
   templateId: string; 
 }
 
-// Add a separate Preview component to isolate and force re-renders
 // --- Update MediaKitPreview component to render dynamically ---
 const MediaKitPreview = ({ data, theme, templateId }: MediaKitPreviewProps) => {
   if (!data) return null;
 
   const template = TEMPLATES.find(t => t.id === templateId);
+  let TemplateComponent;
 
   if (!template) {
     const defaultTemplateEntry = TEMPLATES.find(t => t.id === 'default');
     if (defaultTemplateEntry) {
-      return <defaultTemplateEntry.Component data={data} theme={theme} section_visibility={data.section_visibility} />;
+      TemplateComponent = defaultTemplateEntry.Component;
+    } else {
+      return <div>Error: Template not found and default template missing.</div>;
     }
-    return <div>Error: Template not found and default template missing.</div>;
+  } else {
+    TemplateComponent = template.Component;
   }
 
-  // template.Component expects { data: SpecificData | null, theme: SpecificTheme }
-  // We are passing { data: EditorPreviewData | null, theme: TemplateTheme }
-  // This is now okay because individual template components props were changed to accept EditorPreviewData.
-  // And SpecificTheme extends TemplateTheme.
-  return <template.Component data={data} theme={theme} section_visibility={data.section_visibility} />;
+  // Apply theme as CSS variables for the preview
+  const previewStyle = {
+    '--primary': theme.primary,
+    '--secondary': theme.secondary,
+    '--accent': theme.accent,
+    '--accent-light': theme.primaryLight, // primaryLight from theme maps to accent-light var
+    '--background': theme.background,
+    '--foreground': theme.foreground,
+    '--border': theme.border,
+    '--neutral': theme.neutral,
+    '--font-family': theme.font,
+  } as React.CSSProperties;
+
+  return (
+    <div style={previewStyle}>
+      <TemplateComponent data={data} theme={theme} section_visibility={data.section_visibility} />
+    </div>
+  );
 };
 
 // --- Define Equalized Individual Color Swatches (12 each) --- 
@@ -279,7 +298,7 @@ const accentSwatches = [
 ];
 
 // Map keys to their swatch arrays
-const swatchMap: Record<keyof ColorScheme, { name: string; hex: string }[]> = {
+const swatchMap: Record<keyof Omit<ColorScheme, 'font'>, { name: string; hex: string }[]> = {
   background: backgroundSwatches,
   text: textSwatches,
   secondary: secondarySwatches,
@@ -298,27 +317,6 @@ const switchTrackClass =
 const switchThumbClass =
   "block h-4 w-4 rounded-full bg-white shadow transform " +
   "transition-transform duration-200 data-[state=checked]:translate-x-5";
-
-// --- Define a specific type for the form state --- 
-interface EditorFormData {
-  brand_name: string;
-  tagline: string;
-  colors: ColorScheme;
-  font: string;
-  personal_intro: string;
-  instagram_handle: string;
-  tiktok_handle: string;
-  portfolio_images: string[];
-  brand_collaborations_text: string; // Raw text
-  services_text: string; // Raw text
-  skills_text: string; // Raw text
-  follower_count: string | number;
-  engagement_rate: string | number;
-  avg_likes: string | number;
-  reach: string | number;
-  email: string; // Contact email
-  profile_photo: string; // URL
-}
 
 export default function MediaKitEditor() {
   const navigate = useNavigate();
@@ -366,7 +364,28 @@ export default function MediaKitEditor() {
     avg_likes: '',
     reach: '',
     email: '',
-    profile_photo: '', 
+    profile_photo: '',
+
+    // Initialize new fields
+    past_brands_text: '',
+    past_brands_image_url: '',
+    next_steps_text: '',
+    showcase_images: [],
+    contact_phone: '',
+    website: '',
+
+    // Initialize Audience Demographics
+    audience_age_range: '',
+    audience_location_main: '',
+    audience_gender_female: '',
+
+    // Initialize new platform-specific and detailed metrics
+    instagram_followers: '',
+    tiktok_followers: '',
+    youtube_followers: '',
+    avg_video_views: '',
+    avg_ig_reach: '',
+    ig_engagement_rate: '',
   });
   
   // hold up to 5 TikTok links + thumbnails
@@ -383,6 +402,7 @@ export default function MediaKitEditor() {
     TikTokVideosForm: TikTokVideosForm,
     AudienceStatsForm: AudienceStatsForm,
     PerformanceForm: PerformanceForm,
+    AudienceDemographicsForm: AudienceDemographicsForm,
   };
 
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
@@ -415,8 +435,9 @@ export default function MediaKitEditor() {
 
   useEffect(() => {
     let initialData: Partial<EditorFormData> = {};
+    let loadedSectionVisibility: Partial<SectionVisibilityState> = {};
+
     if (profile) {
-      // Get media_kit_data properly parsed
       const mediaKitData = typeof profile.media_kit_data === 'string' 
         ? JSON.parse(profile.media_kit_data) 
         : profile.media_kit_data || {};
@@ -426,10 +447,10 @@ export default function MediaKitEditor() {
         parsed_media_kit_data: mediaKitData,
         colors_from_media_kit: mediaKitData?.colors,
         tagline_from_media_kit: mediaKitData?.tagline,
+        visibility_from_media_kit: mediaKitData?.section_visibility, // Log loaded visibility
       });
         
       initialData = {
-        ...initialData,
         brand_name: profile.full_name || '',
         personal_intro: profile.personal_intro || '',
         instagram_handle: profile.instagram_handle ? `@${profile.instagram_handle}` : '',
@@ -439,8 +460,30 @@ export default function MediaKitEditor() {
         colors: mediaKitData?.colors || COLOR_PRESETS[0].colors,
         font: mediaKitData?.font || 'Inter',
         email: mediaKitData?.contact_email || profile.email || '',
-        profile_photo: mediaKitData?.profile_photo || profile.avatar_url || ''
+        profile_photo: mediaKitData?.profile_photo || profile.avatar_url || '',
+        past_brands_text: mediaKitData?.past_brands_text || '',
+        past_brands_image_url: mediaKitData?.past_brands_image_url || '',
+        next_steps_text: mediaKitData?.next_steps_text || '',
+        showcase_images: mediaKitData?.showcase_images || [],
+        contact_phone: mediaKitData?.contact_phone || '',
+        website: mediaKitData?.website || profile.website || '',
+        audience_age_range: mediaKitData?.audience_age_range || '',
+        audience_location_main: mediaKitData?.audience_location_main || '',
+        audience_gender_female: mediaKitData?.audience_gender_female || '',
+
+        // Load new platform-specific and detailed metrics
+        instagram_followers: mediaKitData?.instagram_followers || '',
+        tiktok_followers: mediaKitData?.tiktok_followers || '',
+        youtube_followers: mediaKitData?.youtube_followers || '',
+        avg_video_views: mediaKitData?.avg_video_views || '',
+        avg_ig_reach: mediaKitData?.avg_ig_reach || '',
+        ig_engagement_rate: mediaKitData?.ig_engagement_rate || '',
       };
+
+      // Load section visibility from mediaKitData
+      if (mediaKitData?.section_visibility) {
+        loadedSectionVisibility = mediaKitData.section_visibility;
+      }
     }
     if (stats.length > 0) {
       const instagramStats = stats.find(s => s.platform === 'instagram');
@@ -469,17 +512,20 @@ export default function MediaKitEditor() {
       };
     }
     
-    // IMPORTANT: Load the colors from initialData, not prev.colors!
     setFormData(prev => ({ 
       ...prev, 
       ...initialData,
-      // Ensure tagline is explicitly pulled from mediaKitData 
       tagline: initialData.tagline || prev.tagline,
-      // Use the colors from mediaKitData, not prev.colors
       colors: initialData.colors || prev.colors 
     }));
 
-    // Set selectedTemplateId from saved data if available
+    // ***** ADDED: Update sectionVisibility state from loaded data, merged with defaults *****
+    setSectionVisibility(prev => ({
+      ...defaultSectionVisibility, // Start with all defaults (ensures new sections are true)
+      ...loadedSectionVisibility  // Override with specifically saved values
+    }));
+    // ***** END ADDED *****
+
     if (profile?.media_kit_data) {
       try {
         const mediaKitDataObj = typeof profile.media_kit_data === 'string'
@@ -672,41 +718,71 @@ export default function MediaKitEditor() {
       const servicesArray = formData.services_text ? formData.services_text.split(',').map(item => item.trim()).filter(Boolean) : [];
       const collabsArray = formData.brand_collaborations_text ? formData.brand_collaborations_text.split(',').map(item => item.trim()).filter(Boolean) : [];
 
-      // Construct the MediaKitData object to save
-      // Ensure it matches the MediaKitData interface from types.ts
-      const dataToSave: MediaKitData = {
-        type: 'media_kit_data',
+      // parse out the old blob
+      const existing = typeof profile?.media_kit_data === 'string'
+        ? JSON.parse(profile.media_kit_data)
+        : profile?.media_kit_data || {};
+
+      // build the new‐only subset
+      const newContent = {
+        type: 'media_kit_data', // Ensure type is always present
         brand_name: formData.brand_name,
-        tagline: formData.tagline || '',
-        colors: formData.colors, // Use current colors state
-        font: formData.font || 'Inter',
+        tagline: formData.tagline,
+        colors: formData.colors,
+        font: formData.font,
         selected_template_id: selectedTemplateId,
-        profile_photo: formData.profile_photo || undefined,
-        personal_intro: formData.personal_intro || '',
+        profile_photo: formData.profile_photo,
+        personal_intro: formData.personal_intro,
         skills: skillsArray,
-        // Save handles without the '@' prefix
-        instagram_handle: formData.instagram_handle?.replace('@', '') || undefined,
-        tiktok_handle: formData.tiktok_handle?.replace('@', '') || undefined,
-        portfolio_images: formData.portfolio_images || [],
-        videos: videoLinks, // Use current videoLinks state
-        contact_email: formData.email || '',
-        section_visibility: sectionVisibility, // Use current visibility state
+        instagram_handle: formData.instagram_handle.replace('@',''),
+        tiktok_handle: formData.tiktok_handle.replace('@',''),
+        portfolio_images: formData.portfolio_images,
+        videos: videoLinks,
+        contact_email: formData.email,
+        section_visibility: sectionVisibility, // Use current visibility state - ensure this name matches usage
         last_updated: new Date().toISOString(),
+        // ← NEW fields:
+        website: formData.website,
+        contact_phone: formData.contact_phone,
+        past_brands_text: formData.past_brands_text,
+        past_brands_image_url: formData.past_brands_image_url,
+        next_steps_text: formData.next_steps_text,
+        showcase_images: formData.showcase_images,
+
+        // Add Audience Demographics to save
+        audience_age_range: formData.audience_age_range,
+        audience_location_main: formData.audience_location_main,
+        audience_gender_female: formData.audience_gender_female,
+
+        // Add new platform-specific and detailed metrics to save
+        instagram_followers: parseFloat(String(formData.instagram_followers)) || 0,
+        tiktok_followers: parseFloat(String(formData.tiktok_followers)) || 0,
+        youtube_followers: parseFloat(String(formData.youtube_followers)) || 0,
+        avg_video_views: parseFloat(String(formData.avg_video_views)) || 0,
+        avg_ig_reach: parseFloat(String(formData.avg_ig_reach)) || 0,
+        ig_engagement_rate: parseFloat(String(formData.ig_engagement_rate)) || 0,
       };
       
-      console.log("💾 Saving MediaKitData:", dataToSave);
+      // ensure required props like brand_name are never undefined
+      const merged: MediaKitData = {
+        ...(existing as MediaKitData),
+        ...newContent,
+        brand_name: newContent.brand_name || (existing as MediaKitData).brand_name || '',
+        // Ensure 'type' is preserved or set if it's a required part of MediaKitData
+        type: newContent.type || (existing as MediaKitData).type || 'media_kit_data',
+      } as MediaKitData;
+      
+      console.log("💾 Saving Merged MediaKitData:", merged);
 
       // Prepare profile updates 
+      // persist it—cast to satisfy TS until you update your MediaKitData type
       const updates: Partial<Profile> = {
-        full_name: dataToSave.brand_name, // Sync top-level name
-        avatar_url: dataToSave.profile_photo || profile?.avatar_url || undefined, // Sync avatar
-        // Sync top-level handles for potential direct use/querying
-        instagram_handle: dataToSave.instagram_handle,
-        tiktok_handle: dataToSave.tiktok_handle,
-        // Sync personal intro at top level?
-        // personal_intro: dataToSave.personal_intro, 
-        selected_template_id: dataToSave.selected_template_id,
-        media_kit_data: dataToSave, // Save the whole blob
+        full_name: merged.brand_name, 
+        avatar_url: merged.profile_photo || profile?.avatar_url || undefined,
+        instagram_handle: merged.instagram_handle,
+        tiktok_handle: merged.tiktok_handle,
+        selected_template_id: merged.selected_template_id,
+        media_kit_data: merged as MediaKitData, // Save the whole merged blob with type assertion
         updated_at: new Date().toISOString(),
       };
       
@@ -887,29 +963,36 @@ export default function MediaKitEditor() {
       section_visibility: sectionVisibility, 
       selected_template_id: selectedTemplateId,
       
+      // Refined parsing for avg_likes and reach
+      avg_likes: (formData.avg_likes && String(formData.avg_likes).trim() !== '') ? (parseFloat(String(formData.avg_likes)) || 0) : ((getBaseProp('avg_likes') as number) || 0),
+      reach: (formData.reach && String(formData.reach).trim() !== '') ? (parseFloat(String(formData.reach)) || 0) : ((getBaseProp('reach') as number) || 0),
+      
+      // Keep original follower_count and engagement_rate logic for now
+      // These are general stats, not the new specific ones we are adding.
+      // The new specific ones will be sourced below.
       follower_count: parseFloat(String(formData.follower_count)) || (getBaseProp('follower_count') as number) || 0,
       engagement_rate: parseFloat(String(formData.engagement_rate)) || (getBaseProp('engagement_rate') as number) || 0,
-      avg_likes: parseFloat(String(formData.avg_likes)) || (getBaseProp('avg_likes') as number) || 0,
-      reach: parseFloat(String(formData.reach)) || (getBaseProp('reach') as number) || 0,
-      
+
       stats: stats?.length ? stats : (getBaseProp('stats') || []),
       brand_collaborations: previewBrandCollaborations, 
       services: previewServices,
       
-      instagram_followers: getBaseProp('instagram_followers'),
-      tiktok_followers: getBaseProp('tiktok_followers'),
-      youtube_followers: getBaseProp('youtube_followers'),
-      audience_age_range: getBaseProp('audience_age_range'),
-      audience_location_main: getBaseProp('audience_location_main'),
-      audience_gender_female: getBaseProp('audience_gender_female'),
-      avg_video_views: getBaseProp('avg_video_views'),
-      avg_ig_reach: getBaseProp('avg_ig_reach'),
-      ig_engagement_rate: getBaseProp('ig_engagement_rate'),
-      showcase_images: getBaseProp('showcase_images') || [],
-      past_brands_text: getBaseProp('past_brands_text'),
-      past_brands_image_url: getBaseProp('past_brands_image_url'),
-      next_steps_text: getBaseProp('next_steps_text'),
-      contact_phone: getBaseProp('contact_phone'),
+      // NEW: Source these directly from formData for the live preview
+      instagram_followers: parseFloat(String(formData.instagram_followers)) || (getBaseProp('instagram_followers') as number) || 0,
+      tiktok_followers: parseFloat(String(formData.tiktok_followers)) || (getBaseProp('tiktok_followers') as number) || 0,
+      youtube_followers: parseFloat(String(formData.youtube_followers)) || (getBaseProp('youtube_followers') as number) || 0,
+      avg_video_views: parseFloat(String(formData.avg_video_views)) || (getBaseProp('avg_video_views') as number) || 0,
+      avg_ig_reach: parseFloat(String(formData.avg_ig_reach)) || (getBaseProp('avg_ig_reach') as number) || 0,
+      ig_engagement_rate: parseFloat(String(formData.ig_engagement_rate)) || (getBaseProp('ig_engagement_rate') as number) || 0,
+
+      audience_age_range: formData.audience_age_range || getBaseProp('audience_age_range') || '',
+      audience_location_main: formData.audience_location_main || getBaseProp('audience_location_main') || '',
+      audience_gender_female: formData.audience_gender_female || getBaseProp('audience_gender_female') || '',
+      showcase_images: formData.showcase_images?.length ? formData.showcase_images : (getBaseProp('showcase_images') || []),
+      past_brands_text: formData.past_brands_text || getBaseProp('past_brands_text') || '',
+      past_brands_image_url: formData.past_brands_image_url || getBaseProp('past_brands_image_url') || '',
+      next_steps_text: formData.next_steps_text || getBaseProp('next_steps_text') || '',
+      contact_phone: formData.contact_phone || getBaseProp('contact_phone') || '',
 
       media_kit_data: null, 
     } as EditorPreviewData;

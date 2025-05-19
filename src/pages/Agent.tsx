@@ -21,6 +21,8 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { withPreview } from '@/lib/withPreview';
+import { useAuth } from '@/lib/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 // Message types
 type MessageRole = 'user' | 'assistant' | 'system';
@@ -57,25 +59,32 @@ const availablePersonalities: Personality[] = [
     id: 'aurelia-default',
     name: 'Aurelia (Default)',
     description: 'Friendly, supportive big-sister energy.',
-    initialGreeting: 'Hey Julian! So excited to chat. What creative ideas are we diving into today?',
+    initialGreeting: 'Hey {name}! So excited to chat. What creative ideas are we diving into today?',
     systemPrompt: `You are Aurelia, the friendly AI assistant built into the Aurelia web app—an AI-powered talent management platform for beauty influencers.\nYou speak in a lighthearted, upbeat, and helpful tone (think supportive big-sister energy), not dry or robotic.\nYour core mission is to help beauty creators aged ~15–25 grow their brand: brainstorming content ideas, drafting outreach emails, explaining metrics, suggesting partnership pitch angles, etc.\nYou can chat about anything, but gently steer conversations back to supporting their influencer goals whenever it makes sense.\nKeep it fun, concise, and genuine—no over-the-top slang, just warm and approachable.\n\n--- Interaction Style Note ---\nAlso, try to subtly mirror my way of talking, including my tone, slang (if I use any), and emoji use, to make our conversation feel more natural and engaging. But remember to always keep your main personality as Aurelia!`
   },
   {
     id: 'professional-coach',
     name: 'Professional Coach',
     description: 'Direct, strategic, and results-oriented.',
-    initialGreeting: 'Hello Julian. What are we working on today?',
+    initialGreeting: 'Hello {name}. What are we working on today?',
     systemPrompt: `You are a professional talent coach AI for beauty influencers, integrated into the Aurelia platform.\nYour tone is direct, strategic, and focused on actionable advice to achieve measurable growth.\nProvide clear steps, data-driven insights, and concise recommendations.\nFocus on brand development, monetization strategies, and professional conduct.\nAvoid casual language; maintain a formal and authoritative tone.\n\n--- Interaction Style Note ---\nAlso, try to subtly mirror my way of talking, including my tone and sentence structure, to make our conversation feel more natural and engaging, while maintaining your core professional coaching personality.`
   },
   {
     id: 'creative-spark',
     name: 'Creative Spark',
     description: 'Imaginative, playful, and full of ideas.',
-    initialGreeting: 'Woohoo, Julian! Ready to brainstorm some AMAZINGLY fun and wild ideas? What are we cooking up?',
+    initialGreeting: 'Woohoo, {name}! Ready to brainstorm some AMAZINGLY fun and wild ideas? What are we cooking up?',
     systemPrompt: `You are the Creative Spark AI, a brainstorming partner for beauty influencers on the Aurelia platform.\nYour personality is imaginative, playful, and bursting with unconventional ideas.\nEncourage experimentation and out-of-the-box thinking for content, branding, and collaborations.\nUse vivid language and a highly enthusiastic tone. Help users break creative blocks.\n\n--- Interaction Style Note ---\nAlso, try to subtly mirror my creative energy and way of talking, including my tone, slang (if I use any), and emoji use, to make our brainstorming even more fun and effective! Always keep your core Creative Spark personality.`
   },
   // Add 2 more distinct personalities here later if needed
 ];
+
+// Helper function to fill greeting template
+const fillGreeting = (template: string, name: string): string => {
+  // Only replace the {name} placeholder. 
+  // Assumes customAgentInitialGreeting will be updated to use {name} if personalization is desired there.
+  return template.replace('{name}', name);
+};
 
 // Define Trait structure for custom agent personalities
 interface Trait {
@@ -125,15 +134,101 @@ const THUMB_CLASSES = cn(
 
 // Renamed from Agent to AgentComponent
 const AgentComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
+  const [userName, setUserName] = useState<string>("Friend");
+  const [isUserNameLoading, setIsUserNameLoading] = useState<boolean>(true);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    let didCancel = false; // For cleanup
+
+    const updateUserNameAndLoadingState = async () => {
+      if (user === undefined) {
+        // Auth state is still being determined by useAuth()
+        if (!didCancel) setIsUserNameLoading(true); // Keep loading UI visible
+        return;
+      }
+
+      if (user === null) {
+        // Auth state resolved: User is definitively not logged in
+        if (!didCancel) {
+          setUserName("Friend");
+          setIsUserNameLoading(false); // Loading finished, name is Friend
+        }
+        return;
+      }
+
+      // If we reach here, user is an object (logged in).
+      // Set loading to true as we now fetch the name specifically.
+      if (!didCancel) setIsUserNameLoading(true);
+
+      let nameToSet = "Friend";
+      try {
+        const metaDataFirstName = user.user_metadata?.first_name;
+        const metaDataFullName = user.user_metadata?.full_name || user.user_metadata?.user_name || user.user_metadata?.username;
+
+        if (metaDataFirstName) {
+          nameToSet = metaDataFirstName;
+        } else if (metaDataFullName) {
+          nameToSet = metaDataFullName.split(' ')[0];
+        } else if (user.id) {
+          // Name not in metadata, fetch from profiles table
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('first_name, full_name, username')
+            .eq('id', user.id)
+            .single();
+          
+          if (didCancel) return; // Check after await
+
+          if (error) {
+            console.error("Error fetching user's name from profiles:", error.message);
+            // nameToSet remains "Friend"
+          } else if (profile) {
+            nameToSet = profile.first_name || (profile.full_name ? profile.full_name.split(' ')[0] : profile.username) || "Friend";
+          }
+          // else nameToSet remains "Friend" (profile not found or user.id missing after all)
+        }
+      } catch (e) {
+        if (didCancel) return;
+        console.error("Exception processing user's name:", e);
+        // nameToSet remains "Friend"
+      }
+
+      if (!didCancel) {
+        setUserName(nameToSet);
+        setIsUserNameLoading(false); // All paths for a logged-in user conclude here, loading finished.
+      }
+    };
+
+    updateUserNameAndLoadingState();
+
+    return () => {
+      didCancel = true; // Cleanup function to prevent state updates on unmounted component
+    };
+  }, [user]);
+
+  // Helper function to get personality with substituted greeting
+  const getPersonalityWithSubstitutedGreeting = (personalityId: string) => {
+    const personality = availablePersonalities.find(p => p.id === personalityId) || availablePersonalities[0];
+    return {
+      ...personality,
+      initialGreeting: fillGreeting(personality.initialGreeting, userName)
+    };
+  };
+
   // State for messages
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'init-asst-' + Date.now(),
-      role: 'assistant',
-      content: availablePersonalities[0].initialGreeting,
-      timestamp: new Date()
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>(() => {
+    const initialPersonalityId = localStorage.getItem('aureliaAgentPersonalityId') || availablePersonalities[0].id;
+    const greeting = getPersonalityWithSubstitutedGreeting(initialPersonalityId).initialGreeting;
+    return [
+      {
+        id: 'init-asst-' + Date.now(),
+        role: 'assistant',
+        content: greeting,
+        timestamp: new Date()
+      }
+    ];
+  });
   
   // State for user input
   const [input, setInput] = useState('');
@@ -163,7 +258,7 @@ const AgentComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
         id: 'chat-1',
         preview: 'How to negotiate higher rates with brands...',
         messages: [
-          { id: 'ch1-1', role: 'assistant', content: 'Hi Julian! What would you like to discuss today?', timestamp: new Date(Date.now() - 100000) },
+          { id: 'ch1-1', role: 'assistant', content: `Hi ${userName}! What would you like to discuss today?`, timestamp: new Date(Date.now() - 100000) },
           { id: 'ch1-2', role: 'user', content: 'I need help with rate negotiation.', timestamp: new Date(Date.now() - 90000) },
           { id: 'ch1-3', role: 'assistant', content: 'Okay, I can help with that! First, always research the brand and their typical rates.', timestamp: new Date(Date.now() - 80000) }
         ],
@@ -253,9 +348,9 @@ const AgentComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
   });
   const [isClearHistoryConfirmVisible, setIsClearHistoryConfirmVisible] = useState<boolean>(false);
   
-  // Helper to get the current personality object
+  // Helper to get the current personality object with substituted greeting
   const getCurrentPersonality = () => {
-    return availablePersonalities.find(p => p.id === selectedPersonalityId) || availablePersonalities[0];
+    return getPersonalityWithSubstitutedGreeting(selectedPersonalityId);
   };
   
   // Effect to save chatHistory to localStorage whenever it changes
@@ -291,60 +386,78 @@ const AgentComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
   
   // Effect to potentially update initial greeting if personality changes AND it's a fresh chat
   useEffect(() => {
-    if (messages.length === 1 && messages[0].role === 'assistant' && !currentChatId) {
-      const greeting = isUsingCustomAgent ? customAgentInitialGreeting : getCurrentPersonality().initialGreeting;
-      if (messages[0].content !== greeting) {
+    if (!isUserNameLoading && messages.length === 1 && messages[0].role === 'assistant' && !currentChatId) {
+      const currentGreetingTemplate = isUsingCustomAgent 
+        ? customAgentInitialGreeting 
+        : (availablePersonalities.find(p => p.id === selectedPersonalityId) || availablePersonalities[0]).initialGreeting;
+      
+      const newGreeting = fillGreeting(currentGreetingTemplate, userName);
+
+      if (messages[0].content !== newGreeting) {
         setMessages([
           {
-            id: 'init-asst-' + Date.now(),
+            id: messages[0].id, // Keep the same ID for the update
             role: 'assistant',
-            content: greeting,
-            timestamp: new Date()
-          }
-        ]);
-      }
-    }
-  }, [selectedPersonalityId, isUsingCustomAgent, customAgentInitialGreeting, messages, currentChatId]);
-  
-  // Effect to load messages when currentChatId changes or set initial greeting
-  useEffect(() => {
-    if (currentChatId) {
-      const selectedChat = chatHistory.find(chat => chat.id === currentChatId);
-      if (selectedChat) {
-        setMessages(selectedChat.messages);
-      } else {
-        // Chat not found, reset to a new chat state with current personality greeting
-        setCurrentChatId(null); // This will trigger the else block below in the next render cycle if not already null
-        setMessages([
-          {
-            id: 'error-chat-asst-' + Date.now(),
-            role: 'assistant',
-            content: getCurrentPersonality().initialGreeting, // Use current personality's greeting
-            timestamp: new Date()
-          }
-        ]);
-      }
-    } else {
-      // No currentChatId (new chat or initial load)
-      // Ensure the initial message reflects the current personality if messages state is empty or doesn't match
-      const currentPersonality = getCurrentPersonality();
-      const greeting = isUsingCustomAgent ? customAgentInitialGreeting : currentPersonality.initialGreeting;
-      if (messages.length === 0 || 
-         (messages.length === 1 && messages[0].role === 'assistant' && messages[0].content !== greeting && !messages[0].id.startsWith('error-chat')) ||
-         (messages.length > 1 && currentChatId === null) 
-      ) {
-        setMessages([
-          {
-            id: 'init-asst-' + Date.now(),
-            role: 'assistant',
-            content: greeting,
-            timestamp: new Date()
+            content: newGreeting,
+            timestamp: new Date() // Update timestamp
           }
         ]);
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps 
-  }, [currentChatId, chatHistory, isUsingCustomAgent, customAgentInitialGreeting]);
+  }, [selectedPersonalityId, isUsingCustomAgent, customAgentInitialGreeting, userName, messages, currentChatId, isUserNameLoading]);
+  
+  // New useEffect to set the initial greeting message once userName is loaded for a new chat
+  useEffect(() => {
+    if (!isUserNameLoading && messages.length === 0 && !currentChatId) {
+      const greetingTemplate = isUsingCustomAgent
+        ? customAgentInitialGreeting 
+        : (availablePersonalities.find(p => p.id === selectedPersonalityId) || availablePersonalities[0]).initialGreeting;
+      
+      const greeting = fillGreeting(greetingTemplate, userName);
+      
+      setMessages([{
+        id: 'init-asst-' + Date.now(),
+        role: 'assistant',
+        content: greeting,
+        timestamp: new Date()
+      }]);
+    }
+  }, [isUserNameLoading, userName, isUsingCustomAgent, customAgentInitialGreeting, selectedPersonalityId, currentChatId, messages.length]); // Added messages.length
+
+  // Effect to load messages when currentChatId changes or set initial greeting
+  useEffect(() => {
+    if (currentChatId) {
+      const selectedChat = chatHistory.find(chat => chat.id === currentChatId);
+      if (selectedChat) {
+        setMessages(selectedChat.messages.map(msg => ({
+          ...msg, 
+          content: fillGreeting(msg.content, userName) 
+        })));
+      } else {
+        setCurrentChatId(null); // Chat not found, effectively a new chat.
+        // The new initial greeting effect above will handle setting the message for a new chat.
+        // Or, if we want an explicit error message here:
+        // const errGreetingTemplate = (availablePersonalities.find(p => p.id === selectedPersonalityId) || availablePersonalities[0]).initialGreeting;
+        // setMessages([{
+        //   id: 'error-chat-asst-' + Date.now(),
+        //   role: 'assistant',
+        //   content: fillGreeting(errGreetingTemplate, userName),
+        //   timestamp: new Date()
+        // }]);
+      }
+    } else {
+      // No currentChatId (new chat). The new initial greeting useEffect should handle this.
+      // However, if messages are somehow populated (e.g. > 0) and no currentChatId, 
+      // ensure the initial greeting logic (above) handles it if messages.length === 0.
+      // If messages.length > 0 and no currentChatId, this implies a state that should be resolved
+      // by the new chat logic or loading chat history logic.
+      // For safety, if we land here with no messages and no currentChatId, the new effect will populate it.
+      // If we land here with messages but no chatId, it might be after a new chat was started and then messages were added.
+      // The main concern here is not to set an initial greeting if one is already being set or if history is loaded.
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps 
+  }, [currentChatId, chatHistory, userName, isUserNameLoading]); // Added userName, isUserNameLoading for fillGreeting
 
   // Click outside to close menu effect
   useEffect(() => {
@@ -504,30 +617,15 @@ const AgentComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
     
     // If the deleted chat was the currently active one, reset the main chat view
     if (currentChatId === chatIdToDelete) {
-      setCurrentChatId(null);
-      // The useEffect for currentChatId will handle setting the initial message for a new session
-      setMessages([
-        {
-          id: 'new-chat-asst-' + Date.now(), 
-          role: 'assistant',
-          content: getCurrentPersonality().initialGreeting,
-          timestamp: new Date()
-        }
-      ]);
+      setCurrentChatId(null); // This will trigger the initial greeting effect for a new session
+      setMessages([]); // Clear messages, new effect will add greeting
     }
   };
   
   // Function to create a new chat
   const handleNewChat = () => {
-    setCurrentChatId(null); // This will trigger the useEffect to set personality-specific initial messages
-    setMessages([
-      {
-        id: 'new-chat-asst-' + Date.now(),
-        role: 'assistant',
-        content: getCurrentPersonality().initialGreeting,
-        timestamp: new Date()
-      }
-    ]);
+    setCurrentChatId(null);
+    setMessages([]); // Clear messages, the new initial greeting effect will populate it.
   };
   
   // Format timestamp
@@ -622,20 +720,16 @@ const AgentComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
   const executeClearAllHistory = () => {
     setChatHistory([]);
     setCurrentChatId(null); 
-    setMessages([
-      {
-        id: 'cleared-asst-' + Date.now(),
-        role: 'assistant',
-        content: getActiveInitialGreeting(), // Use active greeting
-        timestamp: new Date()
-      }
-    ]);
+    setMessages([]); // Clear messages, the new initial greeting effect will populate it.
     setIsClearHistoryConfirmVisible(false); // Close confirmation dialog
     setIsSettingsModalOpen(false); // Close settings modal
   };
   
   const getActiveInitialGreeting = () => {
-    return isUsingCustomAgent ? customAgentInitialGreeting : getCurrentPersonality().initialGreeting;
+    const template = isUsingCustomAgent 
+      ? customAgentInitialGreeting 
+      : (availablePersonalities.find(p => p.id === selectedPersonalityId) || availablePersonalities[0]).initialGreeting;
+    return fillGreeting(template, userName);
   };
   
   const getActiveAgentName = () => {
@@ -647,6 +741,16 @@ const AgentComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
   
   const initialScrollDoneForChat = useRef(false);
   
+  // Conditional rendering based on username loading state
+  if (isUserNameLoading && !isPreview) { // Don't show loading for preview mode if it has its own
+    return (
+      <div className="min-h-screen bg-muted dark:bg-charcoal flex items-center justify-center">
+        <p className="text-charcoal dark:text-slate-300 font-medium">Loading agent...</p>
+        {/* You could put a spinner or skeleton here */}
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-muted dark:bg-charcoal">
       {/* <DashboardNav /> */}{/* Removed: Handled by withPreview HOC */}

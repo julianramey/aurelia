@@ -9,6 +9,7 @@ export interface EmailTemplate {
   subject: string;
   body: string;
   icon?: React.ElementType; // Icon for the template card
+  category?: string; // Added category field
 }
 
 interface TemplateSelectorModalProps {
