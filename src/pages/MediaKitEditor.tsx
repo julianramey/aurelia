@@ -35,6 +35,7 @@ import {
   UserIcon,
   ChartBarIcon,
   PhotoIcon,
+  SquaresPlusIcon,
 } from '@heroicons/react/24/outline';
 import { TrashIcon, XMarkIcon } from '@heroicons/react/24/solid';
 import DashboardNav from '@/components/DashboardNav';
@@ -54,11 +55,13 @@ import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import TemplateThumbnail from '@/components/media-kit-templates/TemplateThumbnail';
 import { TEMPLATES } from '@/lib/templateRegistry';
-import { SECTIONS, type EditorFormProps } from '@/lib/sections'; // <-- IMPORT SECTIONS and EditorFormProps
+import { SECTIONS, type EditorFormProps } from '@/lib/sections';
 import PerformanceForm from '@/components/media-kit-editor-forms/PerformanceForm';
 import { DEFAULT_COLORS } from '@/lib/placeholder-data';
-
-// Ensure all form components are imported here:
+import TemplateLibraryDialog from '@/components/media-kit-editor/TemplateLibraryDialog';
+import ThemeEditorCard from '@/components/media-kit-editor/ThemeEditorCard';
+import AudienceDemographicsForm from '@/components/media-kit-editor-forms/AudienceDemographicsForm';
+import { ThemeProvider } from '@/contexts/ThemeContext';
 import ProfileDetailsForm from '@/components/media-kit-editor-forms/ProfileDetailsForm';
 import BrandExperienceForm from '@/components/media-kit-editor-forms/BrandExperienceForm';
 import ServicesSkillsForm from '@/components/media-kit-editor-forms/ServicesSkillsForm';
@@ -67,9 +70,6 @@ import ContactDetailsForm from '@/components/media-kit-editor-forms/ContactDetai
 import ProfilePictureForm from '@/components/media-kit-editor-forms/ProfilePictureForm';
 import TikTokVideosForm from '@/components/media-kit-editor-forms/TikTokVideosForm';
 import AudienceStatsForm from '@/components/media-kit-editor-forms/AudienceStatsForm';
-import TemplateLibraryDialog from '@/components/media-kit-editor/TemplateLibraryDialog'; // +++ ADD IMPORT
-import ThemeEditorCard from '@/components/media-kit-editor/ThemeEditorCard'; // +++ IMPORT ThemeEditorCard
-import AudienceDemographicsForm from '@/components/media-kit-editor-forms/AudienceDemographicsForm'; // ADDED IMPORT
 
 // TRACK (the pill background)
 const TRACK = [
@@ -355,6 +355,7 @@ export default function MediaKitEditor() {
     personal_intro: '', 
     instagram_handle: '',
     tiktok_handle: '',
+    youtube_handle: '',
     portfolio_images: [], 
     brand_collaborations_text: '', 
     services_text: '', 
@@ -423,7 +424,10 @@ export default function MediaKitEditor() {
     accent:     formData.colors.accent || '#7E69AB', // Often same as primary
     neutral:    formData.colors.secondary || '#8E9196', // Often use secondary
     border:     `${formData.colors.accent || '#7E69AB'}33`, // Primary with opacity
+    font:       formData.font || 'Inter',
   });
+
+  const editorTheme = getPreviewTheme();
 
   useEffect(() => {
     console.log('Updated colors:', formData.colors);
@@ -736,6 +740,7 @@ export default function MediaKitEditor() {
         skills: skillsArray,
         instagram_handle: formData.instagram_handle.replace('@',''),
         tiktok_handle: formData.tiktok_handle.replace('@',''),
+        youtube_handle: formData.youtube_handle.replace('@',''),
         portfolio_images: formData.portfolio_images,
         videos: videoLinks,
         contact_email: formData.email,
@@ -895,6 +900,52 @@ export default function MediaKitEditor() {
   const handleApplyTemplateFromDialog = (templateId: string) => {
     setSelectedTemplateId(templateId);
     setIsLibraryOpen(false); 
+
+    // Find the selected template in the registry
+    const selectedTemplateDefinition = TEMPLATES.find(t => t.id === templateId);
+    // if (selectedTemplateDefinition && selectedTemplateDefinition.placeholderTheme) { // Old logic
+    //   const themeFromTemplate = selectedTemplateDefinition.placeholderTheme();
+      
+    //   // Update formData with colors and font from the template's theme
+    //   setFormData(prevFormData => ({
+    //     ...prevFormData,
+    //     colors: {
+    //       background: themeFromTemplate.background,
+    //       text: themeFromTemplate.foreground,
+    //       secondary: themeFromTemplate.secondary,
+    //       accent_light: themeFromTemplate.primaryLight,
+    //       accent: themeFromTemplate.accent,
+    //       primary: themeFromTemplate.primary, // Ensure primary is also set
+    //     },
+    //     font: themeFromTemplate.font,
+    //   }));
+    //   console.log(`Applied theme for ${templateId}:`, themeFromTemplate);
+    // } else {
+    //   console.warn(`Template ${templateId} not found or has no placeholderTheme.`);
+    // }
+
+    // New logic: Always apply the default purple theme (COLOR_PRESETS[0])
+    const defaultPurplePreset = COLOR_PRESETS.find(p => p.id === "default");
+    const defaultThemeColors = defaultPurplePreset ? defaultPurplePreset.colors : COLOR_PRESETS[0].colors; // Fallback to first if "default" id not found
+    const defaultFont = 'Inter'; // Assuming 'Inter' is the font for the default purple theme
+
+    setFormData(prevFormData => ({
+      ...prevFormData,
+      colors: {
+        background: defaultThemeColors.background,
+        text: defaultThemeColors.text,
+        secondary: defaultThemeColors.secondary,
+        accent_light: defaultThemeColors.accent_light,
+        accent: defaultThemeColors.accent,
+        // Primary color for the default theme is typically its accent color.
+        primary: defaultThemeColors.accent, 
+      },
+      font: defaultFont,
+    }));
+    console.log(`Applied default purple theme for template ${templateId}.`);
+    if (!selectedTemplateDefinition) {
+      console.warn(`Template ${templateId} not found in registry, but default theme applied.`);
+    }
   };
   
   // UPDATED: mediaKitPreviewData now uses the registry for base data
@@ -956,6 +1007,7 @@ export default function MediaKitEditor() {
       skills: skillsArray, 
       instagram_handle: formData.instagram_handle || getBaseProp('instagram_handle') || '',
       tiktok_handle: formData.tiktok_handle || getBaseProp('tiktok_handle') || '', 
+      youtube_handle: formData.youtube_handle || getBaseProp('youtube_handle') || '',
       portfolio_images: formData.portfolio_images?.length ? formData.portfolio_images : (getBaseProp('portfolio_images') || []), 
       videos: videoLinks?.length ? videoLinks : (getBaseProp('videos') || []), 
       contact_email: formData.email || getBaseProp('contact_email') || '',
@@ -1017,243 +1069,239 @@ export default function MediaKitEditor() {
 
   // --- Main Render --- 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <DashboardNav />
-      {/* --- Re-add Navigation bar --- */}
-      <div className="sticky top-0 z-50 bg-white border-b border-blush/20 shadow-sm">
-         <div className="container mx-auto px-6 py-4">
-           <div className="flex items-center justify-between">
-             <div className="flex items-center gap-4">
-               {/* Back Arrow Button */}
-               <Button
-                 variant="ghost"
-                 size="icon"
-                 onClick={() => navigate('/media-kit')} // Navigate back
-               >
-                 <ArrowLeftIcon className="h-5 w-5" />
-               </Button>
-               <h1 className="text-xl font-medium text-charcoal">
-                 Edit Media Kit
-               </h1>
-             </div>
-             <div className="flex gap-4">
-               {/* Exit Button */}
-               <Button
-                 variant="outline"
-                 onClick={async () => {
-                   try {
-                     await refetch(); // Refetch data before exiting
-                     setTimeout(() => {
+    <ThemeProvider theme={editorTheme}>
+      <div className="min-h-screen bg-gray-50">
+        <DashboardNav />
+        {/* --- Re-add Navigation bar --- */}
+        <div className="sticky top-0 z-50 bg-white border-b border-blush/20 shadow-sm">
+           <div className="container mx-auto px-6 py-4">
+             <div className="flex items-center justify-between">
+               <div className="flex items-center gap-4">
+                 <Button
+                   variant="ghost"
+                   size="icon"
+                   onClick={() => navigate('/media-kit')}
+                 >
+                   <ArrowLeftIcon className="h-5 w-5" />
+                 </Button>
+                 <h1 className="text-xl font-medium text-charcoal">
+                   Edit Media Kit
+                 </h1>
+               </div>
+               <div className="flex gap-4">
+                 <Button
+                   variant="outline"
+                   onClick={async () => {
+                     try {
+                       await refetch();
+                       setTimeout(() => {
+                         navigate('/media-kit');
+                       }, 300);
+                     } catch (err) {
                        navigate('/media-kit');
-                     }, 300); // Short delay
-                   } catch (err) {
-                     navigate('/media-kit'); // Navigate even if refetch fails
-                   }
-                 }}
-                 disabled={isSaving}
-               >
-                 Exit
-               </Button>
-               {/* Save Changes Button */}
-               <Button
-                 onClick={handleSave}
-                 className="bg-charcoal hover:bg-charcoal/90 text-white px-4 py-2 rounded-md" // Original styles
-                 disabled={isSaving}
-               >
-                 {isSaving ? 'Saving...' : 'Save Changes'}
-               </Button>
+                     }
+                   }}
+                   disabled={isSaving}
+                 >
+                   Exit
+                 </Button>
+                 <Button
+                   onClick={handleSave}
+                   className="bg-charcoal hover:bg-charcoal/90 text-white px-4 py-2 rounded-md"
+                   disabled={isSaving}
+                 >
+                   {isSaving ? 'Saving...' : 'Save Changes'}
+                 </Button>
+               </div>
              </div>
            </div>
-         </div>
-      </div>
-      {/* --- End Navigation bar --- */}
-      
-      <div className="container mx-auto p-4 md:p-8">
-        {/* --- Template Library Trigger --- */} 
-        {/* <DialogTrigger asChild> */}
-          <Button 
-            variant="outline" 
-            className="mb-6 w-full md:w-auto"
-            onClick={() => setIsLibraryOpen(true)} // Open the dialog
-          >
-              Choose Template
-            </Button>
-        {/* </DialogTrigger> */}
+        </div>
+        {/* --- End Navigation bar --- */}
         
-        <TemplateLibraryDialog
-          open={isLibraryOpen}
-          onOpenChange={setIsLibraryOpen}
-          templatesRegistry={TEMPLATES}
-          onApplyTemplate={handleApplyTemplateFromDialog}
-        />
+        <div className="container mx-auto p-4 md:p-8">
+          {/* Editor Form and Live Preview Pane */} 
+          <div className="flex flex-col md:flex-row gap-8">
+            <div className="w-full md:w-2/5 space-y-6">
+              <Button 
+                variant="outline" 
+                className="mb-6 w-full flex items-center justify-center gap-2 py-3 text-base font-medium rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200"
+                onClick={() => setIsLibraryOpen(true)}
+              >
+                <SquaresPlusIcon className="h-5 w-5" />
+                Choose Template
+              </Button>
+              <TemplateLibraryDialog
+                open={isLibraryOpen}
+                onOpenChange={setIsLibraryOpen}
+                templatesRegistry={TEMPLATES}
+                onApplyTemplate={handleApplyTemplateFromDialog}
+              />
 
-        {/* Editor Form and Live Preview Pane */} 
-        <div className="flex flex-col md:flex-row gap-8">
-          <div className="w-full md:w-2/5 space-y-6">
-            <Tabs defaultValue="branding" className="w-full" onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-4 mb-6">
-                <TabsTrigger value="branding" className="flex items-center gap-2">
-                  <SwatchIcon className="h-4 w-4" />
-                  Branding
-                </TabsTrigger>
-                <TabsTrigger value="content" className="flex items-center gap-2">
-                  <UserIcon className="h-4 w-4" />
-                  Content
-                </TabsTrigger>
-                <TabsTrigger value="media" className="flex items-center gap-2">
-                  <PhotoIcon className="h-4 w-4" />
-                  Media
-                </TabsTrigger>
-                <TabsTrigger value="metrics" className="flex items-center gap-2">
-                  <ChartBarIcon className="h-4 w-4" />
-                  Metrics
-                </TabsTrigger>
-              </TabsList>
+              <Tabs defaultValue="branding" className="w-full" onValueChange={setActiveTab}>
+                <TabsList className="grid w-full grid-cols-4 mb-6">
+                  <TabsTrigger value="branding" className="flex items-center gap-2">
+                    <SwatchIcon className="h-4 w-4" />
+                    Branding
+                  </TabsTrigger>
+                  <TabsTrigger value="content" className="flex items-center gap-2">
+                    <UserIcon className="h-4 w-4" />
+                    Content
+                  </TabsTrigger>
+                  <TabsTrigger value="media" className="flex items-center gap-2">
+                    <PhotoIcon className="h-4 w-4" />
+                    Media
+                  </TabsTrigger>
+                  <TabsTrigger value="metrics" className="flex items-center gap-2">
+                    <ChartBarIcon className="h-4 w-4" />
+                    Metrics
+                  </TabsTrigger>
+                </TabsList>
 
-              <TabsContent value="branding" className="space-y-4">
-                <ThemeEditorCard 
-                  currentFormDataColors={formData.colors}
-                  onFormDataColorsChange={(newColors) => setFormData(prev => ({ ...prev, colors: newColors }))}
-                  colorPresetsConstant={COLOR_PRESETS} 
-                  swatchMapConstant={swatchMap}
-                />
-              </TabsContent>
+                <TabsContent value="branding" className="space-y-4">
+                  <ThemeEditorCard 
+                    currentFormDataColors={formData.colors}
+                    onFormDataColorsChange={(newColors) => setFormData(prev => ({ ...prev, colors: newColors }))}
+                    colorPresetsConstant={COLOR_PRESETS} 
+                    swatchMapConstant={swatchMap}
+                  />
+                </TabsContent>
 
-              <TabsContent value="content" className="space-y-4">
-                {SECTIONS.filter(sec => sec.tab === 'content').map(section => {
-                  const FormComponent = formComponentMap[section.formComponentName]; if (!FormComponent) return null;
-                  const formProps: EditorFormProps = {
-                    formData: formData,
-                    profile: profile,
-                    mediaKitData: profile?.media_kit_data || null,
-                    colorPresets: COLOR_PRESETS,
-                    handleInputChange: handleInputChange,
-                    handleSocialChange: handleSocialChange,
-                    handleMetricsChange: handleMetricsChange,
-                    updateCollaborations: updateCollaborations,
-                    updateServices: updateServices,
-                    handleSkillsChange: handleSkillsChange,
-                    onProfilePhotoChange: (url) => setFormData(prev => ({...prev, profile_photo: url})),
-                    userId: profile?.id,
-                    videoLinks: videoLinks,
-                    handleAddVideo: handleAddVideo,
-                    handleRemoveVideo: handleRemoveVideo,
-                    handleVideoUrlChange: handleVideoUrlChange,
-                    stats: stats,
-                    sectionVisibility: sectionVisibility,
-                    onVisibilityChange: handleVisibilityChange,
-                    initialDataLoaded: initialDataLoaded,
-                    handleBrandCollaborations: handleBrandCollaborations,
-                    handleServicesChange: handleServicesChange,
-                    setFormData: setFormData,
-                    supabase: supabase,
-                    toast: toast,
-                    setVideoLinks: setVideoLinks
-                  };
-                  return (
-                    <Card key={section.key}>
-                      <CardHeader className="flex flex-row items-center justify-between py-4">
-                        <div className="flex items-center gap-2"><section.icon className="h-5 w-5 text-gray-500" /><CardTitle>{section.label}</CardTitle></div>
-                        <Switch checked={sectionVisibility[section.key]} onCheckedChange={checked => handleVisibilityChange(section.key, checked)} className={switchTrackClass}><span className={switchThumbClass} style={{ backgroundColor: "white" }} /></Switch>
-                      </CardHeader>
-                      {sectionVisibility[section.key] && <CardContent className="pt-4"><FormComponent {...formProps} /></CardContent>}
-                    </Card>
-                  );
-                })}
-              </TabsContent>
+                <TabsContent value="content" className="space-y-4">
+                  {SECTIONS.filter(sec => sec.tab === 'content').map(section => {
+                    const FormComponent = formComponentMap[section.formComponentName]; if (!FormComponent) return null;
+                    const formProps: EditorFormProps = {
+                      formData: formData,
+                      profile: profile,
+                      mediaKitData: profile?.media_kit_data || null,
+                      colorPresets: COLOR_PRESETS,
+                      handleInputChange: handleInputChange,
+                      handleSocialChange: handleSocialChange,
+                      handleMetricsChange: handleMetricsChange,
+                      updateCollaborations: updateCollaborations,
+                      updateServices: updateServices,
+                      handleSkillsChange: handleSkillsChange,
+                      onProfilePhotoChange: (url) => setFormData(prev => ({...prev, profile_photo: url})),
+                      userId: profile?.id,
+                      videoLinks: videoLinks,
+                      handleAddVideo: handleAddVideo,
+                      handleRemoveVideo: handleRemoveVideo,
+                      handleVideoUrlChange: handleVideoUrlChange,
+                      stats: stats,
+                      sectionVisibility: sectionVisibility,
+                      onVisibilityChange: handleVisibilityChange,
+                      initialDataLoaded: initialDataLoaded,
+                      handleBrandCollaborations: handleBrandCollaborations,
+                      handleServicesChange: handleServicesChange,
+                      setFormData: setFormData,
+                      supabase: supabase,
+                      toast: toast,
+                      setVideoLinks: setVideoLinks
+                    };
+                    return (
+                      <Card key={section.key}>
+                        <CardHeader className="flex flex-row items-center justify-between py-4">
+                          <div className="flex items-center gap-2"><section.icon className="h-5 w-5 text-gray-500" /><CardTitle>{section.label}</CardTitle></div>
+                          <Switch checked={sectionVisibility[section.key]} onCheckedChange={checked => handleVisibilityChange(section.key, checked)} className={switchTrackClass}><span className={switchThumbClass} style={{ backgroundColor: "white" }} /></Switch>
+                        </CardHeader>
+                        {sectionVisibility[section.key] && <CardContent className="pt-4"><FormComponent {...formProps} /></CardContent>}
+                      </Card>
+                    );
+                  })}
+                </TabsContent>
 
-              <TabsContent value="media" className="space-y-4">
-                {SECTIONS.filter(sec => sec.tab === 'media').map(section => {
-                  const FormComponent = formComponentMap[section.formComponentName]; if (!FormComponent) return null;
-                  const formProps: EditorFormProps = {
-                    formData,
-                    profile,
-                    mediaKitData: profile?.media_kit_data || null,
-                    colorPresets: COLOR_PRESETS,
-                    handleInputChange,
-                    handleSocialChange,
-                    handleMetricsChange,
-                    updateCollaborations,
-                    updateServices,
-                    handleSkillsChange,
-                    onProfilePhotoChange: (url) => setFormData(prev => ({...prev, profile_photo: url})),
-                    userId: profile?.id,
-                    videoLinks,
-                    handleAddVideo,
-                    handleRemoveVideo,
-                    handleVideoUrlChange,
-                    stats,
-                    sectionVisibility,
-                    onVisibilityChange: handleVisibilityChange,
-                    initialDataLoaded,
-                    setFormData,
-                    supabase,
-                    toast,
-                    setVideoLinks
-                  };
-                  return (
-                    <Card key={section.key}>
-                      <CardHeader className="flex flex-row items-center justify-between py-4">
-                        <div className="flex items-center gap-2"><section.icon className="h-5 w-5 text-gray-500" /><CardTitle>{section.label}</CardTitle></div>
-                        <Switch checked={sectionVisibility[section.key]} onCheckedChange={checked => handleVisibilityChange(section.key, checked)} className={switchTrackClass}><span className={switchThumbClass} style={{ backgroundColor: "white" }} /></Switch>
-                      </CardHeader>
-                      {sectionVisibility[section.key] && <CardContent className="pt-4"><FormComponent {...formProps} /></CardContent>}
-                    </Card>
-                  );
-                })}
-              </TabsContent>
+                <TabsContent value="media" className="space-y-4">
+                  {SECTIONS.filter(sec => sec.tab === 'media').map(section => {
+                    const FormComponent = formComponentMap[section.formComponentName]; if (!FormComponent) return null;
+                    const formProps: EditorFormProps = {
+                      formData,
+                      profile,
+                      mediaKitData: profile?.media_kit_data || null,
+                      colorPresets: COLOR_PRESETS,
+                      handleInputChange,
+                      handleSocialChange,
+                      handleMetricsChange,
+                      updateCollaborations,
+                      updateServices,
+                      handleSkillsChange,
+                      onProfilePhotoChange: (url) => setFormData(prev => ({...prev, profile_photo: url})),
+                      userId: profile?.id,
+                      videoLinks,
+                      handleAddVideo,
+                      handleRemoveVideo,
+                      handleVideoUrlChange,
+                      stats,
+                      sectionVisibility,
+                      onVisibilityChange: handleVisibilityChange,
+                      initialDataLoaded,
+                      setFormData,
+                      supabase,
+                      toast,
+                      setVideoLinks
+                    };
+                    return (
+                      <Card key={section.key}>
+                        <CardHeader className="flex flex-row items-center justify-between py-4">
+                          <div className="flex items-center gap-2"><section.icon className="h-5 w-5 text-gray-500" /><CardTitle>{section.label}</CardTitle></div>
+                          <Switch checked={sectionVisibility[section.key]} onCheckedChange={checked => handleVisibilityChange(section.key, checked)} className={switchTrackClass}><span className={switchThumbClass} style={{ backgroundColor: "white" }} /></Switch>
+                        </CardHeader>
+                        {sectionVisibility[section.key] && <CardContent className="pt-4"><FormComponent {...formProps} /></CardContent>}
+                      </Card>
+                    );
+                  })}
+                </TabsContent>
 
-              <TabsContent value="metrics" className="space-y-4">
-                 {SECTIONS.filter(sec => sec.tab === 'metrics').map(section => {
-                  const FormComponent = formComponentMap[section.formComponentName]; if (!FormComponent) return null;
-                  const formProps: EditorFormProps = {
-                    formData,
-                    profile,
-                    mediaKitData: profile?.media_kit_data || null,
-                    colorPresets: COLOR_PRESETS,
-                    handleInputChange,
-                    handleSocialChange,
-                    handleMetricsChange,
-                    updateCollaborations,
-                    updateServices,
-                    handleSkillsChange,
-                    onProfilePhotoChange: (url) => setFormData(prev => ({...prev, profile_photo: url})),
-                    userId: profile?.id,
-                    videoLinks,
-                    handleAddVideo,
-                    handleRemoveVideo,
-                    handleVideoUrlChange,
-                    stats,
-                    sectionVisibility,
-                    onVisibilityChange: handleVisibilityChange,
-                    initialDataLoaded,
-                    toast
-                  };
-                  return (
-                    <Card key={section.key}>
-                      <CardHeader className="flex flex-row items-center justify-between py-4">
-                        <div className="flex items-center gap-2"><section.icon className="h-5 w-5 text-gray-500" /><CardTitle>{section.label}</CardTitle></div>
-                        <Switch checked={sectionVisibility[section.key]} onCheckedChange={checked => handleVisibilityChange(section.key, checked)} className={switchTrackClass}><span className={switchThumbClass} style={{ backgroundColor: "white" }} /></Switch>
-                      </CardHeader>
-                      {sectionVisibility[section.key] && <CardContent className="pt-4"><FormComponent {...formProps} /></CardContent>}
-                    </Card>
-                  );
-                })}
-              </TabsContent>
-            </Tabs>
-          </div>
+                <TabsContent value="metrics" className="space-y-4">
+                   {SECTIONS.filter(sec => sec.tab === 'metrics').map(section => {
+                    const FormComponent = formComponentMap[section.formComponentName]; if (!FormComponent) return null;
+                    const formProps: EditorFormProps = {
+                      formData,
+                      profile,
+                      mediaKitData: profile?.media_kit_data || null,
+                      colorPresets: COLOR_PRESETS,
+                      handleInputChange,
+                      handleSocialChange,
+                      handleMetricsChange,
+                      updateCollaborations,
+                      updateServices,
+                      handleSkillsChange,
+                      onProfilePhotoChange: (url) => setFormData(prev => ({...prev, profile_photo: url})),
+                      userId: profile?.id,
+                      videoLinks,
+                      handleAddVideo,
+                      handleRemoveVideo,
+                      handleVideoUrlChange,
+                      stats,
+                      sectionVisibility,
+                      onVisibilityChange: handleVisibilityChange,
+                      initialDataLoaded,
+                      toast
+                    };
+                    return (
+                      <Card key={section.key}>
+                        <CardHeader className="flex flex-row items-center justify-between py-4">
+                          <div className="flex items-center gap-2"><section.icon className="h-5 w-5 text-gray-500" /><CardTitle>{section.label}</CardTitle></div>
+                          <Switch checked={sectionVisibility[section.key]} onCheckedChange={checked => handleVisibilityChange(section.key, checked)} className={switchTrackClass}><span className={switchThumbClass} style={{ backgroundColor: "white" }} /></Switch>
+                        </CardHeader>
+                        {sectionVisibility[section.key] && <CardContent className="pt-4"><FormComponent {...formProps} /></CardContent>}
+                      </Card>
+                    );
+                  })}
+                </TabsContent>
+              </Tabs>
+            </div>
 
-          {/* Preview - make wider */}
-          <div className="w-full md:w-3/5 md:sticky md:top-20 h-fit">
-            <MediaKitPreview
-              key={`preview-${selectedTemplateId}-${formData.brand_name}-${formData.profile_photo}-${formData.tagline}-${JSON.stringify(formData.colors)}`} // Added colors to key for re-render
-              data={mediaKitPreviewData}
-              theme={getPreviewTheme()}
-              templateId={selectedTemplateId}
-            />
+            {/* Preview - make wider */}
+            <div className="w-full md:w-3/5 md:sticky md:top-20 h-fit">
+              <MediaKitPreview
+                key={`preview-${selectedTemplateId}-${formData.brand_name}-${formData.profile_photo}-${formData.tagline}-${JSON.stringify(formData.colors)}`}
+                data={mediaKitPreviewData}
+                theme={editorTheme}
+                templateId={selectedTemplateId}
+              />
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </ThemeProvider>
   );
 } 

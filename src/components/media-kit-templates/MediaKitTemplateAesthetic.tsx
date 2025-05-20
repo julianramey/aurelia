@@ -152,6 +152,7 @@ export const AestheticGetThumbnailData = (): EditorPreviewData => ({
   services: [], 
   instagram_handle: '@insta_aesthetic_thumb',
   tiktok_handle: '@tiktok_aesthetic_thumb',
+  youtube_handle: '',
   portfolio_images: [], 
   videos: [], 
   contact_email: 'aesthetic_thumb@example.com',
@@ -179,9 +180,10 @@ export const AestheticTheme = (): ImportedTemplateTheme => ({
   primary: '#A99985',
   primaryLight: '#E0D8D0',
   secondary: '#7A736D',  
-  accent: '#BFB0A3',
+  accent: '#A99985',
   neutral: '#CDC6C0',
   border: '#D6CCC2',
+  font: 'Poppins',
 });
 
 const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
@@ -192,6 +194,7 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
   section_visibility, // Destructured prop
 }) => {
   // console.log("[MediaKitTemplateAesthetic] Props Check. Data:", data, "Theme:", theme, "Loading:", loading); // Reverted
+  // console.log(`[Aesthetic Template Render] Actual theme received:`, theme);
   
   if (loading) {
     return (
@@ -245,7 +248,20 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
   return (
     <div
       className="font-sans max-w-4xl mx-auto p-4 md:p-8 shadow-xl rounded-lg transition-colors duration-300"
-      style={{ backgroundColor: theme.background, color: theme.foreground, fontFamily: data.font || theme.font || 'Poppins, sans-serif' }}
+      style={{
+        backgroundColor: theme.background,
+        color: theme.foreground,
+        fontFamily: theme.font ? `${theme.font}, Poppins, sans-serif` : 'Poppins, sans-serif',
+        // CSS Variables for child components to use:
+        '--background': theme.background,
+        '--foreground': theme.foreground,
+        '--primary': theme.primary,
+        '--primary-light': theme.primaryLight,
+        '--secondary': theme.secondary,
+        '--accent': theme.accent,
+        '--neutral': theme.neutral,
+        '--border': theme.border,
+      } as React.CSSProperties}
     >
       {/* --- Header Section --- */}
       {section_visibility.profileDetails && (
@@ -264,7 +280,7 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
         <section className="md:col-span-1 space-y-6 md:space-y-8">
           {/* About Me */}
           {section_visibility.profileDetails && personalIntro && (
-            <div className="p-4 md:p-6 rounded-lg" style={{ backgroundColor: 'var(--accent-light)', color: '#000000' }}>
+            <div className="p-4 md:p-6 rounded-lg" style={{ backgroundColor: 'var(--primary-light)' }}>
               <SectionTitle>About Me</SectionTitle>
               <PersonalIntroBlock text={personalIntro} sectionVisibility={section_visibility} />
             </div>
@@ -272,8 +288,8 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
 
           {/* Stats */}
           {(section_visibility.audienceStats || section_visibility.performance) && (
-            <div className="p-4 md:p-6 rounded-lg overflow-hidden" style={{ backgroundColor: 'var(--accent-light)', color: '#000000' }}>
-              <h3 className="text-xl md:text-2xl font-semibold mb-4 text-center" style={{ color: 'var(--accent)', fontFamily: "'Playfair Display', serif" }}>Key Stats</h3>
+            <div className="p-4 md:p-6 rounded-lg overflow-hidden" style={{ backgroundColor: 'var(--primary-light)' }}>
+              <h3 className="text-xl md:text-2xl font-semibold mb-4 text-center" style={{ color: 'var(--accent)', fontFamily: theme.font ? `${theme.font}, Poppins, sans-serif` : 'Poppins, sans-serif' }}>Key Stats</h3>
               <StatsGridBlock
                 stats={(() => {
                   const displayStats = [];
@@ -316,8 +332,8 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
 
           {/* Audience Demographics Section */}
           {section_visibility.audienceDemographics && (profile.audience_age_range || profile.audience_location_main || profile.audience_gender_female) && (
-            <div className="p-4 md:p-6 rounded-lg overflow-hidden" style={{ backgroundColor: 'var(--accent-light)', color: '#000000' }}>
-              <h3 className="text-2xl md:text-3xl font-semibold mb-4 text-center" style={{ color: 'var(--accent)', fontFamily: "'Playfair Display', serif" }}>Audience Insights</h3>
+            <div className="p-4 md:p-6 rounded-lg overflow-hidden" style={{ backgroundColor: 'var(--primary-light)' }}>
+              <h3 className="text-2xl md:text-3xl font-semibold mb-4 text-center" style={{ color: 'var(--accent)', fontFamily: theme.font ? `${theme.font}, Poppins, sans-serif` : 'Poppins, sans-serif' }}>Audience Insights</h3>
               <AudienceDemographicsBlock 
                 ageRange={profile.audience_age_range}
                 location={profile.audience_location_main}
@@ -329,7 +345,7 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
       
           {/* Skills */}
           {section_visibility.servicesSkills && skills.length > 0 && (
-             <div className="p-4 md:p-6 rounded-lg shadow-md" style={{ backgroundColor: 'var(--accent-light)', borderColor: 'var(--border)', color: '#000000' }}>
+             <div className="p-4 md:p-6 rounded-lg shadow-md" style={{ backgroundColor: 'var(--primary-light)', borderColor: 'var(--border)' }}>
               <SectionTitle>Skills</SectionTitle>
                <SkillsListBlock skills={skills} sectionVisibility={section_visibility} />
             </div>
@@ -342,7 +358,7 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
           
           {/* TikTok Videos */}
           {section_visibility.tiktokVideos && videos.length > 0 && (
-            <div className="p-4 md:p-6 rounded-lg shadow-md" style={{ backgroundColor: 'var(--accent-light)', borderColor: 'var(--border)', color: '#000000' }}>
+            <div className="p-4 md:p-6 rounded-lg shadow-md" style={{ backgroundColor: 'var(--primary-light)', borderColor: 'var(--border)' }}>
               <SectionTitle>Featured Videos</SectionTitle>
               <VideoShowcaseBlock videos={videos} sectionVisibility={section_visibility} />
             </div>
@@ -350,7 +366,7 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
 
           {/* Collaborations */}
           {section_visibility.brandExperience && collaborations.length > 0 && (
-            <div className="p-4 md:p-6 rounded-lg shadow-md" style={{ backgroundColor: 'var(--accent-light)', borderColor: 'var(--border)', color: '#000000' }}>
+            <div className="p-4 md:p-6 rounded-lg shadow-md" style={{ backgroundColor: 'var(--primary-light)', borderColor: 'var(--border)' }}>
               <SectionTitle>Brand Collaborations</SectionTitle>
               <BrandCollaborationBlock brands={collaborations} sectionVisibility={section_visibility} />
             </div>
@@ -358,7 +374,7 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
 
           {/* Services */}
           {section_visibility.servicesSkills && services.length > 0 && (
-            <div className="p-4 md:p-6 rounded-lg shadow-md" style={{ backgroundColor: 'var(--accent-light)', borderColor: 'var(--border)', color: '#000000' }}>
+            <div className="p-4 md:p-6 rounded-lg shadow-md" style={{ backgroundColor: 'var(--primary-light)', borderColor: 'var(--border)' }}>
               <SectionTitle>Services Offered</SectionTitle>
               <ServiceListBlock services={services} sectionVisibility={section_visibility} />
             </div>

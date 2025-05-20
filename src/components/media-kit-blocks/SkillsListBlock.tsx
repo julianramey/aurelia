@@ -29,7 +29,7 @@ const SkillsListBlock: React.FC<SkillsListProps> = ({
             // For broader compatibility, direct RGBA or pre-calculated variables might be better.
             // Let's try CSS color-mix for modern approach. Fallback might be needed for older browsers.
             backgroundColor: `color-mix(in srgb, var(--theme-accent, #000000) 30%, transparent)`,
-            color: '#000000'
+            color: 'var(--theme-accent)' // Use theme-accent for text, or a calculated contrast color.
           }}
         >
           {skill}

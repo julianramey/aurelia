@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, memo, useMemo } from 'react';
-import { useParams, useLocation } from 'react-router-dom';
-import { useNavigate } from 'react-router-dom';
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { useMediaKitData } from '@/lib/hooks/useMediaKitData';
@@ -21,8 +20,17 @@ import PreviewLoadingFallback from '@/components/PreviewLoadingFallback';
 import {
   ArrowDownTrayIcon,
   PencilIcon,
-  ShareIcon
+  ShareIcon as ShareIconOutline,
+  ChatBubbleOvalLeftEllipsisIcon,
+  EnvelopeIcon
 } from '@heroicons/react/24/outline';
+import { ShareIcon } from '@heroicons/react/24/solid';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import MediaKitTemplateDefault from '@/components/media-kit-templates/MediaKitTemplateDefault';
 import MediaKitTemplateAesthetic from '@/components/media-kit-templates/MediaKitTemplateAesthetic';
 
@@ -137,7 +145,7 @@ export const defaultColorScheme: ColorScheme = {
 // Create a memoized version of MediaKit to prevent unnecessary rerenders
 const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, previewData = null, isPublic = false, publicProfile = null, theme, previewUsername }: MediaKitProps) {
   const { id: routeIdFromParams } = useParams<{ id?: string }>();
-  const navigate = useNavigate();
+  const navigate = useNavigate(); 
   const { user } = useAuth();
   const { stats: fetchedStats, collaborations: fetchedCollabs, services: fetchedServices } = useMediaKitData();
   const location = useLocation();
@@ -754,6 +762,7 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
         skills: [],
         instagram_handle: '',
         tiktok_handle: '',
+        youtube_handle: '',
         contact_email: '',
         profile_photo: '',
         selected_template_id: 'default',
@@ -827,6 +836,7 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
         skills: mKitObjParsed.skills || p.skills || [],
         instagram_handle: String(mKitObjParsed.instagram_handle || p.instagram_handle || ''),
         tiktok_handle: String(mKitObjParsed.tiktok_handle || p.tiktok_handle || ''),
+        youtube_handle: String(mKitObjParsed.youtube_handle || (p as EditorPreviewData).youtube_handle || ''),
         selected_template_id: String(mKitObjParsed.selected_template_id || p.selected_template_id || 'default'),
 
         // Aggregated/Fetched data
@@ -978,16 +988,18 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
   };
 
   const handleViewPublic = () => {
+    let path;
     if (profile?.media_kit_url) {
-      const path = profile.media_kit_url.startsWith('/') ? profile.media_kit_url : `/${profile.media_kit_url}`;
-      navigate(path);
+      path = profile.media_kit_url.startsWith('/') ? profile.media_kit_url : `/${profile.media_kit_url}`;
     } else if (profile?.username) {
-      navigate(`/${profile.username}`);
+      path = `/${profile.username}`;
     } else {
-      // TODO: Show a toast message from UI components
       console.warn("Cannot view public page: media_kit_url or username not available on profile.");
       alert("Media kit URL or username not available. Please ensure your profile is set up correctly.")
+      return;
     }
+    // Open in a new tab
+    window.open(path, '_blank', 'noopener,noreferrer');
   };
 
   // Add function to initialize media kit data
@@ -1223,18 +1235,40 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
                 onClick={handleViewPublic}
                 className="flex items-center gap-2"
               >
-                <ShareIcon className="h-4 w-4" />
+                <ShareIconOutline className="h-4 w-4" />
                 View Public Page
               </Button>
-              <Button
-                variant="outline"
-                onClick={handleDownload}
-                className="flex items-center gap-2"
-                disabled // Kept disabled as it was
-              >
-                <ArrowDownTrayIcon className="h-4 w-4" />
-                Download
-              </Button>
+              {/* New Share Button with Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="default" 
+                    className="flex items-center gap-2 text-white"
+                    style={{ backgroundColor: computedStyles.primary }}
+                  >
+                    <ShareIcon className="h-4 w-4" />
+                    Share
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56"> {/* Added width for better aesthetics */}
+                  <DropdownMenuItem className="flex items-center gap-3 py-2 px-3" onSelect={() => console.log('Share to TikTok clicked (no action yet)')}>
+                    <TikTokIcon />
+                    <span>TikTok</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="flex items-center gap-3 py-2 px-3" onSelect={() => console.log('Share to Instagram clicked (no action yet)')}>
+                    <InstagramIcon />
+                    <span>Instagram</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="flex items-center gap-3 py-2 px-3" onSelect={() => console.log('Share via iMessage clicked (no action yet)')}>
+                    <ChatBubbleOvalLeftEllipsisIcon className="h-5 w-5" /> {/* Increased icon size slightly */}
+                    <span>iMessage</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="flex items-center gap-3 py-2 px-3" onSelect={() => console.log('Share via Email clicked (no action yet)')}>
+                    <EnvelopeIcon className="h-5 w-5" /> {/* Increased icon size slightly */}
+                    <span>Email</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button
                 onClick={handleEdit}
                 className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white"
@@ -1350,3 +1384,17 @@ function computeStylesFromProfile(profileData: ProfileData | EditorPreviewData |
     font:         rawFont 
   };
 }
+
+// Placeholder icons for TikTok and Instagram if specific ones are not in Heroicons
+// You can replace these with actual SVGs or different icons if you have them
+const TikTokIcon = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+    <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z" />
+  </svg>
+);
+
+const InstagramIcon = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919A48.978 48.978 0 0112 2.163zm0 3.805c-3.403 0-6.152 2.749-6.152 6.152s2.75 6.152 6.152 6.152 6.152-2.75 6.152-6.152c0-3.403-2.749-6.152-6.152-6.152zm0 9.995c-2.127 0-3.847-1.72-3.847-3.847s1.72-3.847 3.847-3.847 3.847 1.72 3.847 3.847c0 2.127-1.72 3.847-3.847-3.847zm6.406-9.995c-.616 0-1.114.499-1.114 1.114s.498 1.114 1.114 1.114c.615 0 1.113-.498 1.113-1.113s-.498-1.114-1.113-1.114z" />
+  </svg>
+);

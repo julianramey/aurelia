@@ -35,12 +35,12 @@ const ContactInfoBlock: React.FC<ContactInfoProps> = ({
     <div className="contact-info grid grid-cols-1 md:grid-cols-3 gap-6">
       {email && (
         <div className="p-4 rounded-[0.75rem] border" style={{ backgroundColor: 'var(--theme-accent-light)', borderColor: 'var(--border)' }}>
-          <h4 className="text-[0.9rem] mb-2" style={{ color: '#000000' }}>Email</h4>
+          <h4 className="text-[0.9rem] mb-2" style={{ color: 'var(--theme-foreground)' }}>Email</h4>
           <p>
             <a 
               href={`mailto:${email}`}
               className="contact-info-text font-medium hover:underline block"
-              style={{ color: '#000000' }}
+              style={{ color: 'var(--theme-accent)' }}
             >
               {email}
             </a>
@@ -49,12 +49,12 @@ const ContactInfoBlock: React.FC<ContactInfoProps> = ({
       )}
       {phone && (
         <div className="p-4 rounded-[0.75rem] border" style={{ backgroundColor: 'var(--theme-accent-light)', borderColor: 'var(--border)' }}>
-          <h4 className="text-[0.9rem] mb-2" style={{ color: '#000000' }}>Phone</h4>
+          <h4 className="text-[0.9rem] mb-2" style={{ color: 'var(--theme-foreground)' }}>Phone</h4>
           <p>
             <a 
               href={`tel:${phone}`}
               className="contact-info-text font-medium hover:underline block"
-              style={{ color: '#000000' }}
+              style={{ color: 'var(--theme-accent)' }}
             >
               {phone}
             </a>
@@ -63,14 +63,14 @@ const ContactInfoBlock: React.FC<ContactInfoProps> = ({
       )}
       {website && (
         <div className="p-4 rounded-[0.75rem] border" style={{ backgroundColor: 'var(--theme-accent-light)', borderColor: 'var(--border)' }}>
-          <h4 className="text-[0.9rem] mb-2" style={{ color: '#000000' }}>Website</h4>
+          <h4 className="text-[0.9rem] mb-2" style={{ color: 'var(--theme-foreground)' }}>Website</h4>
           <p>
             <a 
               href={formatWebsiteUrl(website)}
               target="_blank"
               rel="noopener noreferrer"
               className="contact-info-text font-medium hover:underline block"
-              style={{ color: '#000000' }}
+              style={{ color: 'var(--theme-accent)' }}
             >
               {website}
             </a>
@@ -91,14 +91,14 @@ const ContactInfoBlock: React.FC<ContactInfoProps> = ({
 
         return (
           <div key={link.type} className="p-4 rounded-[0.75rem] border" style={{ backgroundColor: 'var(--theme-accent-light)', borderColor: 'var(--border)' }}>
-            <h4 className="text-[0.9rem] mb-2 capitalize" style={{ color: '#000000' }}>{link.type}</h4>
+            <h4 className="text-[0.9rem] mb-2 capitalize" style={{ color: 'var(--theme-foreground)' }}>{link.type}</h4>
             <p>
               <a 
                 href={href}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="contact-info-text font-medium hover:underline block"
-                style={{ color: '#000000' }}
+                style={{ color: 'var(--theme-accent)' }}
               >
                 {link.label || link.url} 
               </a>

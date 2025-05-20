@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeftIcon } from '@heroicons/react/24/solid';
 import type { AnyTemplateDefinition } from '@/lib/templateRegistry';
 import TemplateThumbnail from '@/components/media-kit-templates/TemplateThumbnail';
+import { useEditorTheme } from '@/contexts/ThemeContext';
 import type { 
   EditorPreviewData, 
   TemplateTheme, 
@@ -40,6 +41,7 @@ const defaultLibrarySectionVisibility: SectionVisibilityState = {
   tiktokVideos: true,
   audienceStats: true,
   performance: true,
+  audienceDemographics: true,
 };
 
 // Default Purple Color Scheme (consistent with app's default from MediaKitEditor.tsx)
@@ -92,6 +94,7 @@ const LIBRARY_PLACEHOLDER_DATA: EditorPreviewData = {
   ] as Service[],
   instagram_handle: '@yourinsta',
   tiktok_handle: '@yourtiktok',
+  youtube_handle: '@youryoutube',
   portfolio_images: [
     'https://placehold.co/600x400/E5DAF8/1A1F2C?text=Portfolio+Image+1',
     'https://placehold.co/600x400/E5DAF8/1A1F2C?text=Portfolio+Image+2',
@@ -120,15 +123,15 @@ const LIBRARY_PLACEHOLDER_DATA: EditorPreviewData = {
   }] as MediaKitStats[],
   profile_photo: 'https://placehold.co/150/EEEEEE/757575?text=',
   selected_template_id: 'default',
-  instagram_followers: '10.5K',
-  tiktok_followers: '5K',
-  youtube_followers: '2K',
+  instagram_followers: 10500,
+  tiktok_followers: 5000,
+  youtube_followers: 2000,
   audience_age_range: '18-34',
   audience_location_main: 'United States',
   audience_gender_female: '65%',
-  avg_video_views: '15K',
-  avg_ig_reach: '20K',
-  ig_engagement_rate: '4.2%',
+  avg_video_views: 15000,
+  avg_ig_reach: 20000,
+  ig_engagement_rate: 4.2,
   showcase_images: [
     'https://placehold.co/400x300/E5DAF8/1A1F2C?text=Showcase+1',
     'https://placehold.co/400x300/E5DAF8/1A1F2C?text=Showcase+2'
@@ -147,6 +150,7 @@ const TemplateLibraryDialog: React.FC<TemplateLibraryDialogProps> = ({
   onApplyTemplate,
 }) => {
   const [detailedPreviewTemplateId, setDetailedPreviewTemplateId] = useState<string | null>(null);
+  const editorTheme = useEditorTheme();
 
   useEffect(() => {
     if (open) {
@@ -205,7 +209,7 @@ const TemplateLibraryDialog: React.FC<TemplateLibraryDialogProps> = ({
             <div className="flex-1 overflow-y-auto p-4 bg-gray-100">
               <currentDetailedTemplate.Component 
                 data={LIBRARY_PLACEHOLDER_DATA}
-                theme={DEFAULT_PURPLE_THEME}
+                theme={editorTheme || (currentDetailedTemplate.placeholderTheme ? currentDetailedTemplate.placeholderTheme() : DEFAULT_PURPLE_THEME)}
                 section_visibility={defaultLibrarySectionVisibility}
               />
             </div>
@@ -221,7 +225,7 @@ const TemplateLibraryDialog: React.FC<TemplateLibraryDialogProps> = ({
                 <TemplateThumbnail 
                   templateId={template.id as 'default' | 'aesthetic' | 'luxury'}
                   data={LIBRARY_PLACEHOLDER_DATA} 
-                  theme={DEFAULT_PURPLE_THEME}   
+                  theme={template.placeholderTheme ? template.placeholderTheme() : DEFAULT_PURPLE_THEME}   
                   section_visibility={defaultLibrarySectionVisibility}
                 />
                 <div className="absolute inset-0 flex flex-col justify-end p-4 bg-gradient-to-t from-black/70 via-black/50 to-transparent text-center">

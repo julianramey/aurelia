@@ -2,7 +2,7 @@ import React from 'react';
 
 // Define the structure for individual social links
 export interface SocialLinkItem {
-  type: 'instagram' | 'tiktok' | 'email' | 'website' | 'phone' | 'generic';
+  type: 'instagram' | 'tiktok' | 'youtube' | 'email' | 'website' | 'phone' | 'generic';
   url: string;
   label: string; 
   icon?: React.ReactNode; // Optional icon, not used in this initial version

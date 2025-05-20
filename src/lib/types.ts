@@ -88,6 +88,7 @@ export interface MediaKitData {
   skills?: string[];
   instagram_handle?: string;
   tiktok_handle?: string;
+  youtube_handle?: string;
   portfolio_images?: string[];
   videos?: VideoItem[];
   contact_email?: string;
@@ -129,6 +130,7 @@ export interface Profile {
   media_kit_data: MediaKitData | null;
   instagram_handle?: string | null;
   tiktok_handle?: string | null;
+  youtube_handle?: string | null;
   email?: string;
   niche?: string;
   media_kit_url?: string;
@@ -165,6 +167,7 @@ export type EditorPreviewData = Omit<Profile, 'created_at' | 'updated_at' | 'ser
   services: Service[];
   instagram_handle: string;
   tiktok_handle: string;
+  youtube_handle: string;
   portfolio_images: string[];
   videos: VideoItem[];
   contact_email: string;
@@ -207,6 +210,7 @@ export interface EditorFormData {
   personal_intro: string;
   instagram_handle: string;
   tiktok_handle: string;
+  youtube_handle: string;
   portfolio_images: string[];
   brand_collaborations_text: string; // Raw text
   services_text: string; // Raw text

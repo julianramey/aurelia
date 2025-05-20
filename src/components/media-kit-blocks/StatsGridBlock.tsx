@@ -59,13 +59,13 @@ const StatsGridBlock: React.FC<StatsGridProps> = ({
             >
               <h3 
                 className="stats-number text-lg sm:text-xl font-semibold mb-0.5 min-w-0"
-                style={{ color: '#000000', overflowWrap: 'break-word' }}
+                style={{ color: 'var(--theme-foreground)', overflowWrap: 'break-word' }}
               >
                 {displayValue}
               </h3>
               <p 
                 className="stats-label text-[0.7rem] sm:text-xs min-w-0"
-                style={{ color: '#000000', overflowWrap: 'break-word' }}
+                style={{ color: 'var(--theme-secondary)', overflowWrap: 'break-word' }}
               >
                 {stat.label}
               </p>

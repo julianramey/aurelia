@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Profile, VideoItem, Service, BrandCollaboration, MediaKitStats, ColorScheme, SectionVisibilityState, EditorPreviewData, TemplateTheme as ImportedTemplateTheme } from '@/lib/types';
+import type { Profile, VideoItem, Service, BrandCollaboration, MediaKitStats, ColorScheme, SectionVisibilityState, EditorPreviewData, TemplateTheme as ImportedTemplateTheme, SocialPlatform } from '@/lib/types';
 import type { SocialLinkItem } from '@/components/media-kit-blocks/SocialLinksBlock';
 import PreviewLoadingFallback from '@/components/PreviewLoadingFallback';
 import { SectionTitle } from '@/components/media-kit-blocks/SectionTitle';
@@ -19,6 +19,7 @@ import {
   ShareIcon,
   UsersIcon,
 } from '@heroicons/react/24/outline';
+import { getPlaceholderData, DEFAULT_COLORS } from '@/lib/placeholder-data'; // ADDED IMPORT
 
 // Interface for the data expected by this template
 // Ensure it includes all necessary fields from Profile + extras
@@ -34,6 +35,7 @@ export interface DefaultSpecificData {
   intro?: string;
   instagram_handle?: string;
   tiktok_handle?: string;
+  youtube_handle?: string; // ADDED
   contact_email?: string;
   email?: string;
   follower_count?: number | string;
@@ -57,6 +59,21 @@ export interface DefaultSpecificData {
   niche?: string; // Ensured present
   onboarding_complete?: boolean; // Ensured present
   selected_template_id?: string; // Ensured present
+  // Detailed stats mirroring EditorPreviewData
+  instagram_followers?: number | string; // ADDED
+  tiktok_followers?: number | string;    // ADDED
+  youtube_followers?: number | string;   // ADDED
+  avg_video_views?: number | string;    // ADDED
+  avg_ig_reach?: number | string;        // ADDED
+  ig_engagement_rate?: number | string;  // ADDED
+  audience_age_range?: string;     // ADDED
+  audience_location_main?: string; // ADDED
+  audience_gender_female?: string; // ADDED
+  showcase_images?: string[];        // ADDED
+  past_brands_text?: string;       // ADDED
+  past_brands_image_url?: string;  // ADDED
+  next_steps_text?: string;        // ADDED
+  contact_phone?: string;          // ADDED
 }
 
 // Interface for the theme styles for this specific template component (props.theme)
@@ -75,124 +92,178 @@ export interface MediaKitTemplateDefaultProps {
 }
 
 // --- Renamed Placeholder Data Function to GetPreviewData ---
-export const DefaultGetPreviewData = (): DefaultSpecificData => ({
-  id: 'default-placeholder-id',
-  user_id: 'default-placeholder-user-id',
-  username: '@default_user',
-  brand_name: 'Your Brand Name',
-  full_name: 'Default User Name',
-  avatar_url: 'https://via.placeholder.com/150/7E69AB/FFFFFF?text=D',
-  tagline: 'Your Catchy Tagline Here',
-  personal_intro: 'This is a brief introduction about you and your brand. Make it engaging!',
-  instagram_handle: '@your_insta',
-  tiktok_handle: '@your_tiktok',
-  contact_email: 'contact@example.com',
-  email: 'contact@example.com',
-  follower_count: 10000,
-  engagement_rate: 5.0,
-  avg_likes: 500,
-  reach: 20000,
-  videos: [
-    { url: 'https://www.tiktok.com/@placeholder/video/default1', thumbnail_url: 'https://via.placeholder.com/300/7E69AB/FFFFFF?text=Video+1' },
-    { url: 'https://www.tiktok.com/@placeholder/video/default2', thumbnail_url: 'https://via.placeholder.com/300/E5DAF8/1A1F2C?text=Video+2' },
-  ],
-  portfolio_images: [
-    'https://via.placeholder.com/300/7E69AB/FFFFFF?text=Portfolio+1',
-    'https://via.placeholder.com/300/E5DAF8/1A1F2C?text=Portfolio+2',
-    'https://via.placeholder.com/300/8E9196/FFFFFF?text=Portfolio+3',
-  ],
-  brand_collaborations: [
-    { id: 'collab_default_1', profile_id: '', brand_name: 'Default Brand Co.', collaboration_type: 'Sponsored Post', collaboration_date: '2023-01-01' },
-    { id: 'collab_default_2', profile_id: '', brand_name: 'Another Default Inc.', collaboration_type: 'Product Review', collaboration_date: '2023-02-15' },
-  ],
-  services: [
-    { id: 'service_default_1', profile_id: '', service_name: 'Default Service Package', description: 'High-quality default services.', price_range: '$100-$500' },
-    { id: 'service_default_2', profile_id: '', service_name: 'Consultation Hour', description: 'One hour of expert advice.', price_range: '$50' },
-  ],
-  section_visibility: {
-    profileDetails: true, brandExperience: true, servicesSkills: true, socialMedia: true,
-    contactDetails: true, profilePicture: true, tiktokVideos: true, audienceStats: true, performance: true,
-    audienceDemographics: true,
-  },
-  media_kit_data: null,
-  stats: [{
-    id: 'default-stats-id-1',
-    profile_id: 'default-placeholder-id',
-    platform: 'instagram',
-    follower_count: 10000,
-    engagement_rate: 5.0,
-    avg_likes: 500,
-    avg_comments: 50,
-    weekly_reach: 20000,
-    monthly_impressions: 80000,
-    updated_at: new Date().toISOString(),
-  }],
-  skills: ['Content Creation', 'Social Media Management', 'Videography'],
-  colors: { 
-    background: "#F5F5F5", text: "#1A1F2C", secondary: "#8E9196", 
-    accent_light: "#E5DAF8", accent: "#7E69AB", primary: "#7E69AB",
-  },
-  font: 'Inter',
-  profile_photo: 'https://via.placeholder.com/150/7E69AB/FFFFFF?text=D',
-  website: 'www.yourwebsite.com',
-  niche: 'General Content Creator',
-  onboarding_complete: true,
-  selected_template_id: 'default',
-});
+export const DefaultGetPreviewData = (): DefaultSpecificData => {
+  const placeholder = getPlaceholderData('default') as Partial<DefaultSpecificData>; // Cast for better type hints
+  const defaultColorsFromPlaceholder = getPlaceholderData('default').colors || DEFAULT_COLORS;
+  const defaultFontFromPlaceholder = getPlaceholderData('default').font || 'Inter';
+  const defaultSectionVisibilityFromPlaceholder = getPlaceholderData('default').section_visibility;
+
+  // Constructing the DefaultSpecificData, ensuring all fields are present
+  return {
+    id: placeholder.id || 'default-placeholder-id',
+    user_id: placeholder.user_id || 'default-placeholder-user-id',
+    username: placeholder.username || '@default_user',
+    brand_name: placeholder.brand_name || 'Your Brand Name',
+    full_name: placeholder.full_name || 'Default User Name',
+    avatar_url: placeholder.profile_photo || placeholder.avatar_url || 'https://via.placeholder.com/150/7E69AB/FFFFFF?text=D',
+    tagline: placeholder.tagline || 'Your Catchy Tagline Here',
+    personal_intro: placeholder.personal_intro || 'This is a brief introduction about you and your brand. Make it engaging!',
+    intro: placeholder.intro || placeholder.personal_intro || '',
+    instagram_handle: placeholder.instagram_handle || '@your_insta',
+    tiktok_handle: placeholder.tiktok_handle || '@your_tiktok',
+    youtube_handle: placeholder.youtube_handle || '', // Fallback for youtube_handle
+    contact_email: placeholder.contact_email || placeholder.email || 'contact@example.com',
+    email: placeholder.email || 'contact@example.com',
+    follower_count: parseFloat(String(placeholder.follower_count || placeholder.instagram_followers || 10000)) || 10000,
+    engagement_rate: parseFloat(String(placeholder.engagement_rate || placeholder.ig_engagement_rate || 5.0)) || 5.0,
+    avg_likes: parseFloat(String(placeholder.avg_likes || 500)) || 500,
+    reach: parseFloat(String(placeholder.reach || placeholder.avg_ig_reach || 20000)) || 20000,
+    videos: placeholder.videos || [
+      { url: 'https://www.tiktok.com/@placeholder/video/default1', thumbnail_url: 'https://via.placeholder.com/300/7E69AB/FFFFFF?text=Video+1' },
+      { url: 'https://www.tiktok.com/@placeholder/video/default2', thumbnail_url: 'https://via.placeholder.com/300/E5DAF8/1A1F2C?text=Video+2' },
+    ],
+    portfolio_images: placeholder.portfolio_images || [
+      'https://via.placeholder.com/300/7E69AB/FFFFFF?text=Portfolio+1',
+      'https://via.placeholder.com/300/E5DAF8/1A1F2C?text=Portfolio+2',
+      'https://via.placeholder.com/300/8E9196/FFFFFF?text=Portfolio+3',
+    ],
+    brand_collaborations: placeholder.brand_collaborations || [
+      { id: 'collab_default_1', profile_id: '', brand_name: 'Default Brand Co.', collaboration_type: 'Sponsored Post', collaboration_date: '2023-01-01' },
+      { id: 'collab_default_2', profile_id: '', brand_name: 'Another Default Inc.', collaboration_type: 'Product Review', collaboration_date: '2023-02-15' },
+    ],
+    services: placeholder.services || [
+      { id: 'service_default_1', profile_id: '', service_name: 'Default Service Package', description: 'High-quality default services.', price_range: '$100-$500' },
+      { id: 'service_default_2', profile_id: '', service_name: 'Consultation Hour', description: 'One hour of expert advice.', price_range: '$50' },
+    ],
+    section_visibility: {
+        profileDetails: defaultSectionVisibilityFromPlaceholder?.profileDetails ?? true,
+        brandExperience: defaultSectionVisibilityFromPlaceholder?.brandExperience ?? true,
+        servicesSkills: defaultSectionVisibilityFromPlaceholder?.servicesSkills ?? true,
+        socialMedia: defaultSectionVisibilityFromPlaceholder?.socialMedia ?? true,
+        contactDetails: defaultSectionVisibilityFromPlaceholder?.contactDetails ?? true,
+        profilePicture: defaultSectionVisibilityFromPlaceholder?.profilePicture ?? true,
+        tiktokVideos: defaultSectionVisibilityFromPlaceholder?.tiktokVideos ?? true,
+        audienceStats: defaultSectionVisibilityFromPlaceholder?.audienceStats ?? true,
+        performance: defaultSectionVisibilityFromPlaceholder?.performance ?? true,
+        audienceDemographics: defaultSectionVisibilityFromPlaceholder?.audienceDemographics ?? true,
+    },
+    media_kit_data: placeholder.media_kit_data || null, // DefaultSpecificData expects MediaKitData | null
+    stats: placeholder.stats || [{
+      id: 'default-stats-id-1',
+      profile_id: placeholder.id || 'default-placeholder-id',
+      platform: 'instagram' as SocialPlatform,
+      follower_count: 10000,
+      engagement_rate: 5.0,
+      avg_likes: 500,
+      avg_comments: 50,
+      weekly_reach: 20000,
+      monthly_impressions: 80000,
+      updated_at: new Date().toISOString(),
+    }],
+    skills: placeholder.skills || ['Content Creation', 'Social Media Management', 'Videography'],
+    colors: defaultColorsFromPlaceholder,
+    font: defaultFontFromPlaceholder,
+    profile_photo: placeholder.profile_photo || placeholder.avatar_url || 'https://via.placeholder.com/150/7E69AB/FFFFFF?text=D',
+    website: placeholder.website || 'www.yourwebsite.com',
+    niche: placeholder.niche || 'General Content Creator',
+    onboarding_complete: placeholder.onboarding_complete !== undefined ? placeholder.onboarding_complete : true,
+    selected_template_id: placeholder.selected_template_id || 'default',
+    media_kit_url: placeholder.media_kit_url || '',
+    // ADDED specific stats with fallbacks, ensuring numeric conversion
+    instagram_followers: parseFloat(String(placeholder.instagram_followers || 10000)) || 10000,
+    tiktok_followers: parseFloat(String(placeholder.tiktok_followers || 0)) || 0,
+    youtube_followers: parseFloat(String(placeholder.youtube_followers || 0)) || 0,
+    avg_video_views: parseFloat(String(placeholder.avg_video_views || 0)) || 0,
+    avg_ig_reach: parseFloat(String(placeholder.avg_ig_reach || 0)) || 0,
+    ig_engagement_rate: parseFloat(String(placeholder.ig_engagement_rate || 0)) || 0,
+    audience_age_range: placeholder.audience_age_range || '25-35',
+    audience_location_main: placeholder.audience_location_main || 'New York',
+    audience_gender_female: placeholder.audience_gender_female || '50%',
+    showcase_images: placeholder.showcase_images || [],
+    past_brands_text: placeholder.past_brands_text || '',
+    past_brands_image_url: placeholder.past_brands_image_url || '',
+    next_steps_text: placeholder.next_steps_text || '',
+    contact_phone: placeholder.contact_phone || '',
+  };
+};
 
 // --- Updated Thumbnail Data Function to return EditorPreviewData ---
-export const DefaultGetThumbnailData = (): EditorPreviewData => ({
-  id: 'thumb-default-id',
-  user_id: 'thumb-user-id',
-  username: '@default_user_thumb',
-  brand_name: 'Classic Minimal (Thumb)',
-  tagline: 'Clean & Professional Thumbnail',
-  colors: { 
-    background: "#F5F5F5", text: "#1A1F2C", secondary: "#8E9196", 
-    accent_light: "#E5DAF8", accent: "#7E69AB", primary: "#7E69AB",
-  },
-  font: 'Inter',
-  profile_photo: 'https://via.placeholder.com/150/7E69AB/FFFFFF?text=D',
-  personal_intro: 'Short intro for thumbnail.',
-  skills: [],
-  brand_collaborations: [],
-  services: [],
-  instagram_handle: '@insta_thumb',
-  tiktok_handle: '@tiktok_thumb',
-  portfolio_images: [],
-  videos: [],
-  contact_email: 'thumb@example.com',
-  section_visibility: { profileDetails: true, profilePicture: true, socialMedia: true, audienceStats: true, performance: true, tiktokVideos: true, brandExperience: true, servicesSkills: true, contactDetails: true, audienceDemographics: true },
-  follower_count: 100,
-  engagement_rate: 1,
-  avg_likes: 10,
-  reach: 100,
-  stats: [],
-  avatar_url: 'https://via.placeholder.com/150/7E69AB/FFFFFF?text=D',
-  website: 'thumb.example.com',
-  full_name: 'Default Thumbnail User',
-  niche: 'Thumbnail Niche',
-  media_kit_url: '',
-  onboarding_complete: true,
-  email: 'thumb_email@example.com',
-  media_kit_data: null,
-  selected_template_id: 'default',
-  audience_age_range: '25-35',
-  audience_location_main: 'New York',
-  audience_gender_female: '50%',
-});
+export const DefaultGetThumbnailData = (): EditorPreviewData => {
+  const placeholder = getPlaceholderData('default') as Partial<EditorPreviewData>; // Cast for consistency
+  const defaultColors = placeholder.colors || DEFAULT_COLORS;
+  const defaultFont = placeholder.font || 'Inter';
+
+  return {
+    id: 'thumb-default-id',
+    user_id: 'thumb-user-id',
+    username: '@default_user_thumb',
+    brand_name: 'Classic Minimal (Thumb)',
+    tagline: 'Clean & Professional Thumbnail',
+    colors: defaultColors,
+    font: defaultFont,
+    profile_photo: placeholder.profile_photo || placeholder.avatar_url || 'https://via.placeholder.com/150/7E69AB/FFFFFF?text=D',
+    personal_intro: 'Short intro for thumbnail.',
+    skills: [],
+    brand_collaborations: [],
+    services: [],
+    instagram_handle: '@insta_thumb',
+    tiktok_handle: '@tiktok_thumb',
+    portfolio_images: [],
+    videos: [],
+    contact_email: 'thumb@example.com',
+    section_visibility: { 
+        profileDetails: true, profilePicture: true, socialMedia: true, audienceStats: true, performance: true, 
+        tiktokVideos: true, brandExperience: true, servicesSkills: true, contactDetails: true, audienceDemographics: true 
+    },
+    follower_count: 100,
+    engagement_rate: 1,
+    avg_likes: 10,
+    reach: 100,
+    stats: [],
+    avatar_url: placeholder.avatar_url || 'https://via.placeholder.com/150/7E69AB/FFFFFF?text=D',
+    website: 'thumb.example.com',
+    full_name: placeholder.full_name || 'Default Thumbnail User',
+    niche: placeholder.niche || 'Thumbnail Niche',
+    media_kit_url: placeholder.media_kit_url || '',
+    onboarding_complete: placeholder.onboarding_complete !== undefined ? placeholder.onboarding_complete : true,
+    email: placeholder.email || 'thumb_email@example.com',
+    media_kit_data: null,
+    selected_template_id: 'default',
+    audience_age_range: placeholder.audience_age_range || '25-35',
+    audience_location_main: placeholder.audience_location_main || 'New York',
+    audience_gender_female: placeholder.audience_gender_female || '50%',
+    youtube_handle: placeholder.youtube_handle || '',
+    // Add all other EditorPreviewData fields with minimal placeholders
+    instagram_followers: parseFloat(String(placeholder.instagram_followers || 100)) || 100,
+    tiktok_followers: parseFloat(String(placeholder.tiktok_followers || 0)) || 0,
+    youtube_followers: parseFloat(String(placeholder.youtube_followers || 0)) || 0,
+    avg_video_views: parseFloat(String(placeholder.avg_video_views || 0)) || 0,
+    avg_ig_reach: parseFloat(String(placeholder.avg_ig_reach || 0)) || 0,
+    ig_engagement_rate: parseFloat(String(placeholder.ig_engagement_rate || 0)) || 0,
+    showcase_images: placeholder.showcase_images || [],
+    past_brands_text: placeholder.past_brands_text || '',
+    past_brands_image_url: placeholder.past_brands_image_url || '',
+    next_steps_text: placeholder.next_steps_text || '',
+    contact_phone: placeholder.contact_phone || '',
+  };
+};
 
 // --- Existing Placeholder Theme Function (ensure it uses the specific theme type) ---
-export const DefaultTheme = (): ImportedTemplateTheme => ({ // Changed return type to ImportedTemplateTheme
-  background: "#F5F5F5",
-  foreground: "#1A1F2C",
-  primary: "#7E69AB", 
-  primaryLight: "#E5DAF8",
-  secondary: "#8E9196",
-  accent: "#7E69AB",
-  neutral: "#8E9196", 
-  border: "#7E69AB33", 
-});
+export const DefaultTheme = (): ImportedTemplateTheme => {
+  const placeholder = getPlaceholderData('default');
+  const c = placeholder.colors || DEFAULT_COLORS;
+  return {
+    background: c.background,
+    foreground: c.text,
+    primary: c.primary || c.accent, // Fallback primary to accent
+    primaryLight: c.accent_light,
+    secondary: c.secondary,
+    accent: c.accent,
+    neutral: c.secondary,
+    border: `${c.primary || c.accent}33`,
+    font: placeholder.font || 'Inter, sans-serif', // Use font from placeholder or default
+  };
+};
 
 // AUGMENTED: Added theme-based CSS rules using CSS Variables
 const themedCssRules = `
@@ -218,6 +289,10 @@ const themedCssRules = `
   .media-kit .text-gray-400 { /* Used for "No portfolio/collaborations/services" */
     color: var(--theme-fg); /* Change from gray to black */
     font-style: normal; /* Remove italic */
+    font-size: 0.875rem; /* text-sm for a cleaner fallback */
+    text-align: center; /* Center fallback text */
+    padding-top: 0.5rem; /* Add some space for fallback text */
+    padding-bottom: 0.5rem; /* Add some space for fallback text */
   }
 `;
 
@@ -308,12 +383,12 @@ const MediaKitTemplateDefault: React.FC<MediaKitTemplateDefaultProps> = ({
   // Email and Website are handled by dedicated props in ContactInfoBlock if needed by this template's design
 
   return (
-    <div className="media-kit space-y-6 p-4 rounded-lg" style={rootStyleProps}>
+    <div className="media-kit space-y-8 p-6 md:p-8 rounded-lg" style={rootStyleProps}>
       <style>{responsiveTextStyles}</style>
       
       {/* Hero Section - Now uses ProfileHeaderBlock with a dedicated wrapper */}
       {(section_visibility.profileDetails || section_visibility.profilePicture || section_visibility.socialMedia) && (
-        <div className="hero-wrapper bg-white rounded-[0.75rem] shadow-sm">
+        <div className="hero-wrapper rounded-[0.75rem] shadow-lg">
           <ProfileHeaderBlock
             variant="default"
             avatarUrl={data.avatar_url}
@@ -343,7 +418,7 @@ const MediaKitTemplateDefault: React.FC<MediaKitTemplateDefaultProps> = ({
 
       {/* Analytics Overview - Now with a dedicated wrapper */}
       {(section_visibility.audienceStats || section_visibility.performance) && (
-        <div className="analytics-overview-wrapper section bg-white rounded-[0.75rem] p-6 shadow-sm border">
+        <div className="analytics-overview-wrapper section rounded-[0.75rem] p-6 shadow-lg border">
           <SectionTitle>Analytics Overview</SectionTitle>
           <StatsGridBlock 
             stats={[
@@ -355,12 +430,12 @@ const MediaKitTemplateDefault: React.FC<MediaKitTemplateDefaultProps> = ({
             ]}
             sectionVisibility={section_visibility} // Pass sectionVisibility for internal filtering
           />
-                </div>
-            )}
+        </div>
+      )}
 
       {/* Audience Demographics Section - NEW */}
       {section_visibility.audienceDemographics && (data.audience_age_range || data.audience_location_main || data.audience_gender_female) && (
-        <div className="section bg-white p-6 rounded-lg shadow">
+        <div className="section rounded-lg p-6 shadow-lg border">
           <SectionTitle>Audience Demographics</SectionTitle>
           <AudienceDemographicsBlock
             ageRange={data.audience_age_range}
@@ -374,7 +449,7 @@ const MediaKitTemplateDefault: React.FC<MediaKitTemplateDefaultProps> = ({
       {/* Portfolio Showcase - Restore bg-white */}
       {/* For now, tie portfolio to tiktokVideos visibility or brandExperience. Could be its own toggle later. */}
       {(section_visibility.tiktokVideos || section_visibility.brandExperience) && (
-        <div className="section bg-white rounded-[0.75rem] p-6 shadow-sm border">
+        <div className="section rounded-[0.75rem] p-6 shadow-lg border">
           <SectionTitle>Recent Content</SectionTitle>
           
           {(() => {
@@ -388,7 +463,7 @@ const MediaKitTemplateDefault: React.FC<MediaKitTemplateDefaultProps> = ({
             } */ else {
               // If not showing videos (either section off or no videos), show fallback.
               // If brandExperience is also off, this might feel odd, but it's tied to the parent visibility check.
-              return <div className="text-[0.9rem]">No video content to display.</div>; // Updated fallback text
+              return <div className="text-sm text-center py-2" style={{ color: 'var(--theme-foreground)' }}>No video content to display.</div>; // Updated fallback text
             }
           })()}
         </div>
@@ -396,31 +471,31 @@ const MediaKitTemplateDefault: React.FC<MediaKitTemplateDefaultProps> = ({
 
       {/* Brand Collaborations - Restore bg-white */}
       {section_visibility.brandExperience && (
-        <div className="section bg-white rounded-[0.75rem] p-6 shadow-sm border">
+        <div className="section rounded-[0.75rem] p-6 shadow-lg border">
           <SectionTitle>Brand Experience</SectionTitle>
           {(Array.isArray(data.brand_collaborations) && data.brand_collaborations.length > 0) ? (
             <BrandCollaborationBlock brands={data.brand_collaborations} sectionVisibility={section_visibility} />
           ) : (
-            <div className="text-[0.9rem]">No brand collaborations to display</div>
+            <div className="text-sm text-center py-2" style={{ color: 'var(--theme-foreground)' }}>No brand collaborations to display</div>
           )}
         </div>
       )}
 
       {/* Services - Restore bg-white */}
       {section_visibility.servicesSkills && (
-        <div className="section bg-white rounded-[0.75rem] p-6 shadow-sm border">
+        <div className="section rounded-[0.75rem] p-6 shadow-lg border">
           <SectionTitle>Services Offered</SectionTitle>
           {(Array.isArray(data.services) && data.services.length > 0) ? (
             <ServiceListBlock services={data.services} sectionVisibility={section_visibility} />
           ) : (
-            <div className="text-[0.9rem]">No services to display</div>
+            <div className="text-sm text-center py-2" style={{ color: 'var(--theme-foreground)' }}>No services to display</div>
           )}
         </div>
       )}
 
       {/* Contact Information - Restore bg-white */}
       {section_visibility.contactDetails && (
-        <div className="section bg-white rounded-[0.75rem] p-6 shadow-sm border">
+        <div className="section rounded-[0.75rem] p-6 shadow-lg border">
           <SectionTitle>Contact Information</SectionTitle>
           <ContactInfoBlock 
             email={data.contact_email || data.email}
