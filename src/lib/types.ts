@@ -59,7 +59,9 @@ export interface ColorScheme {
 
 export interface VideoItem {
   url: string;
-  thumbnail_url: string;
+  thumbnail_url?: string;
+  embed_html?: string;
+  provider_name?: string;
   last_updated?: string;
 }
 

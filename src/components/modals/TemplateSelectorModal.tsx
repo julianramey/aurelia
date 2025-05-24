@@ -1,23 +1,24 @@
 import React, { Fragment } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { XMarkIcon, SparklesIcon, BoltIcon, ArrowPathRoundedSquareIcon, LightBulbIcon, MegaphoneIcon, HandThumbUpIcon, PencilSquareIcon } from '@heroicons/react/24/outline'; // Add all used icons
+import type { UserEmailTemplate } from '@/lib/supabaseHelpers'; // Import UserEmailTemplate
 
 // Define EmailTemplate interface locally or import from a shared types file
-export interface EmailTemplate {
-  id: string;
-  name: string;
-  subject: string;
-  body: string;
-  icon?: React.ElementType; // Icon for the template card
-  category?: string; // Added category field
-}
+// export interface EmailTemplate {
+//   id: string;
+//   name: string;
+//   subject: string;
+//   body: string;
+//   icon?: React.ElementType; // Icon for the template card
+//   category?: string; // Added category field
+// }
 
 interface TemplateSelectorModalProps {
   isOpen: boolean;
   onClose: () => void;
-  templates: EmailTemplate[];
-  selectedTemplate: EmailTemplate | null;
-  onSelectTemplate: (template: EmailTemplate) => void;
+  templates: UserEmailTemplate[]; // UPDATED to UserEmailTemplate
+  selectedTemplate: UserEmailTemplate | null; // UPDATED to UserEmailTemplate
+  onSelectTemplate: (template: UserEmailTemplate) => void; // UPDATED to UserEmailTemplate
   onUseSelectedTemplate: () => void;
   onUseBlankEmail: () => void;
 }
@@ -65,7 +66,7 @@ const TemplateSelectorModal: React.FC<TemplateSelectorModalProps> = ({
                 </Dialog.Title>
                 <div className="mt-4 space-y-3 max-h-96 overflow-y-auto pr-2">
                   {templates.map((template) => {
-                    const IconComponent = template.icon;
+                    const IconComponent = template.IconComponent; // UPDATED to use template.IconComponent
                     const isSelected = selectedTemplate?.id === template.id;
                     return (
                       <div

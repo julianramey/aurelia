@@ -45,13 +45,14 @@ export interface SupabaseBrand {
 
 // Contact interface expected by the UI
 export interface Contact {
-  id: number; // Can be synthetic (e.g., 1, 2, 3 for decision makers)
+  id: number; // This is the relative ID (1, 2, or 3) within the brand's contacts
   name: string;
   title: string;
   email: string;
   profileImage?: string; // Note: Not directly available from new Supabase decision_maker fields. UI might need to adapt or use brand favicon.
   emailSent?: boolean;   // UI-specific state, likely managed locally
   emailSentDate?: string; // UI-specific state
+  parentId: number; // ADD THIS LINE: ID of the parent brand (from companies.id)
 }
 
 // Normalized Brand type that components will use internally

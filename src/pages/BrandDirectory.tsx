@@ -7,28 +7,29 @@ import { withPreview } from '@/lib/withPreview';
 import { supabase } from '@/lib/supabase';
 import { NormalizedBrand, Product, Contact, SupabaseBrand } from '@/types';
 import BrandDetailModal from '@/components/modals/BrandDetailModal';
+import { getFavoritedBrandIdsFromSupabase, toggleFavoriteInSupabase } from '@/lib/supabaseHelpers';
 
 // Local Storage key for favorites (must match SearchResults.tsx)
-const FAVORITED_BRANDS_LS_KEY = 'favoritedBrandIds';
+// const FAVORITED_BRANDS_LS_KEY = 'favoritedBrandIds';
 
 // --- Helper functions (copied from SearchResults.tsx or should be moved to shared utils) ---
-const getStoredIds = (key: string): number[] => {
-  const stored = localStorage.getItem(key);
-  return stored ? JSON.parse(stored) : [];
-};
+// const getStoredIds = (key: string): number[] => {
+//   const stored = localStorage.getItem(key);
+//   return stored ? JSON.parse(stored) : [];
+// };
 
 // Function to toggle favorite status in local storage (Ensure this is present)
-const toggleIdInStorage = (key: string, brandId: number): number[] => {
-  const currentIds = getStoredIds(key);
-  let updatedIds;
-  if (currentIds.includes(brandId)) {
-    updatedIds = currentIds.filter(id => id !== brandId);
-  } else {
-    updatedIds = [...currentIds, brandId];
-  }
-  localStorage.setItem(key, JSON.stringify(updatedIds));
-  return updatedIds;
-};
+// const toggleIdInStorage = (key: string, brandId: number): number[] => {
+//   const currentIds = getStoredIds(key);
+//   let updatedIds;
+//   if (currentIds.includes(brandId)) {
+//     updatedIds = currentIds.filter(id => id !== brandId);
+//   } else {
+//     updatedIds = [...currentIds, brandId];
+//   }
+//   localStorage.setItem(key, JSON.stringify(updatedIds));
+//   return updatedIds;
+// };
 
 const sizeCategory = (raw: string | undefined): string => {
   if (!raw) return "N/A";
@@ -128,6 +129,7 @@ const BrandDirectoryComponent = ({ isPreview = false }: { isPreview?: boolean })
   const [_fetchedBrandsForTiles, setFetchedBrandsForTiles] = useState<SupabaseBrand[]>([]);
   const [favoritedBrandsList, setFavoritedBrandsList] = useState<NormalizedBrand[]>([]);
   const [isLoadingFavorites, setIsLoadingFavorites] = useState(false);
+  const [favoritedBrandIds, setFavoritedBrandIds] = useState<number[]>([]); // New state for IDs
 
   // Modal State
   const [selectedBrandForModal, setSelectedBrandForModal] = useState<NormalizedBrand | null>(null);
@@ -350,19 +352,21 @@ const BrandDirectoryComponent = ({ isPreview = false }: { isPreview?: boolean })
 
           // Fetch and process favorited brands
           setIsLoadingFavorites(true);
-          const favoritedIds = getStoredIds(FAVORITED_BRANDS_LS_KEY);
-          if (favoritedIds.length > 0) {
+          const favIdsFromSupabase = await getFavoritedBrandIdsFromSupabase(); // NEW
+          setFavoritedBrandIds(favIdsFromSupabase); // Store fetched IDs
+
+          if (favIdsFromSupabase.length > 0) {
             const { data: favData, error: favError } = await supabase
               .from('companies')
               .select('*')
-              .in('id', favoritedIds);
+              .in('id', favIdsFromSupabase); // Use favIdsFromSupabase here
             
             if (favError) {
               console.error('Error fetching favorited brands:', favError);
               setFavoritedBrandsList([]);
             } else if (favData) {
-              // Use the new full normalization function
-              const normalizedFavorites = favData.map(brand => normalizeSupabaseBrand(brand as SupabaseBrand, favoritedIds));
+              // Use the new full normalization function, ensuring it gets the updated favIdsFromSupabase
+              const normalizedFavorites = favData.map(brand => normalizeSupabaseBrand(brand as SupabaseBrand, favIdsFromSupabase));
               setFavoritedBrandsList(normalizedFavorites);
             }
           } else {
@@ -428,22 +432,84 @@ const BrandDirectoryComponent = ({ isPreview = false }: { isPreview?: boolean })
     setShowDirectoryContactsInModal(prev => !prev);
   };
 
-  const handleToggleFavoriteOnDirectoryPage = (brandId: number) => {
-    toggleIdInStorage(FAVORITED_BRANDS_LS_KEY, brandId);
-    const newFavoritedIds = getStoredIds(FAVORITED_BRANDS_LS_KEY);
+  const handleToggleFavoriteOnDirectoryPage = async (brandId: number) => {
+    const originalFavoritedBrandIds = [...favoritedBrandIds]; // For rollback
 
-    // Update the main list of favorited brands
-    setFavoritedBrandsList(prevList => 
+    // Optimistic UI update
+    const isCurrentlyFavorite = originalFavoritedBrandIds.includes(brandId);
+    const newOptimisticFavoritedBrandIds = isCurrentlyFavorite
+      ? originalFavoritedBrandIds.filter(id => id !== brandId)
+      : [...originalFavoritedBrandIds, brandId];
+
+    setFavoritedBrandIds(newOptimisticFavoritedBrandIds);
+
+    // Update favoritedBrandsList optimistically
+    // If unfavoriting, remove from list. If favoriting, add to list (requires fetching brand data if not already present)
+    // For simplicity in this optimistic update, we'll mainly rely on the modal's internal state and the `isFavorite` prop.
+    // The full `favoritedBrandsList` will be accurately re-fetched or updated after Supabase confirmation if needed, or on next load.
+    
+    setFavoritedBrandsList(prevList =>
       prevList
         .map(b => (b.id === brandId ? { ...b, isFavorite: !b.isFavorite } : b))
-        .filter(b => newFavoritedIds.includes(b.id)) // Keep only currently favorited items
+        .filter(b => newOptimisticFavoritedBrandIds.includes(b.id)) // This line ensures that if a brand is unfavorited, it's removed from the list.
     );
 
-    // If the currently opened modal brand is the one being toggled, update its state
     if (selectedBrandForModal && selectedBrandForModal.id === brandId) {
-      setSelectedBrandForModal(prevModalBrand => 
+      setSelectedBrandForModal(prevModalBrand =>
         prevModalBrand ? { ...prevModalBrand, isFavorite: !prevModalBrand.isFavorite } : null
       );
+    }
+
+    try {
+      const finalFavoritedIds = await toggleFavoriteInSupabase(brandId, originalFavoritedBrandIds);
+
+      // If Supabase state differs from optimistic, re-sync.
+      // This also handles adding a newly favorited brand to the list if it wasn't there.
+      if (JSON.stringify(finalFavoritedIds.sort()) !== JSON.stringify(newOptimisticFavoritedBrandIds.sort())) {
+        setFavoritedBrandIds(finalFavoritedIds);
+        // Potentially re-fetch the favoritedBrandsList to ensure it's accurate
+        // or update it more carefully based on `finalFavoritedIds`
+        setIsLoadingFavorites(true); // Show loader while re-fetching/updating list
+        if (finalFavoritedIds.length > 0) {
+          const { data: favData, error: favError } = await supabase
+            .from('companies')
+            .select('*')
+            .in('id', finalFavoritedIds);
+          if (favError) {
+            console.error('Error re-fetching favorited brands after toggle:', favError);
+            // Potentially revert to originalFavoritedBrandIds if critical, or just log error
+            setFavoritedBrandsList(prevList => prevList.map(b => ({...b, isFavorite: finalFavoritedIds.includes(b.id) }))); // simple update
+          } else if (favData) {
+            const normalizedFavorites = favData.map(brand => normalizeSupabaseBrand(brand as SupabaseBrand, finalFavoritedIds));
+            setFavoritedBrandsList(normalizedFavorites);
+          }
+        } else {
+          setFavoritedBrandsList([]);
+        }
+        setIsLoadingFavorites(false);
+
+        if (selectedBrandForModal && selectedBrandForModal.id === brandId) {
+          setSelectedBrandForModal(prevModalBrand =>
+            prevModalBrand ? { ...prevModalBrand, isFavorite: finalFavoritedIds.includes(brandId) } : null
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Failed to toggle favorite in Supabase (Directory), reverting UI:", error);
+      setFavoritedBrandIds(originalFavoritedBrandIds);
+      // Rollback `favoritedBrandsList` (this might be complex if items were added/removed)
+      // A simpler rollback for the list might be to re-fetch based on originalFavoritedBrandIds or accept temporary inconsistency until next full load.
+      // For now, the `isFavorite` flag on existing items in list will be based on original IDs
+      setFavoritedBrandsList(prevList =>
+        prevList.map(b => (b.id === brandId ? { ...b, isFavorite: originalFavoritedBrandIds.includes(b.id) } : b))
+                .filter(b => originalFavoritedBrandIds.includes(b.id)) // Ensure consistency with rollback
+      );
+      if (selectedBrandForModal && selectedBrandForModal.id === brandId) {
+        setSelectedBrandForModal(prevModalBrand =>
+          prevModalBrand ? { ...prevModalBrand, isFavorite: originalFavoritedBrandIds.includes(brandId) } : null
+        );
+      }
+      // Potentially show error to user
     }
   };
   

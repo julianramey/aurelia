@@ -25,27 +25,28 @@ import TemplateSelectorModal, { EmailTemplate as ModalEmailTemplate } from '@/co
 import BrandDetailModal from '@/components/modals/BrandDetailModal';
 import { supabase } from '@/lib/supabase';
 import { NormalizedBrand, Product, Contact, SupabaseBrand } from '@/types';
+import { getFavoritedBrandIdsFromSupabase, toggleFavoriteInSupabase, upsertOutreachStatus, UserOutreachStatus } from '@/lib/supabaseHelpers';
 
 // Local Storage keys
-const FAVORITED_BRANDS_LS_KEY = 'favoritedBrandIds';
+// const FAVORITED_BRANDS_LS_KEY = 'favoritedBrandIds'; // REMOVED
 
 // Local Storage helper functions
-const getStoredIds = (key: string): number[] => {
-  const stored = localStorage.getItem(key);
-  return stored ? JSON.parse(stored) : [];
-};
+// const getStoredIds = (key: string): number[] => { // REMOVED
+//   const stored = localStorage.getItem(key);
+//   return stored ? JSON.parse(stored) : [];
+// };
 
-const toggleIdInStorage = (key: string, brandId: number): number[] => {
-  const currentIds = getStoredIds(key);
-  let updatedIds;
-  if (currentIds.includes(brandId)) {
-    updatedIds = currentIds.filter(id => id !== brandId);
-  } else {
-    updatedIds = [...currentIds, brandId];
-  }
-  localStorage.setItem(key, JSON.stringify(updatedIds));
-  return updatedIds;
-};
+// const toggleIdInStorage = (key: string, brandId: number): number[] => { // REMOVED
+//   const currentIds = getStoredIds(key);
+//   let updatedIds;
+//   if (currentIds.includes(brandId)) {
+//     updatedIds = currentIds.filter(id => id !== brandId);
+//   } else {
+//     updatedIds = [...currentIds, brandId];
+//   }
+//   localStorage.setItem(key, JSON.stringify(updatedIds));
+//   return updatedIds;
+// };
 
 // Helper function to map raw company size string to a size category bucket
 const sizeCategory = (raw: string | undefined): string => {
@@ -78,13 +79,13 @@ const normalizeBrand = (
 
   const contacts: Contact[] = [];
   if (supabaseBrand.decision_maker_name_1 && supabaseBrand.decision_maker_role_1 && supabaseBrand.decision_maker_email_1) {
-    contacts.push({ id: 1, name: supabaseBrand.decision_maker_name_1, title: supabaseBrand.decision_maker_role_1, email: supabaseBrand.decision_maker_email_1, profileImage: supabaseBrand.favicon_url });
+    contacts.push({ id: 1, name: supabaseBrand.decision_maker_name_1, title: supabaseBrand.decision_maker_role_1, email: supabaseBrand.decision_maker_email_1, profileImage: supabaseBrand.favicon_url, parentId: supabaseBrand.id });
   }
   if (supabaseBrand.decision_maker_name_2 && supabaseBrand.decision_maker_role_2 && supabaseBrand.decision_maker_email_2) {
-    contacts.push({ id: 2, name: supabaseBrand.decision_maker_name_2, title: supabaseBrand.decision_maker_role_2, email: supabaseBrand.decision_maker_email_2, profileImage: supabaseBrand.favicon_url });
+    contacts.push({ id: 2, name: supabaseBrand.decision_maker_name_2, title: supabaseBrand.decision_maker_role_2, email: supabaseBrand.decision_maker_email_2, profileImage: supabaseBrand.favicon_url, parentId: supabaseBrand.id });
   }
   if (supabaseBrand.decision_maker_name_3 && supabaseBrand.decision_maker_role_3 && supabaseBrand.decision_maker_email_3) {
-    contacts.push({ id: 3, name: supabaseBrand.decision_maker_name_3, title: supabaseBrand.decision_maker_role_3, email: supabaseBrand.decision_maker_email_3, profileImage: supabaseBrand.favicon_url });
+    contacts.push({ id: 3, name: supabaseBrand.decision_maker_name_3, title: supabaseBrand.decision_maker_role_3, email: supabaseBrand.decision_maker_email_3, profileImage: supabaseBrand.favicon_url, parentId: supabaseBrand.id });
   }
   
   return {
@@ -175,6 +176,7 @@ export default function SearchResults() {
   const [displayedResults, setDisplayedResults] = useState<NormalizedBrand[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showLoadMore, setShowLoadMore] = useState(true);
+  const [favoritedBrandIds, setFavoritedBrandIds] = useState<number[]>([]);
   
   // Modal State (remains the same)
   const [selectedBrand, setSelectedBrand] = useState<NormalizedBrand | null>(null);
@@ -220,7 +222,9 @@ export default function SearchResults() {
     async function fetchAndFilter(termToFilter: string, filtersToApply: Record<string, string[]>) {
       setIsLoading(true);
       try {
-        const favoritedIds = getStoredIds(FAVORITED_BRANDS_LS_KEY);
+        // const favoritedIds = getStoredIds(FAVORITED_BRANDS_LS_KEY); // OLD
+        const favoritedIds = await getFavoritedBrandIdsFromSupabase(); // NEW
+        setFavoritedBrandIds(favoritedIds); // Store fetched IDs in state
 
         const { data, error } = await supabase
           .from('companies')
@@ -421,47 +425,37 @@ export default function SearchResults() {
     setIsTemplateSelectorModalOpen(false);
   };
 
-  const handleSendEmailWithTemplate = (useBlankEmail: boolean = false) => {
+  const handleSendEmailWithTemplate = async (useBlankEmail: boolean = false) => {
     if (!currentEmailTarget) return;
 
     let recipientEmail = '';
     let brandNameForEmail = '';
-    let brandIdToUpdate: string | null = null;
+    let brandIdToUpdate: number | null = null;
 
     if ('products' in currentEmailTarget) {
       const brandObject = currentEmailTarget as NormalizedBrand;
       brandNameForEmail = brandObject.name;
-      brandIdToUpdate = brandObject.id.toString();
+      brandIdToUpdate = brandObject.id;
 
-      if (brandObject.contacts && brandObject.contacts.length > 0 && brandObject.contacts[0].email) {
-        recipientEmail = brandObject.contacts[0].email;
-      } else if (brandObject.contact_email) {
+      if (brandObject.contact_email) {
         recipientEmail = brandObject.contact_email;
+      } else if (brandObject.contacts && brandObject.contacts.length > 0 && brandObject.contacts[0].email) {
+        recipientEmail = brandObject.contacts[0].email;
       } else {
         recipientEmail = `contact@${brandObject.name.toLowerCase().replace(/\s+/g, '')}.com`;
-        alert(`No primary contact email found for ${brandObject.name}. Using a generic one. Please verify.`);
+        alert(`No contact email found for ${brandObject.name}. Using a generic fallback: ${recipientEmail}. Please verify.`);
       }
     } else {
       const contactObject = currentEmailTarget as Contact;
       recipientEmail = contactObject.email;
-      const parentBrand = allResults.find(brand => brand.contacts?.some(c => c.id === contactObject.id));
-      if (parentBrand) {
-        brandNameForEmail = parentBrand.name;
-        brandIdToUpdate = parentBrand.id.toString();
+      brandIdToUpdate = contactObject.parentId;
+
+      const parentBrandDetails = allResults.find(b => b.id === contactObject.parentId);
+      if (parentBrandDetails) {
+        brandNameForEmail = parentBrandDetails.name;
       } else {
-        const brandByEmail = allResults.find(b => 
-            (b.decision_maker_email_1 === contactObject.email) ||
-            (b.decision_maker_email_2 === contactObject.email) ||
-            (b.decision_maker_email_3 === contactObject.email) ||
-            (b.contact_email === contactObject.email)
-        );
-        if (brandByEmail) {
-            brandNameForEmail = brandByEmail.name;
-            brandIdToUpdate = brandByEmail.id.toString();
-        } else {
-            brandNameForEmail = contactObject.name.split(' ')[0];
-            alert("Could not identify the parent brand for this contact. Status won't be tracked in OutreachTracker.");
-        }
+        brandNameForEmail = contactObject.name.split(' ')[0];
+        console.warn(`Parent brand details not found in allResults for contact with parentId: ${contactObject.parentId}. Using contact name part as brand name.`);
       }
     }
 
@@ -485,36 +479,92 @@ export default function SearchResults() {
 
     window.location.href = `mailto:${recipientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
-    if (brandIdToUpdate) {
+    if (brandIdToUpdate !== null) {
+      const currentDate = new Date().toISOString().split('T')[0];
+      const outreachData: UserOutreachStatus = {
+        brand_id: brandIdToUpdate,
+        first_email_sent: true,
+        first_email_date: currentDate,
+        follow_up_1_sent: false,
+        follow_up_1_date: null,
+        follow_up_2_sent: false,
+        follow_up_2_date: null,
+        notes: null,
+        outreach_email_used: recipientEmail
+      };
       try {
-        const localStorageKey = `outreachStatus_${brandIdToUpdate}`;
-        const statusUpdate = {
-          firstEmailSent: true,
-          date: new Date().toISOString().split('T')[0]
-        };
-        localStorage.setItem(localStorageKey, JSON.stringify(statusUpdate));
-        console.log(`Updated localStorage for brand ${brandIdToUpdate}:`, statusUpdate);
+        const result = await upsertOutreachStatus(outreachData);
+        if (result) {
+          console.log(`Outreach status updated in Supabase for brand ${brandIdToUpdate}:`, result);
+        } else {
+          console.error("Failed to update outreach status in Supabase for brand:", brandIdToUpdate);
+        }
       } catch (error) {
-        console.error("Error saving to localStorage:", error);
+        console.error("Error calling upsertOutreachStatus for brand:", brandIdToUpdate, error);
       }
+    } else {
+      console.warn("No brandIdToUpdate, skipping Supabase outreach status update.");
     }
 
     closeTemplateSelectorModal();
   };
 
   // Handler for toggling favorite status
-  const handleToggleFavorite = (brandId: number) => {
-    toggleIdInStorage(FAVORITED_BRANDS_LS_KEY, brandId);
-    
+  const handleToggleFavorite = async (brandId: number) => {
+    const originalFavoritedBrandIds = [...favoritedBrandIds]; // Store original state for potential rollback
+
+    // Optimistically update UI
+    const isCurrentlyFavorite = originalFavoritedBrandIds.includes(brandId);
+    const newOptimisticFavoritedBrandIds = isCurrentlyFavorite
+      ? originalFavoritedBrandIds.filter(id => id !== brandId)
+      : [...originalFavoritedBrandIds, brandId];
+
+    setFavoritedBrandIds(newOptimisticFavoritedBrandIds);
+
+    const updateIsFavoriteInBrandOptimistic = (brand: NormalizedBrand): NormalizedBrand => ({
+      ...brand,
+      isFavorite: newOptimisticFavoritedBrandIds.includes(brand.id),
+    });
+
     if (selectedBrand && selectedBrand.id === brandId) {
-      setSelectedBrand(prev => prev ? { ...prev, isFavorite: !prev.isFavorite } : null);
+      setSelectedBrand(prev => prev ? updateIsFavoriteInBrandOptimistic(prev) : null);
     }
-    
-    const updateBrandStatus = (brandsArray: NormalizedBrand[]) =>
-      brandsArray.map(b => b.id === brandId ? { ...b, isFavorite: !b.isFavorite } : b);
+    setAllResults(prevAllResults => prevAllResults.map(updateIsFavoriteInBrandOptimistic));
+    setDisplayedResults(prevDisplayedResults => prevDisplayedResults.map(updateIsFavoriteInBrandOptimistic));
+
+    try {
+      // Call Supabase to toggle favorite status
+      const finalFavoritedIds = await toggleFavoriteInSupabase(brandId, originalFavoritedBrandIds);
       
-    setAllResults(prev => updateBrandStatus(prev));
-    setDisplayedResults(prev => updateBrandStatus(prev));
+      // If Supabase returns a state different from optimistic (e.g. due to race condition or error during toggleFavoriteInSupabase that it handled gracefully by returning originalFavoritedBrandIds),
+      // re-sync the UI with the actual state from Supabase.
+      if (JSON.stringify(finalFavoritedIds.sort()) !== JSON.stringify(newOptimisticFavoritedBrandIds.sort())) {
+        setFavoritedBrandIds(finalFavoritedIds);
+        const updateIsFavoriteInBrandServer = (brand: NormalizedBrand): NormalizedBrand => ({
+          ...brand,
+          isFavorite: finalFavoritedIds.includes(brand.id),
+        });
+        if (selectedBrand && selectedBrand.id === brandId) {
+          setSelectedBrand(prev => prev ? updateIsFavoriteInBrandServer(prev) : null);
+        }
+        setAllResults(prevAllResults => prevAllResults.map(updateIsFavoriteInBrandServer));
+        setDisplayedResults(prevDisplayedResults => prevDisplayedResults.map(updateIsFavoriteInBrandServer));
+      }
+    } catch (error) {
+      console.error("Failed to toggle favorite in Supabase, reverting UI:", error);
+      // Rollback UI to original state on error
+      setFavoritedBrandIds(originalFavoritedBrandIds);
+      const updateIsFavoriteInBrandRollback = (brand: NormalizedBrand): NormalizedBrand => ({
+        ...brand,
+        isFavorite: originalFavoritedBrandIds.includes(brand.id),
+      });
+      if (selectedBrand && selectedBrand.id === brandId) {
+        setSelectedBrand(prev => prev ? updateIsFavoriteInBrandRollback(prev) : null);
+      }
+      setAllResults(prevAllResults => prevAllResults.map(updateIsFavoriteInBrandRollback));
+      setDisplayedResults(prevDisplayedResults => prevDisplayedResults.map(updateIsFavoriteInBrandRollback));
+      // Optionally, show a user-facing error message here
+    }
   };
 
   return (
@@ -844,8 +894,7 @@ export default function SearchResults() {
                       onClick={(e) => { 
                         e.stopPropagation(); 
                         if (hasEmailedFirstContact) return; 
-                        const target = firstContact || brand;
-                        openTemplateSelectorModal(target); 
+                        openTemplateSelectorModal(brand); 
                       }}
                       title={hasEmailedFirstContact ? `Email sent on ${firstContact?.emailSentDate}` : `Email ${brand.name}`}
                       disabled={hasEmailedFirstContact}

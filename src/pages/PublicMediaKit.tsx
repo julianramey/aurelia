@@ -13,6 +13,9 @@ import type {
   MediaKitStats, 
   VideoItem as LibVideoItem 
 } from '@/lib/types';
+import { LinkIcon, ShareIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+
+const ONE_MINUTE_MS = 60 * 1000;
 
 // Local, more expansive Profile type for what MediaKit expects as publicProfile
 interface PublicProfileViewData extends BaseProfile {
@@ -115,6 +118,8 @@ export default function PublicMediaKit() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [computedTheme, setComputedTheme] = useState<TemplateTheme>(defaultTheme);
+  const [viewTracked, setViewTracked] = useState(false); // Prevent multiple tracking calls
+  const [showCopiedMessage, setShowCopiedMessage] = useState(false); // For copy link feedback
 
   const supabaseNoCache = createClient(
     import.meta.env.VITE_SUPABASE_URL!,
@@ -136,6 +141,7 @@ export default function PublicMediaKit() {
       try {
         setLoading(true);
         setError(null);
+        setViewTracked(false); // Reset view tracking status on new username
         if (!username) throw new Error("Username/ID parameter is missing.");
 
         console.log("PublicMediaKit: Fetching profile for identifier:", username);
@@ -189,10 +195,19 @@ export default function PublicMediaKit() {
           supabaseNoCache.from('brand_collaborations').select('*').eq('profile_id', fetchedProfile.id),
           supabaseNoCache.from('services').select('*').eq('profile_id', fetchedProfile.id),
           supabaseNoCache.from('portfolio_items').select('image_url, title, description').eq('profile_id', fetchedProfile.id), // Specific fields
-          supabaseNoCache.from('media_kit_videos').select('url, thumbnail_url').eq('profile_id', fetchedProfile.id)
+          supabaseNoCache.from('media_kit_videos').select('url, thumbnail_url, embed_html, provider_name').eq('profile_id', fetchedProfile.id) // Added embed_html and provider_name
         ]);
         
         fullyFormedMkData.videos = videosResult.data || []; // Ensure videos are from the direct fetch
+        
+        // ADDED LOGGING FOR VIDEO DATA
+        console.log('[PublicMediaKit] Fetched videos data:', fullyFormedMkData.videos);
+        if (fullyFormedMkData.videos && fullyFormedMkData.videos.length > 0) {
+          fullyFormedMkData.videos.forEach((video, index) => {
+            console.log(`[PublicMediaKit] Video ${index}: URL: ${video.url}, Thumbnail URL: ${video.thumbnail_url}, Embed HTML: ${video.embed_html ? String(video.embed_html).substring(0, 50) + "..." : null}, Provider: ${video.provider_name}`);
+          });
+        }
+        // END ADDED LOGGING
         
         const statsData = statsResult.data || [];
         const collabsData = collabsResult.data || [];
@@ -206,6 +221,7 @@ export default function PublicMediaKit() {
         // Construct the PublicProfileViewData object
         const completeProfileData: PublicProfileViewData = {
           ...fetchedProfile, // Base fields from Profile table
+          user_id: fetchedProfile.id, // ENSURE user_id IS POPULATED FROM fetchedProfile.id
           username: fetchedProfile.username || fullyFormedMkData.brand_name || 'anonymous_user',
           full_name: fullyFormedMkData.brand_name || fetchedProfile.full_name || 'Creator Name',
           email: fullyFormedMkData.contact_email || fetchedProfile.email || '',
@@ -233,6 +249,38 @@ export default function PublicMediaKit() {
         console.log("PublicMediaKit: Final profile object for MediaKit component:", completeProfileData.id, "Template:", completeProfileData.selected_template_id);
         setProfile(completeProfileData);
         setComputedTheme(computeTheme(completeProfileData));
+
+        // Track view after profile is successfully fetched and set
+        if (completeProfileData && completeProfileData.user_id && !viewTracked) {
+          const lastViewedKey = `lastViewed_${completeProfileData.user_id}`;
+          const lastViewedTimestamp = localStorage.getItem(lastViewedKey);
+          const currentTime = new Date().getTime();
+
+          if (lastViewedTimestamp && (currentTime - parseInt(lastViewedTimestamp, 10) < ONE_MINUTE_MS)) {
+            console.log(`View tracking skipped for ${completeProfileData.user_id}, recently viewed within the last minute.`);
+            setViewTracked(true); // Mark as processed for this load to avoid re-attempts during the same session load
+          } else {
+            console.log("PublicMediaKit: Attempting to track view for user_id:", completeProfileData.user_id);
+            const { error: funcError } = await supabase.functions.invoke('track-kit-view', {
+              body: { kitUserId: completeProfileData.user_id },
+            });
+            if (funcError) {
+              console.error('Error calling track-kit-view function:', funcError);
+              // Don't block UI for analytics error, just log it
+            } else {
+              console.log('View tracking function invoked successfully for user_id:', completeProfileData.user_id);
+              localStorage.setItem(lastViewedKey, currentTime.toString()); // Store timestamp on successful track
+              setViewTracked(true); // Mark as tracked for this load
+            }
+          }
+        } else {
+          console.log("View tracking conditions not met or already tracked:", { 
+            hasProfile: !!completeProfileData,
+            hasUserId: !!completeProfileData?.user_id,
+            isViewTracked: viewTracked
+          });
+        }
+
       } catch (err) {
         console.error('PublicMediaKit: Error fetching profile data:', err);
         setError((err as Error).message || 'Media kit not found or an error occurred.');
@@ -241,7 +289,81 @@ export default function PublicMediaKit() {
       }
     }
     fetchProfileData();
-  }, [username]);
+  }, [username]); // Remove viewTracked from dependencies
+
+  const handleTrackEngagement = async (engagementType: 'share_click' | 'copy_link_click') => {
+    console.log("handleTrackEngagement called with type:", engagementType);
+    if (profile && profile.user_id) {
+      const lastEngagedKey = `lastEngaged_${profile.user_id}_${engagementType}`;
+      const lastEngagedTimestamp = localStorage.getItem(lastEngagedKey);
+      const currentTime = new Date().getTime();
+
+      if (lastEngagedTimestamp && (currentTime - parseInt(lastEngagedTimestamp, 10) < ONE_MINUTE_MS)) {
+        console.log(`Engagement tracking skipped for ${profile.user_id}, type ${engagementType}, recently engaged within the last minute.`);
+        // For copy link, we still want to show the "Link Copied!" message.
+        if (engagementType === 'copy_link_click' && !showCopiedMessage) {
+          setShowCopiedMessage(true);
+          setTimeout(() => setShowCopiedMessage(false), 2000);
+        }
+        return; // Skip the actual tracking call if rate-limited
+      }
+
+      console.log("Attempting to track engagement. kitUserId:", profile.user_id, "engagementType:", engagementType);
+      try {
+        const { error: funcError } = await supabase.functions.invoke('track-kit-engagement', {
+          body: { kitUserId: profile.user_id, engagementType: engagementType },
+        });
+        if (funcError) {
+          console.error(`Error calling track-kit-engagement function for ${engagementType}:`, funcError);
+        } else {
+          console.log(`Engagement tracking function invoked successfully for ${engagementType}, user_id:`, profile.user_id);
+          localStorage.setItem(lastEngagedKey, currentTime.toString()); // Store timestamp on successful track
+        }
+      } catch (e) {
+        console.error(`Exception calling track-kit-engagement function for ${engagementType}:`, e);
+      }
+    } else {
+      console.log("Engagement tracking conditions not met:", { 
+        hasProfile: !!profile,
+        hasUserId: !!profile?.user_id
+      });
+    }
+  };
+
+  const handleShare = () => {
+    // Basic share (if navigator.share is available)
+    if (navigator.share) {
+      navigator.share({
+        title: `${profile?.full_name || 'Media Kit'}`,
+        text: `Check out ${profile?.full_name || 'this creator\'s'} media kit!`,
+        url: window.location.href,
+      })
+      .then(() => {
+        console.log('Successful share');
+        handleTrackEngagement('share_click');
+      })
+      .catch((error) => console.log('Error sharing', error));
+    } else {
+      // Fallback for browsers that don't support navigator.share
+      // For now, just track the click, and user can manually copy link
+      console.log('Navigator.share not supported, tracking share click attempt.');
+      handleTrackEngagement('share_click');
+      // Optionally, you could open a modal here with sharing options or a copy link button
+      // For simplicity, we will rely on the separate "Copy Link" button for non-navigator.share cases.
+    }
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(window.location.href)
+      .then(() => {
+        console.log('Link copied to clipboard');
+        // The visual feedback is now primarily handled within handleTrackEngagement if not rate-limited,
+        // or directly if rate-limited but still needs to show.
+        // Call handleTrackEngagement, which will handle the "Link Copied!" message and the actual tracking.
+        handleTrackEngagement('copy_link_click');
+      })
+      .catch(err => console.error('Failed to copy link: ', err));
+  };
 
   if (loading) {
     return (
@@ -267,8 +389,41 @@ export default function PublicMediaKit() {
   return (
     <div className="min-h-screen" style={{ background: computedTheme.background }}>
       <main className="py-0 md:py-12">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto relative">
           <MediaKit isPublic={true} publicProfile={profile} theme={computedTheme} />
+          
+          {/* Engagement Buttons Container - Fixed at bottom right */} 
+          {profile && (
+            <div className="fixed bottom-8 right-8 flex flex-col gap-3 z-50">
+              <button
+                onClick={handleShare}
+                title="Share Media Kit"
+                className="p-3 bg-rose hover:bg-rose/90 text-white rounded-full shadow-lg transition-all duration-150 ease-in-out transform hover:scale-105 flex items-center justify-center"
+                style={{ backgroundColor: computedTheme.primary }}
+              >
+                <ShareIcon className="h-6 w-6" />
+              </button>
+              <button
+                onClick={handleCopyLink}
+                title="Copy Link to Media Kit"
+                className="p-3 bg-rose hover:bg-rose/90 text-white rounded-full shadow-lg transition-all duration-150 ease-in-out transform hover:scale-105 flex items-center justify-center"
+                style={{ backgroundColor: computedTheme.primary }}
+              >
+                <LinkIcon className="h-6 w-6" />
+              </button>
+            </div>
+          )}
+
+          {/* Copied Link Message - Positioned to the left of the buttons */} 
+          {showCopiedMessage && (
+            <div 
+              className="fixed bottom-8 left-8 bg-rose text-white text-sm py-2 px-4 rounded-full shadow-lg flex items-center gap-2 z-50 transition-opacity duration-300 ease-in-out"
+              style={{ backgroundColor: computedTheme.primary, color: computedTheme.background /* Or a contrasting text color if background is light */ }}
+            >
+              <CheckCircleIcon className="h-5 w-5" />
+              Link Copied!
+            </div>
+          )}
         </div>
       </main>
     </div>

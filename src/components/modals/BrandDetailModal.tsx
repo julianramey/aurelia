@@ -240,8 +240,7 @@ const BrandDetailModal: React.FC<BrandDetailModalProps> = ({
                   onClick={(e) => {
                     e.stopPropagation();
                     if (onOpenEmailTemplateSelector) {
-                       const target = brand.contacts && brand.contacts.length > 0 ? brand.contacts[0] : brand;
-                       onOpenEmailTemplateSelector(target);
+                       onOpenEmailTemplateSelector(brand);
                     } else {
                         alert("Email functionality not available here.");
                     }

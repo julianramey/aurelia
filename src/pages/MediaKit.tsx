@@ -21,18 +21,12 @@ import {
   ArrowDownTrayIcon,
   PencilIcon,
   ShareIcon as ShareIconOutline,
-  ChatBubbleOvalLeftEllipsisIcon,
-  EnvelopeIcon
+  LinkIcon
 } from '@heroicons/react/24/outline';
 import { ShareIcon } from '@heroicons/react/24/solid';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import MediaKitTemplateDefault from '@/components/media-kit-templates/MediaKitTemplateDefault';
+import MediaKitTemplateDefault, { MediaKitTemplateDefaultProps } from '@/components/media-kit-templates/MediaKitTemplateDefault';
 import MediaKitTemplateAesthetic from '@/components/media-kit-templates/MediaKitTemplateAesthetic';
+import { useToast } from "@/components/ui/use-toast";
 
 // Placeholder types based on error message - adjust if actual types exist
 // import type { ColorScheme, VideoItem } from '@/lib/types';
@@ -47,7 +41,10 @@ type ColorScheme = {
   font?: string; // ADDED: to match lib/types and usage
   // [key: string]: string; // Remove index signature again
 };
-type VideoItem = { url: string; thumbnail_url: string; };
+type VideoItem = { 
+  url: string; 
+  thumbnail_url?: string; // Made thumbnail_url optional
+};
 
 // Define the expected theme structure
 interface TemplateTheme {
@@ -147,6 +144,7 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
   const { id: routeIdFromParams } = useParams<{ id?: string }>();
   const navigate = useNavigate(); 
   const { user } = useAuth();
+  const { toast } = useToast();
   const { stats: fetchedStats, collaborations: fetchedCollabs, services: fetchedServices } = useMediaKitData();
   const location = useLocation();
   
@@ -622,7 +620,7 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
 
       const processedP: ProfileData = {
         ...pData,
-        videos: videosL,
+        videos: videosL.map(v => ({ ...v, thumbnail_url: v.thumbnail_url || 'https://via.placeholder.com/150' })),
         portfolio_images: portfolioL,
         media_kit_data: { 
             type: "media_kit_data" as const,
@@ -633,7 +631,7 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
             selected_template_id: mKitDataObj.selected_template_id || pData.selected_template_id || 'default',
             skills: mKitDataObj.skills || pData.skills || [],
             contact_email: mKitDataObj.contact_email || pData.contact_email || pData.email || '',
-            videos: videosL,
+            videos: videosL.map(v => ({ ...v, thumbnail_url: v.thumbnail_url || 'https://via.placeholder.com/150' })),
             portfolio_images: portfolioL,
             personal_intro: mKitDataObj.personal_intro || pData.personal_intro || '',
             instagram_handle: mKitDataObj.instagram_handle || pData.instagram_handle || '',
@@ -1002,6 +1000,64 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
     window.open(path, '_blank', 'noopener,noreferrer');
   };
 
+  const getPublicKitUrl = () => {
+    if (!profile) return '';
+    const baseUrl = window.location.origin;
+    let pathSegment = '';
+    if (profile.media_kit_url) {
+      pathSegment = profile.media_kit_url.startsWith('/') ? profile.media_kit_url : `/${profile.media_kit_url}`;
+    } else if (profile.username) {
+      pathSegment = `/${profile.username}`;
+    }
+    return `${baseUrl}${pathSegment}`;
+  };
+
+  const handleCopyLink = () => {
+    const url = getPublicKitUrl();
+    if (url) {
+      navigator.clipboard.writeText(url)
+        .then(() => {
+          toast({ title: "Link Copied!", description: "Media kit URL copied to clipboard." });
+        })
+        .catch(err => {
+          console.error('Failed to copy link: ', err);
+          toast({ title: "Error", description: "Could not copy link.", variant: "destructive" });
+        });
+    } else {
+      toast({ title: "Error", description: "Media kit URL not available.", variant: "destructive" });
+    }
+  };
+
+  // New simplified share handler
+  const handleShareInternal = async () => {
+    const url = getPublicKitUrl();
+    if (!url) {
+      toast({ title: "Error", description: "Media kit URL not available to share.", variant: "destructive" });
+      return;
+    }
+
+    const shareData = {
+      title: `${realData.full_name || 'My'} Media Kit`,
+      text: `Check out ${realData.full_name || 'my'} media kit!`,
+      url: url,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        console.log('Media kit shared successfully via navigator.share');
+        // Optionally, add a toast for successful native share, though the OS usually provides feedback
+      } catch (error) {
+        console.log('Error using navigator.share, falling back to copy link:', error);
+        // User might have cancelled the share, or an error occurred. Fallback to copy.
+        handleCopyLink();
+      }
+    } else {
+      console.log('navigator.share not supported, falling back to copy link.');
+      handleCopyLink();
+    }
+  };
+
   // Add function to initialize media kit data
   const initializeMediaKitData = useCallback(async () => {
     if (hasFetched && !(isPreview && !profile)) { setLoading(false); return; }
@@ -1025,7 +1081,7 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
     try {
       const { data: fetchedProfileData, error: supabaseError } = await supabase
         .from('profiles')
-        .select(`*, media_kit_stats(*), brand_collaborations(*), services(*), media_kit_videos(url, thumbnail_url)`)
+        .select(`*, media_kit_stats(*), brand_collaborations(*), services(*), media_kit_videos(url, thumbnail_url, embed_html, provider_name)`)
         .eq(queryColumn, targetId)
         .single();
 
@@ -1063,7 +1119,7 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
           selected_template_id: parsedMediaKitObject?.selected_template_id || fetchedProfileData.selected_template_id || 'default',
           skills: parsedMediaKitObject?.skills || fetchedProfileData.skills || [],
           contact_email: parsedMediaKitObject?.contact_email || fetchedProfileData.contact_email || fetchedProfileData.email || '',
-          videos: joinedVideos, 
+          videos: joinedVideos.map(v => ({ ...v, thumbnail_url: v.thumbnail_url || 'https://via.placeholder.com/150' })),
           portfolio_images: parsedMediaKitObject?.portfolio_images || fetchedProfileData.portfolio_images || [],
           personal_intro: parsedMediaKitObject?.personal_intro || fetchedProfileData.personal_intro || '',
           instagram_handle: parsedMediaKitObject?.instagram_handle || fetchedProfileData.instagram_handle || '',
@@ -1072,7 +1128,7 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
         },
         services: joinedServices,
         brand_collaborations: joinedCollabs,
-        videos: joinedVideos, 
+        videos: joinedVideos.map(v => ({ ...v, thumbnail_url: v.thumbnail_url || 'https://via.placeholder.com/150' })), 
         follower_count: joinedStats.find(s => s.platform === 'instagram')?.follower_count || 0,
         engagement_rate: joinedStats.find(s => s.platform === 'instagram')?.engagement_rate || 0,
         avg_likes: joinedStats.find(s => s.platform === 'instagram')?.avg_likes || 0,
@@ -1205,7 +1261,9 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
       : defaultSectionVisibility;
 
     console.log(`Rendering ${TemplateDefinition.name} template directly for public/preview`);
-    return <TemplateComponent data={realData} theme={computedStyles} loading={loading} section_visibility={currentVisibility as SectionVisibilityState} />;
+    // Use type assertion for isPreview until template registry types are updated
+    const ComponentToRender = TemplateComponent as React.FC<MediaKitTemplateDefaultProps>;
+    return <ComponentToRender data={realData} theme={computedStyles} loading={loading} section_visibility={currentVisibility as SectionVisibilityState} isPreview={isPreview} />;
   }
 
   // --- Default rendering for internal view (/media-kit) ---
@@ -1238,37 +1296,16 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
                 <ShareIconOutline className="h-4 w-4" />
                 View Public Page
               </Button>
-              {/* New Share Button with Dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="default" 
-                    className="flex items-center gap-2 text-white"
-                    style={{ backgroundColor: computedStyles.primary }}
-                  >
-                    <ShareIcon className="h-4 w-4" />
-                    Share
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56"> {/* Added width for better aesthetics */}
-                  <DropdownMenuItem className="flex items-center gap-3 py-2 px-3" onSelect={() => console.log('Share to TikTok clicked (no action yet)')}>
-                    <TikTokIcon />
-                    <span>TikTok</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="flex items-center gap-3 py-2 px-3" onSelect={() => console.log('Share to Instagram clicked (no action yet)')}>
-                    <InstagramIcon />
-                    <span>Instagram</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="flex items-center gap-3 py-2 px-3" onSelect={() => console.log('Share via iMessage clicked (no action yet)')}>
-                    <ChatBubbleOvalLeftEllipsisIcon className="h-5 w-5" /> {/* Increased icon size slightly */}
-                    <span>iMessage</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="flex items-center gap-3 py-2 px-3" onSelect={() => console.log('Share via Email clicked (no action yet)')}>
-                    <EnvelopeIcon className="h-5 w-5" /> {/* Increased icon size slightly */}
-                    <span>Email</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {/* Simplified Share Button */}
+              <Button
+                variant="default" 
+                className="flex items-center gap-2 text-white"
+                style={{ backgroundColor: computedStyles.primary }}
+                onClick={handleShareInternal} // Use the new handler
+              >
+                <ShareIcon className="h-4 w-4" />
+                Share
+              </Button>
               <Button
                 onClick={handleEdit}
                 className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white"
@@ -1294,12 +1331,17 @@ const MemoizedMediaKitComponent = memo(function MediaKit({ isPreview = false, pr
             } as React.CSSProperties}
           >
             {ActiveTemplateComponent ? (
-              <ActiveTemplateComponent
-                data={realData} 
-                theme={computedStyles}
-                loading={loading}
-                section_visibility={internalVisibility as SectionVisibilityState}
-              />
+              (() => {
+                // Use type assertion for isPreview until template registry types are updated
+                const ComponentToRender = ActiveTemplateComponent as React.FC<MediaKitTemplateDefaultProps>;
+                return <ComponentToRender
+                  data={realData} 
+                  theme={computedStyles}
+                  loading={loading}
+                  section_visibility={internalVisibility as SectionVisibilityState}
+                  isPreview={isPreview} // Also pass here for consistency if internal view can be a preview
+                />;
+              })()
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-white">
                 <PreviewLoadingFallback />

@@ -23,6 +23,11 @@ import { cn } from "@/lib/utils";
 import { withPreview } from '@/lib/withPreview';
 import { useAuth } from '@/lib/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { 
+  AgentSettings, 
+  getUserAgentSettings, 
+  upsertUserAgentSettings 
+} from '@/lib/supabaseHelpers';
 
 // Message types
 type MessageRole = 'user' | 'assistant' | 'system';
@@ -138,6 +143,10 @@ const AgentComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
   const [isUserNameLoading, setIsUserNameLoading] = useState<boolean>(true);
   const { user } = useAuth();
 
+  // NEW: State for agent settings from Supabase and their loading status
+  const [agentSettings, setAgentSettings] = useState<AgentSettings | null>(null);
+  const [isAgentSettingsLoading, setIsAgentSettingsLoading] = useState<boolean>(true);
+
   useEffect(() => {
     let didCancel = false; // For cleanup
 
@@ -217,18 +226,7 @@ const AgentComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
   };
 
   // State for messages
-  const [messages, setMessages] = useState<Message[]>(() => {
-    const initialPersonalityId = localStorage.getItem('aureliaAgentPersonalityId') || availablePersonalities[0].id;
-    const greeting = getPersonalityWithSubstitutedGreeting(initialPersonalityId).initialGreeting;
-    return [
-      {
-        id: 'init-asst-' + Date.now(),
-        role: 'assistant',
-        content: greeting,
-        timestamp: new Date()
-      }
-    ];
-  });
+  const [messages, setMessages] = useState<Message[]>([]); // Initialize as empty, will be populated by effect after settings/username load
   
   // State for user input
   const [input, setInput] = useState('');
@@ -300,52 +298,27 @@ const AgentComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
   
   // State for settings modal
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [selectedPersonalityId, setSelectedPersonalityId] = useState<string>(() => {
-    return localStorage.getItem('aureliaAgentPersonalityId') || availablePersonalities[0].id;
-  });
-  const [temperature, setTemperature] = useState<number>(() => {
-    const storedTemp = localStorage.getItem('aureliaAgentTemperature');
-    return storedTemp ? parseFloat(storedTemp) : 0.7; // Default temperature
-  });
-  const [customInstructions, setCustomInstructions] = useState<string>(() => {
-    return localStorage.getItem('aureliaAgentCustomInstructions') || ''; // Default to empty string
-  });
   
-  // State for Response Length
+  // REMOVE ALL INDIVIDUAL localStorage.getItem CALLS FOR SETTINGS HERE
+  // These will now be derived from the `agentSettings` state object loaded from Supabase
+  const [selectedPersonalityId, setSelectedPersonalityId] = useState<string>(availablePersonalities[0].id);
+  const [temperature, setTemperature] = useState<number>(0.7);
+  const [customInstructions, setCustomInstructions] = useState<string>('');
   type ResponseLength = 'concise' | 'balanced' | 'detailed';
-  const [responseLength, setResponseLength] = useState<ResponseLength>(() => {
-    return (localStorage.getItem('aureliaAgentResponseLength') as ResponseLength) || 'balanced';
-  });
-
-  // State for Emoji Usage
+  const [responseLength, setResponseLength] = useState<ResponseLength>('balanced');
   type EmojiUsage = 'none' | 'subtle' | 'expressive';
-  const [emojiUsage, setEmojiUsage] = useState<EmojiUsage>(() => {
-    return (localStorage.getItem('aureliaAgentEmojiUsage') as EmojiUsage) || 'subtle';
-  });
-  
-  // State for Smart Title Toggle
-  const [enableSmartTitles, setEnableSmartTitles] = useState<boolean>(() => {
-    const stored = localStorage.getItem('aureliaAgentEnableSmartTitles');
-    return stored ? JSON.parse(stored) : true; // Default to true
-  });
-  
-  // Custom Agent Configuration State
-  const [isUsingCustomAgent, setIsUsingCustomAgent] = useState<boolean>(() => {
-    return JSON.parse(localStorage.getItem('aureliaIsUsingCustomAgent') || 'false');
-  });
-  const [customAgentName, setCustomAgentName] = useState<string>(() => {
-    return localStorage.getItem('aureliaCustomAgentName') || 'My Custom Agent';
-  });
-  const [customAgentInitialGreeting, setCustomAgentInitialGreeting] = useState<string>(() => {
-    return localStorage.getItem('aureliaCustomAgentInitialGreeting') || 'Hello! How can I assist you today?';
-  });
-  const [customAgentSystemPrompt, setCustomAgentSystemPrompt] = useState<string>(() => {
-    return localStorage.getItem('aureliaCustomAgentSystemPrompt') || 'You are a helpful AI assistant.';
-  });
-  const [selectedTraitIds, setSelectedTraitIds] = useState<string[]>(() => {
-    const storedTraits = localStorage.getItem('aureliaAgentSelectedTraitIds');
-    return storedTraits ? JSON.parse(storedTraits) : [];
-  });
+  const [emojiUsage, setEmojiUsage] = useState<EmojiUsage>('subtle');
+  const [enableSmartTitles, setEnableSmartTitles] = useState<boolean>(true);
+  const [isUsingCustomAgent, setIsUsingCustomAgent] = useState<boolean>(false);
+  const [customAgentName, setCustomAgentName] = useState<string>('My Custom Agent');
+  const [customAgentInitialGreeting, setCustomAgentInitialGreeting] = useState<string>('Hello! How can I assist you today?');
+  const [customAgentSystemPrompt, setCustomAgentSystemPrompt] = useState<string>('You are a helpful AI assistant.'); // This one isn't directly stored, but derived
+  const [selectedTraitIds, setSelectedTraitIds] = useState<string[]>([]);
+
+  // NEW: State for the explicit save button in settings modal
+  const [saveButtonText, setSaveButtonText] = useState('Save Settings');
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+
   const [isClearHistoryConfirmVisible, setIsClearHistoryConfirmVisible] = useState<boolean>(false);
   
   // Helper to get the current personality object with substituted greeting
@@ -357,6 +330,44 @@ const AgentComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
   useEffect(() => {
     localStorage.setItem('aureliaAgentChatHistory', JSON.stringify(chatHistory));
   }, [chatHistory]);
+  
+  // NEW: Effect to load agent settings from Supabase
+  useEffect(() => {
+    if (isPreview || !user) {
+      // In preview mode or if user is not logged in, use local defaults and skip Supabase.
+      // Initialize local state with defaults directly.
+      // The local state variables (selectedPersonalityId, temperature etc.) are already initialized with defaults.
+      setIsAgentSettingsLoading(false);
+      return;
+    }
+
+    const fetchSettings = async () => {
+      setIsAgentSettingsLoading(true);
+      const settings = await getUserAgentSettings();
+      if (settings) {
+        setAgentSettings(settings);
+        // Populate individual state variables from the fetched settings object
+        setSelectedPersonalityId(settings.selected_personality_id);
+        setTemperature(settings.temperature);
+        setCustomInstructions(settings.custom_instructions);
+        setResponseLength(settings.response_length as ResponseLength);
+        setEmojiUsage(settings.emoji_usage as EmojiUsage);
+        setEnableSmartTitles(settings.enable_smart_titles);
+        setIsUsingCustomAgent(settings.is_using_custom_agent);
+        setCustomAgentName(settings.custom_agent_name);
+        setCustomAgentInitialGreeting(settings.custom_agent_initial_greeting);
+        setSelectedTraitIds(settings.selected_trait_ids || []);
+      } else {
+        // Handle case where settings are null (error fetching/creating)
+        // Local state already has defaults, so UI can still function.
+        // Optionally, show an error to the user.
+        console.error("Failed to load or create agent settings from Supabase.");
+      }
+      setIsAgentSettingsLoading(false);
+    };
+
+    fetchSettings();
+  }, [user, isPreview]);
   
   // Scroll to bottom when messages update
   useEffect(() => {
@@ -386,7 +397,7 @@ const AgentComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
   
   // Effect to potentially update initial greeting if personality changes AND it's a fresh chat
   useEffect(() => {
-    if (!isUserNameLoading && messages.length === 1 && messages[0].role === 'assistant' && !currentChatId) {
+    if (!isUserNameLoading && !isAgentSettingsLoading && messages.length === 1 && messages[0].role === 'assistant' && !currentChatId) {
       const currentGreetingTemplate = isUsingCustomAgent 
         ? customAgentInitialGreeting 
         : (availablePersonalities.find(p => p.id === selectedPersonalityId) || availablePersonalities[0]).initialGreeting;
@@ -405,11 +416,11 @@ const AgentComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps 
-  }, [selectedPersonalityId, isUsingCustomAgent, customAgentInitialGreeting, userName, messages, currentChatId, isUserNameLoading]);
+  }, [selectedPersonalityId, isUsingCustomAgent, customAgentInitialGreeting, userName, messages, currentChatId, isUserNameLoading, isAgentSettingsLoading]); // Added isAgentSettingsLoading
   
-  // New useEffect to set the initial greeting message once userName is loaded for a new chat
+  // New useEffect to set the initial greeting message once userName AND settings are loaded for a new chat
   useEffect(() => {
-    if (!isUserNameLoading && messages.length === 0 && !currentChatId) {
+    if (!isUserNameLoading && !isAgentSettingsLoading && messages.length === 0 && !currentChatId) {
       const greetingTemplate = isUsingCustomAgent
         ? customAgentInitialGreeting 
         : (availablePersonalities.find(p => p.id === selectedPersonalityId) || availablePersonalities[0]).initialGreeting;
@@ -423,7 +434,7 @@ const AgentComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
         timestamp: new Date()
       }]);
     }
-  }, [isUserNameLoading, userName, isUsingCustomAgent, customAgentInitialGreeting, selectedPersonalityId, currentChatId, messages.length]); // Added messages.length
+  }, [isUserNameLoading, userName, isUsingCustomAgent, customAgentInitialGreeting, selectedPersonalityId, currentChatId, messages.length, isAgentSettingsLoading]); // Added isAgentSettingsLoading
 
   // Effect to load messages when currentChatId changes or set initial greeting
   useEffect(() => {
@@ -457,7 +468,7 @@ const AgentComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
       // The main concern here is not to set an initial greeting if one is already being set or if history is loaded.
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps 
-  }, [currentChatId, chatHistory, userName, isUserNameLoading]); // Added userName, isUserNameLoading for fillGreeting
+  }, [currentChatId, chatHistory, userName, isUserNameLoading, isAgentSettingsLoading]); // Added isAgentSettingsLoading
 
   // Click outside to close menu effect
   useEffect(() => {
@@ -474,52 +485,101 @@ const AgentComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
     };
   }, [openMenuChatId]);
   
-  // Effect to save selectedPersonalityId to localStorage
-  useEffect(() => {
-    localStorage.setItem('aureliaAgentPersonalityId', selectedPersonalityId);
-  }, [selectedPersonalityId]);
+  // REMOVE ALL INDIVIDUAL localStorage.setItem EFFECTS FOR SETTINGS
+  // INSTEAD, create a single effect that calls upsertUserAgentSettings when relevant states change.
 
-  // Effect to save temperature to localStorage
   useEffect(() => {
-    localStorage.setItem('aureliaAgentTemperature', temperature.toString());
-  }, [temperature]);
-  
-  // Effect to save customInstructions to localStorage
-  useEffect(() => {
-    localStorage.setItem('aureliaAgentCustomInstructions', customInstructions);
-  }, [customInstructions]);
-  
-  // Effect to save responseLength to localStorage
-  useEffect(() => {
-    localStorage.setItem('aureliaAgentResponseLength', responseLength);
-  }, [responseLength]);
+    if (isPreview || isAgentSettingsLoading || !user) {
+      // Don't save to Supabase in preview, while loading, or if not logged in.
+      // For preview, settings changes are local only.
+      return;
+    }
 
-  // Effect to save emojiUsage to localStorage
-  useEffect(() => {
-    localStorage.setItem('aureliaAgentEmojiUsage', emojiUsage);
-  }, [emojiUsage]);
+    // Construct the settings object from the current state
+    const currentSettingsToSave: Partial<Omit<AgentSettings, 'user_id' | 'created_at' | 'updated_at'>> = {
+      selected_personality_id: selectedPersonalityId,
+      temperature: temperature,
+      custom_instructions: customInstructions,
+      response_length: responseLength,
+      emoji_usage: emojiUsage,
+      enable_smart_titles: enableSmartTitles,
+      is_using_custom_agent: isUsingCustomAgent,
+      custom_agent_name: customAgentName,
+      custom_agent_initial_greeting: customAgentInitialGreeting,
+      selected_trait_ids: selectedTraitIds,
+    };
+    
+    // Debounce or throttle this call if it becomes too frequent,
+    // for now, direct call on change.
+    const saveSettings = async () => {
+      const result = await upsertUserAgentSettings(currentSettingsToSave);
+      if (result) {
+        setAgentSettings(result); // Update local comprehensive settings object
+        // console.log("Agent settings saved to Supabase:", result);
+      } else {
+        console.error("Failed to save agent settings to Supabase.");
+        // Optionally, show an error to the user or attempt a retry.
+      }
+    };
+
+    // Call saveSettings. Consider debouncing if updates are too frequent.
+    // A simple approach: save when settings modal closes or on key changes.
+    // For simplicity now, saving on any relevant state change.
+    // This effect depends on all individual setting states.
+    saveSettings();
+
+  }, [
+    selectedPersonalityId, 
+    temperature, 
+    customInstructions, 
+    responseLength, 
+    emojiUsage, 
+    enableSmartTitles, 
+    isUsingCustomAgent, 
+    customAgentName, 
+    customAgentInitialGreeting, 
+    selectedTraitIds,
+    isPreview,
+    isAgentSettingsLoading,
+    user // Ensure user context is available
+  ]);
   
-  // Effect to save enableSmartTitles to localStorage
-  useEffect(() => {
-    localStorage.setItem('aureliaAgentEnableSmartTitles', JSON.stringify(enableSmartTitles));
-  }, [enableSmartTitles]);
-  
-  // useEffects for Custom Agent state persistence
-  useEffect(() => {
-    localStorage.setItem('aureliaIsUsingCustomAgent', JSON.stringify(isUsingCustomAgent));
-  }, [isUsingCustomAgent]);
-  useEffect(() => {
-    localStorage.setItem('aureliaCustomAgentName', customAgentName);
-  }, [customAgentName]);
-  useEffect(() => {
-    localStorage.setItem('aureliaCustomAgentInitialGreeting', customAgentInitialGreeting);
-  }, [customAgentInitialGreeting]);
-  useEffect(() => {
-    localStorage.setItem('aureliaCustomAgentSystemPrompt', customAgentSystemPrompt);
-  }, [customAgentSystemPrompt]);
-  useEffect(() => {
-    localStorage.setItem('aureliaAgentSelectedTraitIds', JSON.stringify(selectedTraitIds));
-  }, [selectedTraitIds]);
+  // NEW: Handler for the explicit "Save Settings" button
+  const handleExplicitSaveSettings = async () => {
+    if (isPreview || !user) { 
+      setSaveButtonText("Preview Mode"); // Give feedback for preview mode
+      setTimeout(() => setSaveButtonText('Save Settings'), 2000);
+      return;
+    }
+
+    setIsSavingSettings(true);
+    setSaveButtonText('Saving...');
+
+    const settingsToSave: Partial<Omit<AgentSettings, 'user_id' | 'created_at' | 'updated_at'>> = {
+      selected_personality_id: selectedPersonalityId,
+      temperature: temperature,
+      custom_instructions: customInstructions,
+      response_length: responseLength,
+      emoji_usage: emojiUsage,
+      enable_smart_titles: enableSmartTitles,
+      is_using_custom_agent: isUsingCustomAgent,
+      custom_agent_name: customAgentName,
+      custom_agent_initial_greeting: customAgentInitialGreeting,
+      selected_trait_ids: selectedTraitIds,
+    };
+
+    const result = await upsertUserAgentSettings(settingsToSave);
+    setIsSavingSettings(false);
+
+    if (result) {
+      setAgentSettings(result); // Update the main settings state with the returned (potentially merged) settings
+      setSaveButtonText('Saved!');
+    } else {
+      setSaveButtonText('Error!');
+      console.error("Failed to explicitly save agent settings.");
+    }
+    setTimeout(() => setSaveButtonText('Save Settings'), 2000); // Reset button text after 2 seconds
+  };
   
   // Function to handle sending a message
   const handleSendMessage = async () => {
@@ -742,7 +802,7 @@ const AgentComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
   const initialScrollDoneForChat = useRef(false);
   
   // Conditional rendering based on username loading state
-  if (isUserNameLoading && !isPreview) { // Don't show loading for preview mode if it has its own
+  if ((isUserNameLoading || isAgentSettingsLoading) && !isPreview) { // Don't show loading for preview mode if it has its own
     return (
       <div className="min-h-screen bg-muted dark:bg-charcoal flex items-center justify-center">
         <p className="text-charcoal dark:text-slate-300 font-medium">Loading agent...</p>
@@ -1058,20 +1118,23 @@ const AgentComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
                         key={personality.id} 
                         htmlFor={`personality-${personality.id}`} 
                         className={`flex items-start p-3 border rounded-lg cursor-pointer transition-all duration-200 ease-in-out 
-                          ${selectedPersonalityId === personality.id ? 'border-rose ring-2 ring-rose bg-rose/5' : 'border-gray-200 hover:border-gray-300'}`}
+                          ${selectedPersonalityId === personality.id && !isUsingCustomAgent ? 'border-rose ring-2 ring-rose bg-rose/5' : 'border-gray-200 hover:border-gray-300'}`}
                       >
                         <input 
                           type="radio" 
                           id={`personality-${personality.id}`} 
                           name="personality"
                           value={personality.id}
-                          checked={selectedPersonalityId === personality.id}
-                          onChange={() => setSelectedPersonalityId(personality.id)}
+                          checked={selectedPersonalityId === personality.id && !isUsingCustomAgent}
+                          onChange={() => {
+                            setSelectedPersonalityId(personality.id);
+                            setIsUsingCustomAgent(false);
+                          }}
                           className="sr-only"
                         />
                         <div className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center mr-3 mt-0.5 
-                          ${selectedPersonalityId === personality.id ? 'border-rose bg-rose' : 'border-gray-300'}`}>
-                          {selectedPersonalityId === personality.id && <div className="w-2 h-2 bg-white rounded-full"></div>}
+                          ${selectedPersonalityId === personality.id && !isUsingCustomAgent ? 'border-rose bg-rose' : 'border-gray-300'}`}>
+                          {selectedPersonalityId === personality.id && !isUsingCustomAgent && <div className="w-2 h-2 bg-white rounded-full"></div>}
                         </div>
                         <div>
                           <span className="font-medium text-charcoal">{personality.name}</span>
@@ -1236,7 +1299,7 @@ const AgentComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
                   </div>
                 )}
 
-                {/* Clear History Section - Now triggers custom confirm dialog */}
+                {/* Clear History Section - Now triggers custom confirm dialog */} 
                 <div className="mt-8 pt-6 border-t border-gray-200">
                   <button 
                     onClick={handleClearAllHistory} // This now opens the custom confirm dialog
@@ -1274,6 +1337,13 @@ const AgentComponent = ({ isPreview = false }: { isPreview?: boolean }) => {
               )}
 
               <div className="flex justify-end p-6 border-t border-gray-200 sticky bottom-0 bg-white rounded-b-xl z-10">
+                <button 
+                  onClick={handleExplicitSaveSettings}
+                  disabled={isSavingSettings}
+                  className="px-4 py-2 mr-3 bg-white text-rose border border-rose rounded-lg hover:bg-rose/5 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {saveButtonText}
+                </button>
                 <button 
                   onClick={() => setIsSettingsModalOpen(false)}
                   className="px-4 py-2 bg-rose text-white rounded-lg hover:bg-rose/90 transition-colors text-sm font-medium"

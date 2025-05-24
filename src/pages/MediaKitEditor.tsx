@@ -71,6 +71,14 @@ import ProfilePictureForm from '@/components/media-kit-editor-forms/ProfilePictu
 import TikTokVideosForm from '@/components/media-kit-editor-forms/TikTokVideosForm';
 import AudienceStatsForm from '@/components/media-kit-editor-forms/AudienceStatsForm';
 
+// Add OEmbedData interface
+interface OEmbedData {
+  thumbnail_url?: string;
+  html?: string;
+  provider_name?: string;
+  title?: string; // Optional: TikTok sometimes provides title
+}
+
 // TRACK (the pill background)
 const TRACK = [
   "relative inline-flex h-6 w-11 rounded-full p-1 transition-colors",
@@ -99,14 +107,38 @@ const defaultSectionVisibility: SectionVisibilityState = {
   audienceDemographics: true,
 };
 
-// fetch TikTok oEmbed thumbnail URL
-async function fetchTikTokThumbnail(url: string): Promise<string> {
+// NEW: Enhanced fetchOEmbedData function
+async function fetchOEmbedData(videoUrl: string): Promise<OEmbedData | null> {
+  let oembedEndpoint = '';
+  let providerName = '';
+
+  if (videoUrl.includes('tiktok.com')) {
+    oembedEndpoint = `https://www.tiktok.com/oembed?url=${encodeURIComponent(videoUrl)}`;
+    providerName = 'tiktok';
+  } else if (videoUrl.includes('youtube.com/watch') || videoUrl.includes('youtu.be/')) {
+    oembedEndpoint = `https://www.youtube.com/oembed?url=${encodeURIComponent(videoUrl)}&format=json`;
+    providerName = 'youtube';
+  } else {
+    console.warn('Unsupported video URL for oEmbed:', videoUrl);
+    return null; // Not a TikTok or YouTube URL we can handle with oEmbed
+  }
+
   try {
-    const res = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`)
-    const { thumbnail_url } = await res.json()
-    return thumbnail_url
-  } catch {
-    return ''
+    const res = await fetch(oembedEndpoint);
+    if (!res.ok) {
+      console.error(`oEmbed request failed for ${providerName} with status: ${res.status}`);
+      return null;
+    }
+    const data = await res.json();
+    return {
+      thumbnail_url: data.thumbnail_url,
+      html: data.html, // This is the iframe embed code
+      provider_name: providerName,
+      title: data.title,
+    };
+  } catch (error) {
+    console.error(`Error fetching oEmbed data for ${providerName}:`, error);
+    return null;
   }
 }
 
@@ -221,6 +253,8 @@ interface MediaKitPreviewProps {
 const MediaKitPreview = ({ data, theme, templateId }: MediaKitPreviewProps) => {
   if (!data) return null;
 
+  console.log(`[MediaKitEditor - MediaKitPreview] Rendering template. isPreview should be true. data.selected_template_id: ${data.selected_template_id}, templateId prop: ${templateId}`);
+
   const template = TEMPLATES.find(t => t.id === templateId);
   let TemplateComponent;
 
@@ -250,7 +284,7 @@ const MediaKitPreview = ({ data, theme, templateId }: MediaKitPreviewProps) => {
 
   return (
     <div style={previewStyle}>
-      <TemplateComponent data={data} theme={theme} section_visibility={data.section_visibility} />
+      <TemplateComponent data={data} theme={theme} section_visibility={data.section_visibility} isPreview={true} />
     </div>
   );
 };
@@ -690,25 +724,35 @@ export default function MediaKitEditor() {
   };
 
   const handleVideoUrlChange = async (idx: number, url: string) => {
-    const newVideoLinks = [...videoLinks]; 
-    const oldVideoData = newVideoLinks[idx];
-    newVideoLinks[idx] = { ...oldVideoData, url };
-    
+    const newVideoLinks = [...videoLinks];
+    const currentVideoItem = { ...newVideoLinks[idx], url }; // Keep existing data, update URL
+
     if (url && (url.includes('tiktok.com') || url.includes('youtube.com') || url.includes('youtu.be'))) {
-      if (url.includes('tiktok.com')) { 
-         try { 
-            const thumbnailUrl = await fetchTikTokThumbnail(url); 
-            newVideoLinks[idx].thumbnail_url = thumbnailUrl || 'https://via.placeholder.com/150/000000/FFFFFF?text=Video';
-        } catch (e) { 
-            console.error("Error fetching TikTok thumbnail:", e); 
-            newVideoLinks[idx].thumbnail_url = 'https://via.placeholder.com/150/000000/FFFFFF?text=Error';
+      const oembedData = await fetchOEmbedData(url);
+      if (oembedData) {
+        currentVideoItem.embed_html = oembedData.html;
+        // Ensure thumbnail_url is a string and looks like a URL, otherwise use placeholder
+        if (typeof oembedData.thumbnail_url === 'string' && oembedData.thumbnail_url.startsWith('http')) {
+          currentVideoItem.thumbnail_url = oembedData.thumbnail_url;
+        } else {
+          console.warn(`[MediaKitEditor] oEmbed for ${url} provided invalid thumbnail_url: ${oembedData.thumbnail_url}. Using placeholder.`);
+          currentVideoItem.thumbnail_url = `https://placehold.co/300x400.png?text=Processing`;
         }
-      } else { 
-        newVideoLinks[idx].thumbnail_url = oldVideoData.thumbnail_url || 'https://via.placeholder.com/150/000000/FFFFFF?text=Video';
+        currentVideoItem.provider_name = oembedData.provider_name;
+      } else {
+        // Fallback if oEmbed fails
+        console.error(`[MediaKitEditor] oEmbed fetch failed for ${url}. Using error placeholder.`);
+        currentVideoItem.thumbnail_url = `https://placehold.co/300x400.png?text=Error`;
+        currentVideoItem.embed_html = undefined;
+        currentVideoItem.provider_name = undefined;
       }
-    } else if (!url) { 
-      newVideoLinks[idx].thumbnail_url = ''; 
+    } else if (!url) {
+      // Clear fields if URL is removed
+      currentVideoItem.thumbnail_url = '';
+      currentVideoItem.embed_html = undefined;
+      currentVideoItem.provider_name = undefined;
     }
+    newVideoLinks[idx] = currentVideoItem;
     setVideoLinks(newVideoLinks);
   };
   // --- End Restored Video Handlers ---
@@ -846,9 +890,11 @@ export default function MediaKitEditor() {
               nonEmptyVideos.map(v => ({ 
                 profile_id: profileId, 
                 url: v.url, 
-                thumbnail_url: v.thumbnail_url 
+                thumbnail_url: v.thumbnail_url,
+                embed_html: v.embed_html, // Save embed_html
+                provider_name: v.provider_name // Save provider_name
               })),
-              { onConflict: 'profile_id,url' }
+              { onConflict: 'profile_id,url' } // Assuming url should be unique per profile
             );
           if (upsertError) {
             console.error("Error upserting videos:", upsertError);
@@ -967,6 +1013,9 @@ export default function MediaKitEditor() {
       return undefined;
     };
     
+    // Log videoLinks just before it's used in the return statement of useMemo
+    console.log('[MediaKitEditor] Constructing mediaKitPreviewData. Current videoLinks:', JSON.stringify(videoLinks));
+
     const skillsArray = formData.skills_text 
       ? formData.skills_text.split(',').map(s => s.trim()).filter(Boolean) 
       : (getBaseProp('skills') || []);

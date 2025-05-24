@@ -89,6 +89,7 @@ export interface MediaKitTemplateDefaultProps {
   theme: ImportedTemplateTheme; // Changed from DefaultSpecificTheme to ImportedTemplateTheme
   loading?: boolean;
   section_visibility: SectionVisibilityState;
+  isPreview?: boolean; // Add isPreview prop
 }
 
 // --- Renamed Placeholder Data Function to GetPreviewData ---
@@ -105,7 +106,7 @@ export const DefaultGetPreviewData = (): DefaultSpecificData => {
     username: placeholder.username || '@default_user',
     brand_name: placeholder.brand_name || 'Your Brand Name',
     full_name: placeholder.full_name || 'Default User Name',
-    avatar_url: placeholder.profile_photo || placeholder.avatar_url || 'https://via.placeholder.com/150/7E69AB/FFFFFF?text=D',
+    avatar_url: placeholder.profile_photo || placeholder.avatar_url || 'https://placehold.co/150x150/7E69AB/FFFFFF?text=D',
     tagline: placeholder.tagline || 'Your Catchy Tagline Here',
     personal_intro: placeholder.personal_intro || 'This is a brief introduction about you and your brand. Make it engaging!',
     intro: placeholder.intro || placeholder.personal_intro || '',
@@ -119,13 +120,13 @@ export const DefaultGetPreviewData = (): DefaultSpecificData => {
     avg_likes: parseFloat(String(placeholder.avg_likes || 500)) || 500,
     reach: parseFloat(String(placeholder.reach || placeholder.avg_ig_reach || 20000)) || 20000,
     videos: placeholder.videos || [
-      { url: 'https://www.tiktok.com/@placeholder/video/default1', thumbnail_url: 'https://via.placeholder.com/300/7E69AB/FFFFFF?text=Video+1' },
-      { url: 'https://www.tiktok.com/@placeholder/video/default2', thumbnail_url: 'https://via.placeholder.com/300/E5DAF8/1A1F2C?text=Video+2' },
+      { url: 'https://www.tiktok.com/@placeholder/video/default1', thumbnail_url: 'https://placehold.co/300x400/7E69AB/FFFFFF?text=Video+1' },
+      { url: 'https://www.tiktok.com/@placeholder/video/default2', thumbnail_url: 'https://placehold.co/300x400/E5DAF8/1A1F2C?text=Video+2' },
     ],
     portfolio_images: placeholder.portfolio_images || [
-      'https://via.placeholder.com/300/7E69AB/FFFFFF?text=Portfolio+1',
-      'https://via.placeholder.com/300/E5DAF8/1A1F2C?text=Portfolio+2',
-      'https://via.placeholder.com/300/8E9196/FFFFFF?text=Portfolio+3',
+      'https://placehold.co/600x400/7E69AB/FFFFFF?text=Portfolio+1',
+      'https://placehold.co/600x400/E5DAF8/1A1F2C?text=Portfolio+2',
+      'https://placehold.co/600x400/8E9196/FFFFFF?text=Portfolio+3',
     ],
     brand_collaborations: placeholder.brand_collaborations || [
       { id: 'collab_default_1', profile_id: '', brand_name: 'Default Brand Co.', collaboration_type: 'Sponsored Post', collaboration_date: '2023-01-01' },
@@ -163,7 +164,7 @@ export const DefaultGetPreviewData = (): DefaultSpecificData => {
     skills: placeholder.skills || ['Content Creation', 'Social Media Management', 'Videography'],
     colors: defaultColorsFromPlaceholder,
     font: defaultFontFromPlaceholder,
-    profile_photo: placeholder.profile_photo || placeholder.avatar_url || 'https://via.placeholder.com/150/7E69AB/FFFFFF?text=D',
+    profile_photo: placeholder.profile_photo || placeholder.avatar_url || 'https://placehold.co/150x150/7E69AB/FFFFFF?text=D',
     website: placeholder.website || 'www.yourwebsite.com',
     niche: placeholder.niche || 'General Content Creator',
     onboarding_complete: placeholder.onboarding_complete !== undefined ? placeholder.onboarding_complete : true,
@@ -201,7 +202,7 @@ export const DefaultGetThumbnailData = (): EditorPreviewData => {
     tagline: 'Clean & Professional Thumbnail',
     colors: defaultColors,
     font: defaultFont,
-    profile_photo: placeholder.profile_photo || placeholder.avatar_url || 'https://via.placeholder.com/150/7E69AB/FFFFFF?text=D',
+    profile_photo: placeholder.profile_photo || placeholder.avatar_url || 'https://placehold.co/150x150/7E69AB/FFFFFF?text=D',
     personal_intro: 'Short intro for thumbnail.',
     skills: [],
     brand_collaborations: [],
@@ -220,7 +221,7 @@ export const DefaultGetThumbnailData = (): EditorPreviewData => {
     avg_likes: 10,
     reach: 100,
     stats: [],
-    avatar_url: placeholder.avatar_url || 'https://via.placeholder.com/150/7E69AB/FFFFFF?text=D',
+    avatar_url: placeholder.avatar_url || 'https://placehold.co/150x150/7E69AB/FFFFFF?text=D',
     website: 'thumb.example.com',
     full_name: placeholder.full_name || 'Default Thumbnail User',
     niche: placeholder.niche || 'Thumbnail Niche',
@@ -332,13 +333,10 @@ const MediaKitTemplateDefault: React.FC<MediaKitTemplateDefaultProps> = ({
   theme,
   loading,
   section_visibility,
+  isPreview = false, // Add isPreview to destructuring and default it
 }) => {
-  if (loading) {
-    return (
-      <div className="w-full min-h-[300px] flex items-center justify-center bg-white rounded-lg">
-        <PreviewLoadingFallback />
-      </div>
-    );
+  if (loading && !data) {
+    return <PreviewLoadingFallback />;
   }
 
   if (!data) {
@@ -457,7 +455,7 @@ const MediaKitTemplateDefault: React.FC<MediaKitTemplateDefaultProps> = ({
             // const showImages = !showVideos && section_visibility.brandExperience && data.portfolio_images && data.portfolio_images.length > 0;
 
             if (showVideos) {
-              return <VideoShowcaseBlock videos={data.videos || []} sectionVisibility={section_visibility} />;
+              return <VideoShowcaseBlock videos={data.videos || []} sectionVisibility={section_visibility} isPreview={isPreview} />;
             } /* else if (showImages) {
               return <PortfolioGridBlock images={data.portfolio_images || []} sectionVisibility={section_visibility} />;
             } */ else {

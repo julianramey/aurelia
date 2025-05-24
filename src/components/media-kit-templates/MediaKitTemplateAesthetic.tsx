@@ -187,7 +187,7 @@ export const AestheticTheme = (): ImportedTemplateTheme => ({
 });
 
 const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
-  isPreview = false,
+  isPreview,
   data,
   theme,
   loading, // Destructure loading prop
@@ -354,13 +354,22 @@ const MediaKitTemplateAesthetic: React.FC<MediaKitTemplateAestheticProps> = ({
 
         {/* Right Column (Videos, Collaborations, Services) */}
         <section className="md:col-span-2 space-y-6 md:space-y-8">
-          {/* Portfolio Images Section REMOVED */}
-          
-          {/* TikTok Videos */}
-          {section_visibility.tiktokVideos && videos.length > 0 && (
+          {/* Portfolio / Video Showcase - REVERTED to original structure for theme background */}
+          {(section_visibility.tiktokVideos || section_visibility.brandExperience) && (
             <div className="p-4 md:p-6 rounded-lg shadow-md" style={{ backgroundColor: 'var(--primary-light)', borderColor: 'var(--border)' }}>
-              <SectionTitle>Featured Videos</SectionTitle>
-              <VideoShowcaseBlock videos={videos} sectionVisibility={section_visibility} />
+              <SectionTitle>Recent Content</SectionTitle>
+              {(() => {
+                const showVideos = section_visibility.tiktokVideos && videos && videos.length > 0;
+                const showImages = !showVideos && section_visibility.brandExperience && portfolioImages && portfolioImages.length > 0;
+
+                if (showVideos) {
+                  return <VideoShowcaseBlock videos={videos} sectionVisibility={section_visibility} isPreview={isPreview} />;
+                } else if (showImages) {
+                  return <PortfolioGridBlock images={portfolioImages} sectionVisibility={section_visibility} />;
+                } else {
+                  return <p className="text-center text-sm" style={{ color: theme.secondary }}>No content to display.</p>;
+                }
+              })()}
             </div>
           )}
 
